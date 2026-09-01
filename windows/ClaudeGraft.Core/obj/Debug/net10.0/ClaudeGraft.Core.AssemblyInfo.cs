@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ClaudeGraft.Core")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+aa2bb9d405f8652dc742a5c03b7c9b0f8498ae8d")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+318f3db1ddbfcd96e4459e7e7a895885b9a26312")]
 [assembly: System.Reflection.AssemblyProductAttribute("ClaudeGraft.Core")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ClaudeGraft.Core")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
