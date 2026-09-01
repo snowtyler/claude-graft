@@ -30,6 +30,17 @@ public static class GraftPaths
     /// Off in a folder of its own beside the profiles, never inside one.
     public static string OwnData => Path.Combine(ProfilesRoot, "ClaudeGraft");
 
+    /// Redirected by the test suite, like <see cref="ProfilesRootOverride"/>.
+    public static string? ClaudeProjectsOverride { get; set; }
+
+    /// Where the command line files one transcript per session, under one
+    /// directory per working directory. <c>~/.claude/projects</c> on the Mac;
+    /// the user profile holds the same <c>.claude</c> on Windows.
+    public static string ClaudeProjects =>
+        ClaudeProjectsOverride
+        ?? Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", "projects");
+
     /// Chat history is <store>/<accountUuid>/<orgUuid>/ in both of these, the
     /// same nesting the Mac build depends on. A profile reads only the account
     /// it is signed into, so a graft is made one level deep — mapping this
