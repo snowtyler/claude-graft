@@ -103,3 +103,4 @@ C:\dev\claude-graft\windows\ClaudeGraft.Tests\obj\Debug\net10.0\ref\ClaudeGraft.
 C:\dev\claude-graft\windows\ClaudeGraft.Tests\bin\Debug\net10.0\System.CodeDom.dll
 C:\dev\claude-graft\windows\ClaudeGraft.Tests\bin\Debug\net10.0\System.Management.dll
 C:\dev\claude-graft\windows\ClaudeGraft.Tests\bin\Debug\net10.0\runtimes\win\lib\net10.0\System.Management.dll
+C:\dev\claude-graft\windows\ClaudeGraft.Tests\bin\Debug\net10.0\System.Security.Cryptography.ProtectedData.dll

@@ -1,11 +1,12 @@
 {
   "version": 2,
-  "dgSpecHash": "vFFz2yoXYOg=",
+  "dgSpecHash": "o5es8zEGGNY=",
   "success": true,
   "projectFilePath": "C:\\dev\\claude-graft\\windows\\ClaudeGraft.Core\\ClaudeGraft.Core.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Tyler\\.nuget\\packages\\system.codedom\\10.0.11\\system.codedom.10.0.11.nupkg.sha512",
-    "C:\\Users\\Tyler\\.nuget\\packages\\system.management\\10.0.11\\system.management.10.0.11.nupkg.sha512"
+    "C:\\Users\\Tyler\\.nuget\\packages\\system.management\\10.0.11\\system.management.10.0.11.nupkg.sha512",
+    "C:\\Users\\Tyler\\.nuget\\packages\\system.security.cryptography.protecteddata\\10.0.11\\system.security.cryptography.protecteddata.10.0.11.nupkg.sha512"
   ],
   "logs": []
 }
