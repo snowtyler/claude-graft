@@ -1,0 +1,12 @@
+C:\dev\claude-graft\windows\ClaudeGraft.Core\bin\x64\Debug\net10.0\ClaudeGraft.Core.deps.json
+C:\dev\claude-graft\windows\ClaudeGraft.Core\bin\x64\Debug\net10.0\ClaudeGraft.Core.dll
+C:\dev\claude-graft\windows\ClaudeGraft.Core\bin\x64\Debug\net10.0\ClaudeGraft.Core.pdb
+C:\dev\claude-graft\windows\ClaudeGraft.Core\obj\x64\Debug\net10.0\ClaudeGraft.Core.GeneratedMSBuildEditorConfig.editorconfig
+C:\dev\claude-graft\windows\ClaudeGraft.Core\obj\x64\Debug\net10.0\ClaudeGraft.Core.AssemblyInfoInputs.cache
+C:\dev\claude-graft\windows\ClaudeGraft.Core\obj\x64\Debug\net10.0\ClaudeGraft.Core.AssemblyInfo.cs
+C:\dev\claude-graft\windows\ClaudeGraft.Core\obj\x64\Debug\net10.0\ClaudeGraft.Core.csproj.CoreCompileInputs.cache
+C:\dev\claude-graft\windows\ClaudeGraft.Core\obj\x64\Debug\net10.0\ClaudeGraft.Core.sourcelink.json
+C:\dev\claude-graft\windows\ClaudeGraft.Core\obj\x64\Debug\net10.0\ClaudeGraft.Core.dll
+C:\dev\claude-graft\windows\ClaudeGraft.Core\obj\x64\Debug\net10.0\refint\ClaudeGraft.Core.dll
+C:\dev\claude-graft\windows\ClaudeGraft.Core\obj\x64\Debug\net10.0\ClaudeGraft.Core.pdb
+C:\dev\claude-graft\windows\ClaudeGraft.Core\obj\x64\Debug\net10.0\ref\ClaudeGraft.Core.dll
