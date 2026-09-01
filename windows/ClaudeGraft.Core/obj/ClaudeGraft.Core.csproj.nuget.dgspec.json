@@ -49,6 +49,10 @@
             "System.Management": {
               "target": "Package",
               "version": "[10.0.11, )"
+            },
+            "System.Security.Cryptography.ProtectedData": {
+              "target": "Package",
+              "version": "[10.0.11, )"
             }
           },
           "imports": [
