@@ -9,6 +9,7 @@ namespace ClaudeGraft.Tests;
 /// static overrides and caches make these share process state, so they live in
 /// one class (xUnit runs a class's methods in sequence) and each resets first.
 /// </summary>
+[Collection("GlobalState")]
 public sealed class OrchestratorTests : IDisposable
 {
     private readonly TempDir _t = new();
