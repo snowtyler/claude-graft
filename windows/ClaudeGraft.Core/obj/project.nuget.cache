@@ -1,8 +1,11 @@
 {
   "version": 2,
-  "dgSpecHash": "4RGdPe23etY=",
+  "dgSpecHash": "vFFz2yoXYOg=",
   "success": true,
   "projectFilePath": "C:\\dev\\claude-graft\\windows\\ClaudeGraft.Core\\ClaudeGraft.Core.csproj",
-  "expectedPackageFiles": [],
+  "expectedPackageFiles": [
+    "C:\\Users\\Tyler\\.nuget\\packages\\system.codedom\\10.0.11\\system.codedom.10.0.11.nupkg.sha512",
+    "C:\\Users\\Tyler\\.nuget\\packages\\system.management\\10.0.11\\system.management.10.0.11.nupkg.sha512"
+  ],
   "logs": []
 }
