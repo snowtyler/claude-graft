@@ -20,6 +20,7 @@ public partial class App : Application
 
     private TaskbarIcon? _tray;
     private MainWindow? _window;
+    private FlyoutWindow? _flyout;
 
     // The tray's click callbacks arrive on H.NotifyIcon's message-window
     // thread, not this one; anything touching a WinUI window has to hop back to
@@ -42,10 +43,20 @@ public partial class App : Application
             ToolTipText = "Claude Graft",
             IconSource = new BitmapImage(new Uri("ms-appx:///Assets/AppIcon.ico")),
         };
+        // A left click opens the flyout — the account list with its usage, the
+        // Mac menu bar item's whole face — while the right click keeps the plain
+        // menu as a fallback that needs no window to draw.
+        _tray.LeftClickCommand = new RelayCommand(ToggleFlyout);
         _tray.DoubleClickCommand = new RelayCommand(ShowManager);
         _tray.RightClickCommand = new RelayCommand(ShowMenu);
         _tray.ForceCreate();
     }
+
+    private void ToggleFlyout() => OnUi(() =>
+    {
+        _flyout ??= new FlyoutWindow(ShowManager, Quit);
+        _flyout.Toggle();
+    });
 
     private void ShowMenu()
     {
