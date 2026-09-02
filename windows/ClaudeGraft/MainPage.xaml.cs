@@ -147,11 +147,27 @@ public sealed partial class MainPage : Page
 
         if (result == ContentDialogResult.Primary)
         {
-            if (dialog.IsNew) App.Store.Add(dialog.Result);
-            else App.Store.Update(dialog.Result);
+            var shortcut = dialog.Result;
+            var previousName = existing?.Name;
+            if (dialog.IsNew) App.Store.Add(shortcut);
+            else App.Store.Update(shortcut);
 
-            var config = App.Store.ConfigFor(dialog.Result);
+            var config = App.Store.ConfigFor(shortcut);
             await Task.Run(() => Graft.Apply(config));
+
+            try
+            {
+                Installer.Install(shortcut);
+                // A rename leaves the old-named .lnk behind; clear it.
+                if (previousName is not null && previousName != shortcut.Name)
+                    Installer.Uninstall(shortcut, previousName);
+                shortcut.InstalledName = shortcut.Name;
+                App.Store.Update(shortcut);
+            }
+            catch (Installer.InstallException ex)
+            {
+                await Warn("Could not create the shortcut", ex.Message);
+            }
             Reload();
         }
         else if (result == ContentDialogResult.Secondary && existing is not null)
@@ -183,18 +199,19 @@ public sealed partial class MainPage : Page
 
         if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
 
+        Installer.Uninstall(shortcut);
         var problem = App.Store.Delete(shortcut.Id, deletingProfile: deleteData.IsChecked == true);
         Reload();
 
-        if (problem is not null)
-        {
-            await new ContentDialog
-            {
-                XamlRoot = XamlRoot,
-                Title = "The profile folder was kept",
-                Content = problem,
-                CloseButtonText = "OK",
-            }.ShowAsync();
-        }
+        if (problem is not null) await Warn("The profile folder was kept", problem);
     }
+
+    private async Task Warn(string title, string message) =>
+        await new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = title,
+            Content = message,
+            CloseButtonText = "OK",
+        }.ShowAsync();
 }
