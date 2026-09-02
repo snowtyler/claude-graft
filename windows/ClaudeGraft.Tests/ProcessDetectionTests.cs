@@ -32,6 +32,29 @@ public class ProcessDetectionTests
         Assert.False(ClaudeProcesses.IsDefaultInstance(Helper()));
     }
 
+    // The Claude Code CLI copy Claude Desktop keeps inside a profile and spawns
+    // for a bridged session: named claude.exe, run from a claude-code folder, and
+    // carrying neither --type nor --user-data-dir, so by flags alone it wears the
+    // exact shape of the main instance.
+    private static string BridgedCli() =>
+        $"\"{Cli}\" --output-format stream-json --model claude-opus-4-8 --resume=abc";
+
+    private const string Cli =
+        @"C:\Users\T\AppData\Roaming\Claude\claude-code\2.1.255\claude.exe";
+
+    [Fact(DisplayName = "the bridged Claude Code CLI is not mistaken for the main instance")]
+    public void BridgedCliIsNotDefault()
+    {
+        // Reopening the main profile revealed this windowless process instead of
+        // the desktop app whenever a session was bridging, and did nothing: by
+        // flags it wears the main instance's exact shape, so only the binary
+        // tells them apart.
+        Assert.False(ClaudeProcesses.IsClaudeDesktop(BridgedCli()));
+        Assert.True(ClaudeProcesses.IsClaudeDesktop(Browser()));
+        Assert.False(ClaudeProcesses.IsDefaultInstance(BridgedCli()));
+        Assert.True(ClaudeProcesses.IsDefaultInstance(Browser()));
+    }
+
     [Fact(DisplayName = "a profile's data-dir is matched only when the value ends there")]
     public void AnchoredMatch()
     {
