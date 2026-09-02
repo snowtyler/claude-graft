@@ -13,17 +13,6 @@
     SecondaryButtonStyle="{StaticResource DialogNeutralButtonStyle}"
     CloseButtonStyle="{StaticResource DialogNeutralButtonStyle}">
 
-    <ContentDialog.Resources>
-        <!-- The dialog's buttons render as hard rectangles otherwise; give them
-             the same rounding every other button in the app has. -->
-        <Style x:Key="DialogPrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource AccentButtonStyle}">
-            <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
-        </Style>
-        <Style x:Key="DialogNeutralButtonStyle" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
-            <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
-        </Style>
-    </ContentDialog.Resources>
-
     <StackPanel Spacing="14" Width="380">
         <StackPanel Spacing="6">
             <TextBlock Text="Name" Style="{ThemeResource BodyStrongTextBlockStyle}" />

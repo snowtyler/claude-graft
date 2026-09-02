@@ -26,7 +26,14 @@ public sealed partial class MainWindow : Window
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
-        AppWindow.SetIcon(System.IO.Path.Combine(System.AppContext.BaseDirectory, "Assets/AppIcon.ico"));
+        // The icon ships packed as an app resource, not a loose file, so this
+        // path is absent in an unpackaged install — and SetIcon throwing on it
+        // used to abort the rest of the constructor, navigation included, which
+        // is a window that opens with no content behind the title bar. A window
+        // titled by its resource icon is fine without this; a missing decoration
+        // must not cost the profile list.
+        var iconPath = System.IO.Path.Combine(System.AppContext.BaseDirectory, "Assets/AppIcon.ico");
+        if (System.IO.File.Exists(iconPath)) AppWindow.SetIcon(iconPath);
         if (AppWindow is not null && AppWindowTitleBar.IsCustomizationSupported())
         {
             var isDark = Application.Current.RequestedTheme == ApplicationTheme.Dark;

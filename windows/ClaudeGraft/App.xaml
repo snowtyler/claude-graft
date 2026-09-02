@@ -10,7 +10,17 @@
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
                 <!-- Other merged dictionaries here -->
             </ResourceDictionary.MergedDictionaries>
-            <!-- Other app resources here -->
+
+            <!-- Dialog buttons otherwise render as hard rectangles; these give
+                 them the app's standard rounding, with the primary wearing the
+                 accent. Defined at app scope so they resolve before any dialog
+                 that references them is built. -->
+            <Style x:Key="DialogPrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource AccentButtonStyle}">
+                <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
+            </Style>
+            <Style x:Key="DialogNeutralButtonStyle" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+                <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

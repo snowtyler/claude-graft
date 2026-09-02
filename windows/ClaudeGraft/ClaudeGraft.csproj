@@ -51,7 +51,7 @@
   <ItemGroup>
     <PackageReference Include="H.NotifyIcon.WinUI" Version="2.4.1" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.1839" />
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.1.3" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.4.0" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools.WinApp" Version="0.3.1">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
@@ -72,10 +72,25 @@
 
   <!-- Publish Properties -->
   <PropertyGroup>
-    <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
-    <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
-    <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
-    <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">True</PublishTrimmed>
+    <!-- The installer is unpackaged and copies a plain folder into place, so the
+         app cannot lean on a Windows App SDK runtime framework package being
+         registered at the right version — the machine may carry a newer one or
+         none at all, and the deployment initializer throws REGDB_E_CLASSNOTREG
+         when its own version is missing. Carrying the runtime in the bundle
+         removes that dependency entirely. -->
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <!-- Never trimmed. The trimmer cannot see through the WinRT interop the XAML
+         bindings marshal across (an ObservableCollection bound as ItemsSource
+         throws in GetInterfaceTableEntries) or the reflection System.Text.Json
+         uses, so a trimmed build comes up with an empty window and no profiles
+         while raising no error a build would catch. Size is the cheaper cost. -->
+    <PublishTrimmed>false</PublishTrimmed>
+    <!-- And no ahead-of-time interop either. The CsWinRT optimizer bakes a
+         vtable-lookup initializer that this SDK's generated code loads against a
+         ComInterfaceEntry type the runtime here does not carry, so an untrimmed
+         build faults at startup before the tray icon appears; ReadyToRun pulls
+         in the same path. Classic reflection-based marshaling is what works. -->
+    <PublishReadyToRun>false</PublishReadyToRun>
   </PropertyGroup>
 
   <!--
@@ -86,6 +101,14 @@
     and EnsureLauncher finds it at BaseDirectory\launcher in dev and once
     installed alike.
   -->
+  <!-- The window sets its taskbar icon from a loose file on disk, but the icon
+       otherwise ships only packed into the app's resources; copy it out beside
+       the binary so an unpackaged install has the real file to point at. -->
+  <Target Name="CopyLooseIcon" AfterTargets="Build;Publish">
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)Assets\AppIcon.ico" DestinationFolder="$(OutDir)Assets" SkipUnchangedFiles="true" Condition="'$(PublishDir)' == ''" />
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)Assets\AppIcon.ico" DestinationFolder="$(PublishDir)Assets" SkipUnchangedFiles="true" Condition="'$(PublishDir)' != ''" />
+  </Target>
+
   <Target Name="BundleLauncher" AfterTargets="Build">
     <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)..\GraftLaunch\GraftLaunch.csproj&quot; -c $(Configuration) -o &quot;$(OutDir)launcher&quot; --nologo -v q" />
   </Target>
