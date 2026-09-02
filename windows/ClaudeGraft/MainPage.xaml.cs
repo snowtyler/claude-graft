@@ -96,12 +96,27 @@ public sealed partial class MainPage : Page
 
     private async Task LoadUsage(ShortcutRow row, bool interactive)
     {
-        // row.ProfileDir, not row.Shortcut.ProfileDir — the main row has no
-        // shortcut behind it, and dereferencing one swallowed its whole load in
-        // an unobserved task, which is why the main account showed no usage.
-        var entry = await UsageMonitor.ReadAsync(row.ProfileDir, interactive);
-        // Back on the UI thread after the await; the row may still be shown.
-        if (Rows.Contains(row)) row.SetUsage(entry);
+        // Wrapped because this runs in a fire-and-forget task: an unhandled
+        // throw here has nowhere to surface and vanishes, which is exactly how
+        // the main account's missing usage hid a null-dereference. A per-row
+        // failure is written down rather than swallowed, and the other rows go
+        // on loading.
+        try
+        {
+            // row.ProfileDir, not row.Shortcut.ProfileDir — the main row has no
+            // shortcut behind it.
+            var entry = await UsageMonitor.ReadAsync(row.ProfileDir, interactive);
+            // Back on the UI thread after the await; the row may still be shown.
+            if (Rows.Contains(row)) row.SetUsage(entry);
+        }
+        catch (Exception e)
+        {
+            Diagnostics.Note("usage.rowFailed", new Dictionary<string, object?>
+            {
+                ["profile"] = row.ProfileDir,
+                ["error"] = e.GetType().Name + ": " + e.Message,
+            });
+        }
     }
 
     private void Refresh_Click(object sender, RoutedEventArgs e) => Reload(interactive: true);

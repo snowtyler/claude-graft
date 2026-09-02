@@ -1,8 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using ClaudeGraft.Core;
 
-namespace ClaudeGraft;
+namespace ClaudeGraft.Core;
 
 /// <summary>
 /// Opens a profile's Claude Desktop. A minimal stand-in for the Mac build's full
@@ -24,6 +23,20 @@ public static class Launcher
             .Where(File.Exists)
             .OrderByDescending(p => p, StringComparer.Ordinal)
             .FirstOrDefault();
+    }
+
+    /// Open the profile a shortcut folder names, resolving its source from the
+    /// shared list — which is what a desktop shortcut hands the launcher stub.
+    /// An unknown folder opens on its own chats rather than refusing, so a
+    /// shortcut whose list entry has gone still opens its profile.
+    public static void OpenByFolder(string folder)
+    {
+        var store = new ShortcutStore();
+        var shortcut = store.Shortcuts.FirstOrDefault(s => s.Folder == folder);
+        var config = shortcut is not null
+            ? store.ConfigFor(shortcut)
+            : new GraftConfig { ProfileDir = GraftPaths.Profile(folder), SourceDir = null };
+        Open(config);
     }
 
     /// Bring the storage in line and open Claude. If one is already on the
