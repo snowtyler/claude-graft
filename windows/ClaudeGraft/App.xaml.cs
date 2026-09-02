@@ -60,11 +60,18 @@ public partial class App : Application
         _flyout = new FlyoutWindow(ShowManager, Quit);
     }
 
-    private void ToggleFlyout() => OnUi(() =>
+    private void ToggleFlyout()
     {
-        _flyout ??= new FlyoutWindow(ShowManager, Quit);
-        _flyout.Toggle();
-    });
+        // Read on this thread, the click's own, before hopping to the UI thread:
+        // the pointer is on the icon now and will have moved by the time the
+        // window is measured and placed.
+        var anchor = TrayAnchor.CursorNow();
+        OnUi(() =>
+        {
+            _flyout ??= new FlyoutWindow(ShowManager, Quit);
+            _flyout.Toggle(anchor);
+        });
+    }
 
     private void ShowMenu()
     {
