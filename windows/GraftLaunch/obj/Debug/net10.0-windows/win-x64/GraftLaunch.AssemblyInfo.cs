@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("GraftLaunch")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+75b179b92f43741ad28c855017ccfcb30da99b85")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a8856d8b14c212f875a03159518570626ddba58f")]
 [assembly: System.Reflection.AssemblyProductAttribute("GraftLaunch")]
 [assembly: System.Reflection.AssemblyTitleAttribute("GraftLaunch")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
