@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Threading.Tasks;
 using ClaudeGraft.Core;
 using Microsoft.UI.Xaml;
@@ -6,14 +7,65 @@ using Microsoft.UI.Xaml.Controls;
 
 namespace ClaudeGraft;
 
-/// One row in the manager: a profile, where it reads its chats from, and the
-/// folder its data lives in.
-public sealed class ShortcutRow
+/// One row in the manager: a profile, where it reads its chats from, the folder
+/// its data lives in, and — filled in asynchronously — its plan usage.
+public sealed class ShortcutRow : INotifyPropertyChanged
 {
-    public Shortcut Shortcut { get; set; } = null!;
-    public string Name => Shortcut.Name;
-    public string SourceLabel => App.Store.Label(Shortcut.Source);
-    public string Folder => Shortcut.Folder;
+    /// Null for the main Claude, which has no shortcut behind it.
+    public Shortcut? Shortcut { get; set; }
+    public string ProfileDir { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string SourceLabel { get; set; } = "";
+    public string Folder { get; set; } = "";
+
+    /// The main account cannot be renamed or re-sourced, so its Edit is hidden.
+    public bool IsEditable => Shortcut is not null;
+    public Visibility EditVisibility => IsEditable ? Visibility.Visible : Visibility.Collapsed;
+
+    public static ShortcutRow ForShortcut(Shortcut s) => new()
+    {
+        Shortcut = s, ProfileDir = s.ProfileDir, Name = s.Name,
+        SourceLabel = App.Store.Label(s.Source), Folder = s.Folder,
+    };
+
+    public static ShortcutRow Main() => new()
+    {
+        ProfileDir = GraftPaths.DefaultProfile, Name = "Claude",
+        SourceLabel = "Main account", Folder = "Claude",
+    };
+
+    private UsageEntry? _usage;
+    private bool _usageKnown;
+
+    public void SetUsage(UsageEntry entry)
+    {
+        _usage = entry;
+        _usageKnown = true;
+        foreach (var name in new[]
+        {
+            nameof(FiveHour), nameof(Week), nameof(FiveHourText), nameof(WeekText),
+            nameof(BarsVisibility), nameof(NoUsageVisibility),
+        }) PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    }
+
+    public int FiveHour => _usage?.Usage?.FiveHour ?? 0;
+    public int Week => _usage?.Usage?.Week ?? 0;
+
+    public string FiveHourText => Line("5 hours", FiveHour, _usage?.Usage?.FiveHourReset);
+    public string WeekText => Line("Week", Week, _usage?.Usage?.WeekReset);
+
+    private static string Line(string label, int percent, DateTimeOffset? reset)
+    {
+        var text = $"{label} · {percent}%";
+        if (reset is DateTimeOffset r && Graft.Countdown(r) is string left) text += $" · resets in {left}";
+        return text;
+    }
+
+    public Visibility BarsVisibility => _usage?.HasUsage == true ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility NoUsageVisibility =>
+        _usageKnown && _usage?.HasUsage != true ? Visibility.Visible : Visibility.Collapsed;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
 }
 
 public sealed partial class MainPage : Page
@@ -26,22 +78,39 @@ public sealed partial class MainPage : Page
         Loaded += (_, _) => Reload();
     }
 
-    private void Reload()
+    private void Reload(bool interactive = false)
     {
         App.Store.Load();
         Rows.Clear();
-        foreach (var shortcut in App.Store.Shortcuts)
-            Rows.Add(new ShortcutRow { Shortcut = shortcut });
-        EmptyState.Visibility = Rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        // The main Claude leads, the way it does in the Mac dropdown.
+        var rows = new List<ShortcutRow> { ShortcutRow.Main() };
+        rows.AddRange(App.Store.Shortcuts.Select(ShortcutRow.ForShortcut));
+        foreach (var row in rows)
+        {
+            Rows.Add(row);
+            _ = LoadUsage(row, interactive);   // fills the bars in when the answer arrives
+        }
+        // The hint sits below the main card while there are no shortcuts yet.
+        EmptyState.Visibility = App.Store.Shortcuts.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    private void Refresh_Click(object sender, RoutedEventArgs e) => Reload();
+    private async Task LoadUsage(ShortcutRow row, bool interactive)
+    {
+        var profile = row.Shortcut.ProfileDir;
+        var entry = await UsageMonitor.ReadAsync(profile, interactive);
+        // Back on the UI thread after the await; the row may still be shown.
+        if (Rows.Contains(row)) row.SetUsage(entry);
+    }
+
+    private void Refresh_Click(object sender, RoutedEventArgs e) => Reload(interactive: true);
 
     private void Open_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement { Tag: ShortcutRow row })
         {
-            var config = App.Store.ConfigFor(row.Shortcut);
+            var config = row.Shortcut is Shortcut s
+                ? App.Store.ConfigFor(s)
+                : new GraftConfig { ProfileDir = row.ProfileDir, SourceDir = null };
             Task.Run(() => Launcher.Open(config));
         }
     }
@@ -50,7 +119,8 @@ public sealed partial class MainPage : Page
 
     private async void Edit_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is FrameworkElement { Tag: ShortcutRow row }) await EditProfile(row.Shortcut);
+        if (sender is FrameworkElement { Tag: ShortcutRow row } && row.Shortcut is Shortcut s)
+            await EditProfile(s);
     }
 
     private async Task EditProfile(Shortcut? existing)
@@ -63,9 +133,6 @@ public sealed partial class MainPage : Page
             if (dialog.IsNew) App.Store.Add(dialog.Result);
             else App.Store.Update(dialog.Result);
 
-            // Bring the new profile's storage in line — grafts if it has a
-            // source, ungrafts if it keeps its own chats — off the UI thread,
-            // then refresh the list.
             var config = App.Store.ConfigFor(dialog.Result);
             await Task.Run(() => Graft.Apply(config));
             Reload();

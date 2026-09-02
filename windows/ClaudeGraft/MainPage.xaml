@@ -60,44 +60,59 @@
                         <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                 BorderThickness="1" CornerRadius="8" Padding="16,12">
-                            <Grid ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
-                                    <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold"
-                                               Style="{StaticResource BodyStrongTextBlockStyle}" />
-                                    <TextBlock Style="{StaticResource CaptionTextBlockStyle}"
-                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}">
-                                        <Run Text="Chats:" />
-                                        <Run Text="{x:Bind SourceLabel}" />
-                                        <Run Text="  ·  " />
-                                        <Run Text="{x:Bind Folder}" />
-                                    </TextBlock>
+                            <StackPanel Spacing="10">
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+                                        <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold"
+                                                   Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                        <TextBlock Style="{StaticResource CaptionTextBlockStyle}"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}">
+                                            <Run Text="Chats:" />
+                                            <Run Text="{x:Bind SourceLabel}" />
+                                            <Run Text="  ·  " />
+                                            <Run Text="{x:Bind Folder}" />
+                                        </TextBlock>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                        <Button Content="Edit" Click="Edit_Click" Tag="{x:Bind}"
+                                                Visibility="{x:Bind EditVisibility}" />
+                                        <Button Content="Open" Click="Open_Click" Tag="{x:Bind}"
+                                                Style="{StaticResource AccentButtonStyle}" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- Plan usage -->
+                                <StackPanel Spacing="6" Visibility="{x:Bind BarsVisibility, Mode=OneWay}">
+                                    <TextBlock Text="{x:Bind FiveHourText, Mode=OneWay}"
+                                               Style="{StaticResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <ProgressBar Value="{x:Bind FiveHour, Mode=OneWay}" Maximum="100" />
+                                    <TextBlock Text="{x:Bind WeekText, Mode=OneWay}" Margin="0,4,0,0"
+                                               Style="{StaticResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <ProgressBar Value="{x:Bind Week, Mode=OneWay}" Maximum="100" />
                                 </StackPanel>
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                    <Button Content="Edit" Click="Edit_Click" Tag="{x:Bind}" />
-                                    <Button Content="Open" Click="Open_Click" Tag="{x:Bind}"
-                                            Style="{StaticResource AccentButtonStyle}" />
-                                </StackPanel>
-                            </Grid>
+                                <TextBlock Text="No usage reported yet"
+                                           Visibility="{x:Bind NoUsageVisibility, Mode=OneWay}"
+                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                            </StackPanel>
                         </Border>
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
 
-            <!-- Empty state -->
+            <!-- Hint shown below the main card while no extra profiles exist -->
             <StackPanel x:Name="EmptyState" Visibility="Collapsed"
-                        VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
-                <FontIcon Glyph="&#xE7C3;" FontSize="32"
-                          Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
-                <TextBlock Text="No profiles yet"
-                           Style="{StaticResource SubtitleTextBlockStyle}"
-                           HorizontalAlignment="Center" />
-                <TextBlock Text="Profiles you create will appear here."
+                        VerticalAlignment="Top" Margin="0,110,0,0"
+                        HorizontalAlignment="Center" Spacing="6" IsHitTestVisible="False">
+                <TextBlock Text="Add a profile to run a second account alongside Claude."
                            Style="{StaticResource CaptionTextBlockStyle}"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                            HorizontalAlignment="Center" />
             </StackPanel>
         </Grid>
