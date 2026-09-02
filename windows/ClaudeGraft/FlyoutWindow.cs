@@ -26,9 +26,19 @@ public sealed class FlyoutWindow : Window
         _view.QuitRequested += quit;
         _view.DismissRequested += Hide;
 
-        // Borderless, always-on-top, out of the taskbar and the switcher — the
-        // shape a context menu gets, which is exactly a flyout's.
-        AppWindow.SetPresenter(OverlappedPresenter.CreateForContextMenu());
+        // Borderless, always-on-top, out of the taskbar and the switcher. Not
+        // the context-menu presenter it looks like it wants: that one shows
+        // without ever activating the window, so it never hears the click that
+        // lands elsewhere and never dismisses. A plain overlapped presenter
+        // activates when shown, which is what makes losing focus mean something.
+        var presenter = OverlappedPresenter.Create();
+        presenter.SetBorderAndTitleBar(false, false);
+        presenter.IsResizable = false;
+        presenter.IsMaximizable = false;
+        presenter.IsMinimizable = false;
+        presenter.IsAlwaysOnTop = true;
+        AppWindow.SetPresenter(presenter);
+        AppWindow.IsShownInSwitchers = false;
         SystemBackdrop = new DesktopAcrylicBackdrop();
         RoundCorners();
 
@@ -63,6 +73,10 @@ public sealed class FlyoutWindow : Window
         Refit();
         AppWindow.Show(activateWindow: true);
         Activate();
+        // A tray click leaves the shell in the foreground, not this process, so
+        // the window comes up without focus and would never hear it being lost.
+        // Pulling it to the foreground is what arms the click-away dismiss.
+        SetForegroundWindow(WinRT.Interop.WindowNative.GetWindowHandle(this));
     }
 
     private void Hide()
@@ -103,4 +117,8 @@ public sealed class FlyoutWindow : Window
 
     [DllImport("user32.dll")]
     private static extern uint GetDpiForWindow(nint hwnd);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetForegroundWindow(nint hwnd);
 }
