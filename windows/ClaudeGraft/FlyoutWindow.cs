@@ -1,11 +1,9 @@
 using System.Diagnostics;
-using System.Numerics;
 using System.Runtime.InteropServices;
 using Microsoft.UI.Composition;
 using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Hosting;
 using Windows.Graphics;
 using Windows.System;
 using WinRT;
@@ -115,17 +113,13 @@ public sealed class FlyoutWindow : Window
         // Pulling it to the foreground is what arms the click-away dismiss.
         SetForegroundWindow(WinRT.Interop.WindowNative.GetWindowHandle(this));
 
-        // A small extra slide of the content within the window as it settles — the
-        // parallax that gives the motion depth.
-        var visual = ElementCompositionPreview.GetElementVisual(_view);
-        visual.Offset = ContentParallaxStart();
-        var pc = visual.Compositor;
-        var parallax = pc.CreateVector3KeyFrameAnimation();
-        parallax.InsertKeyFrame(1f, Vector3.Zero,
-            pc.CreateCubicBezierEasingFunction(new Vector2(0.05f, 0.7f), new Vector2(0.1f, 1f)));
-        parallax.Duration = TimeSpan.FromMilliseconds(300);
-        visual.StartAnimation("Offset", parallax);
-
+        // The window is the whole motion; the content rides with it as one piece.
+        // Parallaxing the content within the window was tried and dropped: the
+        // view fills the window with the mica as its surface, so displacing it
+        // relative to the frame bares a strip of empty window on the edge it
+        // vacates — and pushing that strip behind the taskbar to hide it flips the
+        // content's apparent direction, so it read as the content sliding the
+        // opposite way to the flyout.
         SlideWindow(full, PointZero, 250, easeIn: false, onDone: () =>
         {
             // A grow deferred while the slide ran — usage bars arriving — is
@@ -157,7 +151,6 @@ public sealed class FlyoutWindow : Window
             if (_priorForeground != 0 && _priorForeground != hwnd)
                 ForceForeground(_priorForeground);
             AppWindow.Hide();
-            ElementCompositionPreview.GetElementVisual(_view).Offset = Vector3.Zero;
         });
     }
 
@@ -174,19 +167,6 @@ public sealed class FlyoutWindow : Window
             FlyoutEdge.Left => new PointInt32(-(_rect.Width + extra), 0),
             FlyoutEdge.Right => new PointInt32(_rect.Width + extra, 0),
             _ => new PointInt32(0, _rect.Height + extra),   // bottom
-        };
-    }
-
-    /// The content's parallax start, 50px out along the taskbar's direction.
-    private Vector3 ContentParallaxStart()
-    {
-        const float d = 50f;
-        return _edge switch
-        {
-            FlyoutEdge.Top => new Vector3(0, -d, 0),
-            FlyoutEdge.Left => new Vector3(-d, 0, 0),
-            FlyoutEdge.Right => new Vector3(d, 0, 0),
-            _ => new Vector3(0, d, 0),   // bottom
         };
     }
 
