@@ -18,14 +18,6 @@ internal static class ProfileRows
         return rows;
     }
 
-    /// Lights the dot beside each name from one process enumeration, so a list
-    /// of any length costs a single walk rather than one per row.
-    public static void MarkRunning(IEnumerable<ShortcutRow> rows)
-    {
-        var processes = ClaudeProcesses.Enumerate();
-        foreach (var row in rows) row.SetRunning(ClaudeProcesses.IsRunning(row.ProfileDir, processes));
-    }
-
     /// The usage read as a fire-and-forget task wants: a throw here has nowhere
     /// to surface and would vanish — which is exactly how the main account's
     /// missing usage once hid a null dereference — so a failure is written down

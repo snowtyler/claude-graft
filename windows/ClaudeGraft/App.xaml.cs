@@ -50,6 +50,10 @@ public partial class App : Application
         _tray.DoubleClickCommand = new RelayCommand(ShowManager);
         _tray.RightClickCommand = new RelayCommand(ShowMenu);
         _tray.ForceCreate();
+
+        // Built now, hidden, so the first left click shows it rather than paying
+        // to construct a window and its backdrop before anything appears.
+        _flyout = new FlyoutWindow(ShowManager, Quit);
     }
 
     private void ToggleFlyout() => OnUi(() =>

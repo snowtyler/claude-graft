@@ -34,13 +34,24 @@ public sealed partial class FlyoutView : UserControl
     {
         Rows.Clear();
         var rows = ProfileRows.Build();
-        ProfileRows.MarkRunning(rows);
         foreach (var row in rows)
         {
             Rows.Add(row);
             _ = LoadUsage(row);
         }
         LayoutChanged?.Invoke();
+        _ = MarkRunning(rows);
+    }
+
+    /// The dots come in after the window is up, not before it: reading which
+    /// Claude is running is a WMI query, slow enough that doing it inline made
+    /// the flyout crawl open. It runs off the UI thread and lights the dots when
+    /// it lands — a beat late is not something the eye catches on a status dot.
+    private async Task MarkRunning(IReadOnlyList<ShortcutRow> rows)
+    {
+        var processes = await Task.Run(ClaudeProcesses.Enumerate);
+        foreach (var row in rows)
+            if (Rows.Contains(row)) row.SetRunning(ClaudeProcesses.IsRunning(row.ProfileDir, processes));
     }
 
     private async Task LoadUsage(ShortcutRow row)
