@@ -100,19 +100,49 @@ public static class Launcher
 
     // MARK: - Reveal
 
+    private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+    [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindowsProc proc, IntPtr lParam);
+    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
+    [DllImport("user32.dll")] private static extern int GetWindowTextLength(IntPtr hWnd);
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     private const int SW_RESTORE = 9;
 
+    /// Bring the Claude holding a profile back to the front. Its window is found
+    /// by walking the process's own top-level windows rather than through
+    /// <c>MainWindowHandle</c>: a Claude set to keep running in the tray answers a
+    /// closed window by hiding it, not ending it, and a hidden window is no
+    /// window at all as far as <c>MainWindowHandle</c> is concerned — which is
+    /// how reopening a tray-resident profile from the menu did nothing. The HWND
+    /// is still there, only hidden, so the walk still finds it and shows it.
     private static void Reveal(int pid)
     {
         try
         {
-            var handle = Process.GetProcessById(pid).MainWindowHandle;
-            if (handle == IntPtr.Zero) return;
-            ShowWindow(handle, SW_RESTORE);
-            SetForegroundWindow(handle);
+            var window = FindAppWindow((uint)pid);
+            if (window == IntPtr.Zero) return;
+            ShowWindow(window, SW_RESTORE);
+            SetForegroundWindow(window);
         }
         catch { }
+    }
+
+    /// The process's real window, hidden or shown. A titled top-level window is
+    /// the app's own; Electron's message-only and helper windows carry no title,
+    /// so a title is what tells the one worth showing from the rest.
+    private static IntPtr FindAppWindow(uint pid)
+    {
+        var found = IntPtr.Zero;
+        EnumWindows((hWnd, _) =>
+        {
+            GetWindowThreadProcessId(hWnd, out var owner);
+            if (owner == pid && GetWindowTextLength(hWnd) > 0)
+            {
+                found = hWnd;
+                return false;   // stop at the first titled window this process owns
+            }
+            return true;
+        }, IntPtr.Zero);
+        return found;
     }
 }
