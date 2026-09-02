@@ -13,6 +13,10 @@
     <EnableMsixTooling>true</EnableMsixTooling>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- Embedded into the executable itself, which is where the taskbar button
+         and the Start-menu shortcut take their icon from — not from the window's
+         own SetIcon, so without this they fall back to the generic host icon. -->
+    <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
