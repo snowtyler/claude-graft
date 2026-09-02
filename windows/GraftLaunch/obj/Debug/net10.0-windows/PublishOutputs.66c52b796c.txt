@@ -1,0 +1,11 @@
+C:\dev\claude-graft\windows\ClaudeGraft\bin\x64\Debug\net10.0-windows10.0.26100.0\win-x64\launcher\GraftLaunch.exe
+C:\dev\claude-graft\windows\ClaudeGraft\bin\x64\Debug\net10.0-windows10.0.26100.0\win-x64\launcher\GraftLaunch.dll
+C:\dev\claude-graft\windows\ClaudeGraft\bin\x64\Debug\net10.0-windows10.0.26100.0\win-x64\launcher\GraftLaunch.deps.json
+C:\dev\claude-graft\windows\ClaudeGraft\bin\x64\Debug\net10.0-windows10.0.26100.0\win-x64\launcher\GraftLaunch.runtimeconfig.json
+C:\dev\claude-graft\windows\ClaudeGraft\bin\x64\Debug\net10.0-windows10.0.26100.0\win-x64\launcher\GraftLaunch.pdb
+C:\dev\claude-graft\windows\ClaudeGraft\bin\x64\Debug\net10.0-windows10.0.26100.0\win-x64\launcher\System.CodeDom.dll
+C:\dev\claude-graft\windows\ClaudeGraft\bin\x64\Debug\net10.0-windows10.0.26100.0\win-x64\launcher\System.Management.dll
+C:\dev\claude-graft\windows\ClaudeGraft\bin\x64\Debug\net10.0-windows10.0.26100.0\win-x64\launcher\System.Security.Cryptography.ProtectedData.dll
+C:\dev\claude-graft\windows\ClaudeGraft\bin\x64\Debug\net10.0-windows10.0.26100.0\win-x64\launcher\runtimes\win\lib\net10.0\System.Management.dll
+C:\dev\claude-graft\windows\ClaudeGraft\bin\x64\Debug\net10.0-windows10.0.26100.0\win-x64\launcher\ClaudeGraft.Core.dll
+C:\dev\claude-graft\windows\ClaudeGraft\bin\x64\Debug\net10.0-windows10.0.26100.0\win-x64\launcher\ClaudeGraft.Core.pdb

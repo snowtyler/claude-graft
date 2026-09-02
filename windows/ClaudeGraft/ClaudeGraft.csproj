@@ -77,4 +77,16 @@
     <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
     <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">True</PublishTrimmed>
   </PropertyGroup>
+
+  <!--
+    The launcher stub a desktop shortcut points at has to travel with the app,
+    so it can be copied to its stable spot on a machine that never saw the repo.
+    Publish it into the app's output under launcher\ after each build; MSIX
+    packaging stages the output directory, so it rides along into the package,
+    and EnsureLauncher finds it at BaseDirectory\launcher in dev and once
+    installed alike.
+  -->
+  <Target Name="BundleLauncher" AfterTargets="Build">
+    <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)..\GraftLaunch\GraftLaunch.csproj&quot; -c $(Configuration) -o &quot;$(OutDir)launcher&quot; --nologo -v q" />
+  </Target>
 </Project>

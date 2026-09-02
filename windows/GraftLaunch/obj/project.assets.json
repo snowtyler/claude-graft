@@ -73,73 +73,6 @@
           "bin/placeholder/ClaudeGraft.Core.dll": {}
         }
       }
-    },
-    "net10.0-windows/win-x64": {
-      "System.CodeDom/10.0.11": {
-        "type": "package",
-        "compile": {
-          "lib/net10.0/System.CodeDom.dll": {
-            "related": ".xml"
-          }
-        },
-        "runtime": {
-          "lib/net10.0/System.CodeDom.dll": {
-            "related": ".xml"
-          }
-        },
-        "build": {
-          "buildTransitive/net8.0/_._": {}
-        }
-      },
-      "System.Management/10.0.11": {
-        "type": "package",
-        "dependencies": {
-          "System.CodeDom": "10.0.11"
-        },
-        "compile": {
-          "lib/net10.0/System.Management.dll": {
-            "related": ".xml"
-          }
-        },
-        "runtime": {
-          "runtimes/win/lib/net10.0/System.Management.dll": {
-            "related": ".xml"
-          }
-        },
-        "build": {
-          "buildTransitive/net8.0/_._": {}
-        }
-      },
-      "System.Security.Cryptography.ProtectedData/10.0.11": {
-        "type": "package",
-        "compile": {
-          "lib/net10.0/System.Security.Cryptography.ProtectedData.dll": {
-            "related": ".xml"
-          }
-        },
-        "runtime": {
-          "lib/net10.0/System.Security.Cryptography.ProtectedData.dll": {
-            "related": ".xml"
-          }
-        },
-        "build": {
-          "buildTransitive/net8.0/_._": {}
-        }
-      },
-      "ClaudeGraft.Core/1.0.0": {
-        "type": "project",
-        "framework": ".NETCoreApp,Version=v10.0",
-        "dependencies": {
-          "System.Management": "10.0.11",
-          "System.Security.Cryptography.ProtectedData": "10.0.11"
-        },
-        "compile": {
-          "bin/placeholder/ClaudeGraft.Core.dll": {}
-        },
-        "runtime": {
-          "bin/placeholder/ClaudeGraft.Core.dll": {}
-        }
-      }
     }
   },
   "libraries": {
@@ -589,11 +522,6 @@
           "System.Xml.XPath": "(,4.3.32767]",
           "System.Xml.XPath.XDocument": "(,5.0.32767]"
         }
-      }
-    },
-    "runtimes": {
-      "win-x64": {
-        "#import": []
       }
     }
   }
