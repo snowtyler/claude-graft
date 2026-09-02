@@ -13,15 +13,25 @@ internal static class TrayAnchor
 {
     private const int Margin = 8;
 
-    /// The top-left corner, in physical pixels, for a window of <paramref name="size"/>.
-    public static PointInt32 Place(SizeInt32 size)
+    /// Where the pointer is now, in physical pixels — read at the moment of the
+    /// click, on the click's own thread, because by the time the window is built
+    /// and measured the pointer has moved and the flyout would open under it
+    /// rather than by the icon that was pressed.
+    public static PointInt32 CursorNow()
     {
-        GetCursorPos(out var cursor);
+        GetCursorPos(out var p);
+        return new PointInt32(p.X, p.Y);
+    }
 
-        var monitor = MonitorFromPoint(cursor, MONITOR_DEFAULTTONEAREST);
+    /// The top-left corner, in physical pixels, for a window of <paramref name="size"/>
+    /// opened from <paramref name="anchor"/> — the point the icon was clicked.
+    public static PointInt32 Place(SizeInt32 size, PointInt32 anchor)
+    {
+        var point = new POINT { X = anchor.X, Y = anchor.Y };
+        var monitor = MonitorFromPoint(point, MONITOR_DEFAULTTONEAREST);
         var info = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
         if (!GetMonitorInfo(monitor, ref info))
-            return new PointInt32(cursor.X - size.Width / 2, cursor.Y - size.Height - Margin);
+            return new PointInt32(anchor.X - size.Width / 2, anchor.Y - size.Height - Margin);
 
         var work = info.rcWork;
         var full = info.rcMonitor;
@@ -32,22 +42,22 @@ internal static class TrayAnchor
         if (work.top > full.top)             // taskbar on top
         {
             y = work.top + Margin;
-            x = cursor.X - size.Width / 2;
+            x = anchor.X - size.Width / 2;
         }
         else if (work.left > full.left)      // taskbar on the left
         {
             x = work.left + Margin;
-            y = cursor.Y - size.Height / 2;
+            y = anchor.Y - size.Height / 2;
         }
         else if (work.right < full.right)    // taskbar on the right
         {
             x = work.right - size.Width - Margin;
-            y = cursor.Y - size.Height / 2;
+            y = anchor.Y - size.Height / 2;
         }
         else                                 // taskbar on the bottom
         {
             y = work.bottom - size.Height - Margin;
-            x = cursor.X - size.Width / 2;
+            x = anchor.X - size.Width / 2;
         }
 
         // Keep every edge inside the work area.

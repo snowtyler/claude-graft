@@ -18,6 +18,7 @@ public sealed class FlyoutWindow : Window
 {
     private readonly FlyoutView _view = new();
     private bool _shown;
+    private PointInt32 _anchor;
 
     public FlyoutWindow(Action openManager, Action quit)
     {
@@ -60,14 +61,15 @@ public sealed class FlyoutWindow : Window
         };
     }
 
-    public void Toggle()
+    public void Toggle(PointInt32 anchor)
     {
         if (_shown) Hide();
-        else Show();
+        else Show(anchor);
     }
 
-    private void Show()
+    private void Show(PointInt32 anchor)
     {
+        _anchor = anchor;
         _shown = true;
         _view.Reload();
         Refit();
@@ -98,7 +100,7 @@ public sealed class FlyoutWindow : Window
             (int)Math.Ceiling(_view.DesiredSize.Height * scale));
         if (size.Width <= 0 || size.Height <= 0) return;
 
-        var at = TrayAnchor.Place(size);
+        var at = TrayAnchor.Place(size, _anchor);
         AppWindow.MoveAndResize(new RectInt32(at.X, at.Y, size.Width, size.Height));
     }
 
@@ -107,10 +109,17 @@ public sealed class FlyoutWindow : Window
         var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         int round = DWMWCP_ROUND;
         DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref round, sizeof(int));
+        // Windows draws its own light border around a top-level window; on a
+        // flyout it reads as a stray white outline around the panel, so it is
+        // turned off and the view's own hairline is the only edge.
+        int none = unchecked((int)DWMWA_COLOR_NONE);
+        DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR, ref none, sizeof(int));
     }
 
     private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
     private const int DWMWCP_ROUND = 2;
+    private const int DWMWA_BORDER_COLOR = 34;
+    private const uint DWMWA_COLOR_NONE = 0xFFFFFFFE;
 
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(nint hwnd, int attribute, ref int value, int size);
