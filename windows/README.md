@@ -58,6 +58,12 @@ Opening a profile from the app copies the launcher stub into a stable per-user
 folder and writes a desktop shortcut pointing at it, so the profile goes on
 opening after the app updates.
 
+The icon under `ClaudeGraft/Assets` is not drawn here; it is scaled from the
+same `Resources/AppIcon.icns` the Mac build draws in code, so both wear the one
+mark. When that icon changes, regenerate the Windows sizes with:
+
+    python windows/Tools/make-icons.py
+
 ## Left to the maintainer
 
 The port is the code, not a decision about how it ships. Distribution and
