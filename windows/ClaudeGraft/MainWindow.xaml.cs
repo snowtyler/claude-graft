@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media;
 using Windows.Graphics;
 
 namespace ClaudeGraft;
@@ -18,6 +19,10 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+
+        // Mica: the theme-and-wallpaper backdrop of a modern Windows app. The
+        // page background is transparent so this shows through behind the cards.
+        SystemBackdrop = new MicaBackdrop();
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
