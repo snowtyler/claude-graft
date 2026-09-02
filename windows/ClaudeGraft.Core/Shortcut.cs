@@ -1,7 +1,6 @@
 using System.Text.Json.Serialization;
-using ClaudeGraft.Core;
 
-namespace ClaudeGraft;
+namespace ClaudeGraft.Core;
 
 /// Where a shortcut's Claude Code chats come from.
 [JsonConverter(typeof(JsonStringEnumConverter<SourceKind>))]

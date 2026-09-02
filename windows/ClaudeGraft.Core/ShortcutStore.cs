@@ -1,7 +1,6 @@
 using System.Text.Json;
-using ClaudeGraft.Core;
 
-namespace ClaudeGraft;
+namespace ClaudeGraft.Core;
 
 /// <summary>
 /// The list of shortcuts this app keeps, in ClaudeGraft/shortcuts.json — the one
@@ -93,4 +92,71 @@ public sealed class ShortcutStore
         ProfileDir = shortcut.ProfileDir,
         SourceDir = SourceDir(shortcut),
     };
+
+    // MARK: - Editing
+
+    public void Add(Shortcut shortcut)
+    {
+        Shortcuts.Add(shortcut);
+        Save();
+    }
+
+    public void Update(Shortcut shortcut)
+    {
+        var i = Shortcuts.FindIndex(s => s.Id == shortcut.Id);
+        if (i >= 0) Shortcuts[i] = shortcut; else Shortcuts.Add(shortcut);
+        Save();
+    }
+
+    /// Removes the shortcut. The profile folder — a login and a chat history —
+    /// only goes when explicitly asked for, and never while another shortcut
+    /// still points at it. Returns a message when the profile could not be
+    /// removed. (The desktop .lnk it installed is the installer's concern, not
+    /// yet ported.)
+    public string? Delete(Guid id, bool deletingProfile = false)
+    {
+        if (Get(id) is not Shortcut shortcut) return null;
+        var sharedWithAnother = Shortcuts.Any(s => s.Id != id && s.Folder == shortcut.Folder);
+
+        string? problem = null;
+        if (deletingProfile)
+        {
+            if (sharedWithAnother)
+                problem = "The profile folder was kept: another shortcut still uses it.";
+            else
+                try { Graft.DeleteProfile(shortcut.ProfileDir, ClaudeProcesses.IsRunning); }
+                catch (ProfileException e) { problem = e.Message; }
+        }
+
+        // Nothing runs this shortcut's launcher again to undo its mirroring, so a
+        // pair left behind goes on syncing whenever any other profile opens. The
+        // copies stay — they are chats, and the folder was kept — but the two
+        // folders stop being squared up.
+        if (!sharedWithAnother) Graft.ForgetMirrors(shortcut.ProfileDir);
+        Shortcuts.RemoveAll(s => s.Id == id);
+
+        // Anything that borrowed from it would silently fall back to its own
+        // chats, ungrafting on the next launch without a word.
+        foreach (var other in Shortcuts.Where(s => s.Source.Kind == SourceKind.Shortcut && s.Source.ShortcutId == id))
+            other.Source = ShortcutSource.Own;
+        Save();
+        return problem;
+    }
+
+    /// Sources that will not form a loop back to <paramref name="shortcut"/>.
+    public List<ShortcutSource> AvailableSources(Shortcut shortcut)
+    {
+        var options = new List<ShortcutSource> { ShortcutSource.Own, ShortcutSource.Main };
+        foreach (var other in Shortcuts.Where(s => s.Id != shortcut.Id))
+            if (!LeadsBack(other.Id, shortcut.Id)) options.Add(ShortcutSource.Of(other.Id));
+        return options;
+    }
+
+    private bool LeadsBack(Guid start, Guid target, int depth = 0)
+    {
+        if (depth > Shortcuts.Count || Get(start) is not Shortcut node) return false;
+        if (node.Source.Kind == SourceKind.Shortcut && node.Source.ShortcutId is Guid next)
+            return next == target || LeadsBack(next, target, depth + 1);
+        return false;
+    }
 }

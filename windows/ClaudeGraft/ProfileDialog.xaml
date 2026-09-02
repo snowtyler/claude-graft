@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentDialog
+    x:Class="ClaudeGraft.ProfileDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    PrimaryButtonText="Save"
+    CloseButtonText="Cancel"
+    DefaultButton="Primary">
+
+    <StackPanel Spacing="14" Width="380">
+        <StackPanel Spacing="6">
+            <TextBlock Text="Name" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+            <TextBox x:Name="NameBox" PlaceholderText="Work Account"
+                     Text="{x:Bind Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+        </StackPanel>
+
+        <StackPanel Spacing="6">
+            <TextBlock Text="Profile folder" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+            <TextBox x:Name="FolderBox" FontFamily="Consolas"
+                     Text="{x:Bind Folder, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+            <TextBlock Text="Where this account's login, chats and settings are kept."
+                       Style="{ThemeResource CaptionTextBlockStyle}"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        </StackPanel>
+
+        <StackPanel Spacing="6">
+            <TextBlock Text="Reads chats from" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+            <ComboBox x:Name="SourceBox" HorizontalAlignment="Stretch"
+                      DisplayMemberPath="Label"
+                      SelectionChanged="SourceBox_SelectionChanged" />
+        </StackPanel>
+
+        <InfoBar x:Name="MergeNote" IsOpen="False" IsClosable="False" Severity="Warning"
+                 Title="Histories are merged, not swapped"
+                 Message="This profile keeps its own chats and gains the source's; both sidebars end up showing the combined set. The copies made into the source stay there — merging a history cannot be undone." />
+
+        <InfoBar x:Name="Problem" IsOpen="False" IsClosable="False" Severity="Error" />
+    </StackPanel>
+</ContentDialog>
