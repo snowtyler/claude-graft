@@ -89,4 +89,10 @@
   <Target Name="BundleLauncher" AfterTargets="Build">
     <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)..\GraftLaunch\GraftLaunch.csproj&quot; -c $(Configuration) -o &quot;$(OutDir)launcher&quot; --nologo -v q" />
   </Target>
+
+  <!-- The publish output is a different folder from the build output, and it is
+       what an unpackaged install is copied from, so the stub is placed there too. -->
+  <Target Name="BundleLauncherOnPublish" AfterTargets="Publish">
+    <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)..\GraftLaunch\GraftLaunch.csproj&quot; -c $(Configuration) -o &quot;$(PublishDir)launcher&quot; --nologo -v q" />
+  </Target>
 </Project>

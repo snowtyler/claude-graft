@@ -10,3 +10,6 @@
 *.msix
 *.msixbundle
 *.pfx
+
+# Local build/publish output and its install scripts
+dist/
