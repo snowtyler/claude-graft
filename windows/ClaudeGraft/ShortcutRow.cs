@@ -64,7 +64,37 @@ public sealed class ShortcutRow : INotifyPropertyChanged
             nameof(FiveHour), nameof(Week), nameof(FiveHourText), nameof(WeekText),
             nameof(BarsVisibility), nameof(NoUsageVisibility),
         }) Notify(name);
+        // Only a live reading is trusted to say a window is open. On the stale
+        // disk fallback, or with the endpoint refusing, the state is unknown — and
+        // greying the one useful action out on a guess is worse than leaving it, so
+        // uncertainty leaves it enabled.
+        _windowOpen = entry.IsLive
+            && (entry.Usage?.FiveHourReset is DateTimeOffset r && r > DateTimeOffset.UtcNow
+                || entry.Usage?.FiveHour > 0);
+        Notify(nameof(StartEnabled));
+        Notify(nameof(StartTooltip));
+
+        // Last, so the bars have this reading's values before the sweep reads them
+        // off to fill back up to. A bump each read is what makes the fill a sign
+        // the usage was refreshed rather than only that a number moved.
+        Pulse++;
+        Notify(nameof(Pulse));
     }
+
+    private bool _windowOpen;
+
+    /// Start Session opens a five-hour window; there is nothing for it to do once
+    /// one is open — a second message neither restarts nor extends it — so the
+    /// button greys out while a window is confirmed open, and while a start of its
+    /// own is already in flight.
+    public bool StartEnabled => !_starting && !_windowOpen;
+
+    public string StartTooltip => _windowOpen
+        ? "This account's five-hour window is already open"
+        : "Sends one short message to this account to open its five-hour window";
+
+    /// Bumped on every usage read, to replay the bars' fill. See BarPulse.
+    public int Pulse { get; private set; }
 
     public int FiveHour => _usage?.Usage?.FiveHour ?? 0;
     public int Week => _usage?.Usage?.Week ?? 0;
@@ -82,6 +112,46 @@ public sealed class ShortcutRow : INotifyPropertyChanged
     public Visibility BarsVisibility => _usage?.HasUsage == true ? Visibility.Visible : Visibility.Collapsed;
     public Visibility NoUsageVisibility =>
         _usageKnown && _usage?.HasUsage != true ? Visibility.Visible : Visibility.Collapsed;
+
+    private bool _starting;
+
+    /// A session start is in flight for this account. While it is, the button
+    /// gives way to a spinner and refuses a second press — the Mac's per-account
+    /// claim, shown.
+    public bool Starting
+    {
+        get => _starting;
+        set
+        {
+            if (value == _starting) return;
+            _starting = value;
+            foreach (var name in new[]
+            {
+                nameof(Starting), nameof(StartVisibility), nameof(StartingVisibility), nameof(StartEnabled),
+            }) Notify(name);
+        }
+    }
+
+    public Visibility StartVisibility => _starting ? Visibility.Collapsed : Visibility.Visible;
+    public Visibility StartingVisibility => _starting ? Visibility.Visible : Visibility.Collapsed;
+
+    private string? _problem;
+
+    /// Why the last start could not open a window, in the words the Mac dropdown
+    /// uses. Cleared when a fresh start is pressed.
+    public string? Problem
+    {
+        get => _problem;
+        set
+        {
+            _problem = value;
+            Notify(nameof(Problem));
+            Notify(nameof(ProblemVisibility));
+        }
+    }
+
+    public Visibility ProblemVisibility =>
+        string.IsNullOrEmpty(_problem) ? Visibility.Collapsed : Visibility.Visible;
 
     private void Notify(string name) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));

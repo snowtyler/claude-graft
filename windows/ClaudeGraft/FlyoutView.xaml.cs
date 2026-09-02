@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
 using ClaudeGraft.Core;
 using Microsoft.UI.Xaml;
@@ -75,6 +76,49 @@ public sealed partial class FlyoutView : UserControl
                 : new GraftConfig { ProfileDir = row.ProfileDir, SourceDir = null };
             Task.Run(() => Launcher.Open(config));
             DismissRequested?.Invoke();
+        }
+    }
+
+    /// Opens a five-hour window on one account by sending it a single short
+    /// message, the way the Mac dropdown's per-row Start Session does. Only a
+    /// press reaches here; the button gives way to a spinner while it runs and a
+    /// second press is refused, so a window that is already opening is not asked
+    /// for twice.
+    private async void Start_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: ShortcutRow row } || row.Starting) return;
+        row.Problem = null;
+        row.Starting = true;
+        var profile = row.ProfileDir;
+
+        var problem = await Task.Run(() => SessionStarter.StartAsync(profile));
+
+        // The window this just opened is exactly what the stored reading predates,
+        // so it is dropped rather than waited out, then the row's usage re-read.
+        UsageMonitor.Invalidate(profile);
+        row.Starting = false;
+        row.Problem = problem;
+        if (Rows.Contains(row)) await LoadUsage(row);
+        LayoutChanged?.Invoke();
+    }
+
+    /// Re-reads every account's usage from the endpoint, skipping the cache and
+    /// the backoff the way the Mac's Refresh Usage does — a figure someone is
+    /// looking at and pressed for.
+    private async void Refresh_Click(object sender, RoutedEventArgs e)
+    {
+        RefreshButton.IsEnabled = false;
+        RefreshButton.Content = "Refreshing…";
+        try
+        {
+            var rows = Rows.ToList();
+            await Task.WhenAll(rows.Select(LoadUsage));
+            await MarkRunning(rows);
+        }
+        finally
+        {
+            RefreshButton.Content = "Refresh Usage";
+            RefreshButton.IsEnabled = true;
         }
     }
 
