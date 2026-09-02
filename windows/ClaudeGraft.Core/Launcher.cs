@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace ClaudeGraft.Core;
 
@@ -104,6 +105,7 @@ public static class Launcher
     [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindowsProc proc, IntPtr lParam);
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
     [DllImport("user32.dll")] private static extern int GetWindowTextLength(IntPtr hWnd);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr hWnd, StringBuilder name, int max);
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     private const int SW_RESTORE = 9;
@@ -127,21 +129,29 @@ public static class Launcher
         catch { }
     }
 
-    /// The process's real window, hidden or shown. A titled top-level window is
-    /// the app's own; Electron's message-only and helper windows carry no title,
-    /// so a title is what tells the one worth showing from the rest.
+    /// Electron's own top-level window is a Chromium widget host; every one of
+    /// them, main window and popups alike, carries this class.
+    private const string ElectronWindowClass = "Chrome_WidgetWin_1";
+
+    /// The process's real window, hidden or shown. A title is not enough to pick
+    /// it out: Chromium also owns an OleDdeWndClass window titled "DDE Server
+    /// Window" for shell activation, and it can sit ahead of the real one in the
+    /// enumeration — so matching the first titled window showed that instead, and
+    /// SW_RESTORE dragged the hidden DDE window into the switcher beside Claude.
+    /// The app window is the Chromium widget host, and its class is what says so;
+    /// a title on top of that rules out the process's untitled background widgets.
     private static IntPtr FindAppWindow(uint pid)
     {
         var found = IntPtr.Zero;
+        var className = new StringBuilder(64);
         EnumWindows((hWnd, _) =>
         {
             GetWindowThreadProcessId(hWnd, out var owner);
-            if (owner == pid && GetWindowTextLength(hWnd) > 0)
-            {
-                found = hWnd;
-                return false;   // stop at the first titled window this process owns
-            }
-            return true;
+            if (owner != pid || GetWindowTextLength(hWnd) == 0) return true;
+            GetClassName(hWnd, className, className.Capacity);
+            if (className.ToString() != ElectronWindowClass) return true;
+            found = hWnd;
+            return false;   // stop at the first real app window this process owns
         }, IntPtr.Zero);
         return found;
     }
