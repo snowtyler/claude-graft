@@ -36,9 +36,20 @@
                                 <TextBlock Grid.Column="1" Text="{x:Bind Name}"
                                            VerticalAlignment="Center"
                                            Style="{StaticResource BodyStrongTextBlockStyle}" />
-                                <Button Grid.Column="2" Content="Open" Click="Open_Click" Tag="{x:Bind}"
-                                        Style="{StaticResource AccentButtonStyle}"
-                                        Padding="16,4" MinHeight="0" />
+                                <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                            Spacing="8" VerticalAlignment="Center">
+                                    <ProgressRing IsActive="{x:Bind Starting, Mode=OneWay}"
+                                                  Visibility="{x:Bind StartingVisibility, Mode=OneWay}"
+                                                  Width="16" Height="16" VerticalAlignment="Center" />
+                                    <Button Content="Start Session" Click="Start_Click" Tag="{x:Bind}"
+                                            Visibility="{x:Bind StartVisibility, Mode=OneWay}"
+                                            IsEnabled="{x:Bind StartEnabled, Mode=OneWay}"
+                                            Padding="10,4" MinHeight="0"
+                                            ToolTipService.ToolTip="{x:Bind StartTooltip, Mode=OneWay}" />
+                                    <Button Content="Open" Click="Open_Click" Tag="{x:Bind}"
+                                            Style="{StaticResource AccentButtonStyle}"
+                                            Padding="16,4" MinHeight="0" />
+                                </StackPanel>
                             </Grid>
 
                             <!-- Always in the layout, so the row is its full height
@@ -50,12 +61,22 @@
                                 <TextBlock Text="{x:Bind FiveHourText, Mode=OneWay}"
                                            Style="{StaticResource CaptionTextBlockStyle}"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <ProgressBar Value="{x:Bind FiveHour, Mode=OneWay}" Maximum="100" />
+                                <ProgressBar Value="{x:Bind FiveHour, Mode=OneWay}" Maximum="100"
+                                             local:BarPulse.Key="{x:Bind Pulse, Mode=OneWay}" />
                                 <TextBlock Text="{x:Bind WeekText, Mode=OneWay}" Margin="0,4,0,0"
                                            Style="{StaticResource CaptionTextBlockStyle}"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <ProgressBar Value="{x:Bind Week, Mode=OneWay}" Maximum="100" />
+                                <ProgressBar Value="{x:Bind Week, Mode=OneWay}" Maximum="100"
+                                             local:BarPulse.Key="{x:Bind Pulse, Mode=OneWay}" />
                             </StackPanel>
+
+                            <!-- Why the last Start Session could not open a window,
+                                 shown only when there is one to report. -->
+                            <TextBlock Text="{x:Bind Problem, Mode=OneWay}"
+                                       Visibility="{x:Bind ProblemVisibility, Mode=OneWay}"
+                                       TextWrapping="Wrap"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource SystemFillColorCautionBrush}" />
                         </StackPanel>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -66,6 +87,9 @@
             <Border Height="1" Margin="12,4"
                     Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
             <StackPanel Padding="12,6,12,10">
+                <Button x:Name="RefreshButton" Click="Refresh_Click" HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Left" Background="Transparent"
+                        BorderThickness="0" Content="Refresh Usage" Padding="12,9" />
                 <Button Click="Manager_Click" HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Left" Background="Transparent"
                         BorderThickness="0" Content="Open Claude Graft" Padding="12,9" />
