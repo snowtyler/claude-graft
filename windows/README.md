@@ -49,17 +49,10 @@ The core and the tests are plain `net10.0` and build and run anywhere:
 
     dotnet test windows/ClaudeGraft.Tests
 
-The app is WinUI 3 and needs the .NET 10 SDK and Developer Mode. It ships and
-runs unpackaged — the Windows App SDK runtime is carried in the bundle — so
-there is no package identity to register and it builds and runs like any
-console app:
+The app is WinUI 3 and needs the Windows App SDK toolchain — the .NET 10 SDK,
+Developer Mode, and the WinApp CLI. To build and run it:
 
-    dotnet run --project windows/ClaudeGraft -p:Platform=x64
-
-To produce the folder an install copies into place, publish it; the launcher
-stub and the loose icon ride along into the output:
-
-    dotnet publish windows/ClaudeGraft -c Release -p:Platform=x64 -o windows/dist/ClaudeGraft
+    winapp run windows/ClaudeGraft --arch x64
 
 Opening a profile from the app copies the launcher stub into a stable per-user
 folder and writes a desktop shortcut pointing at it, so the profile goes on
@@ -77,13 +70,15 @@ The port is the code, not a decision about how it ships. Distribution and
 signing belong to whoever owns this repository, since they turn on keys and
 channels a contributor does not have, so the port leaves them alone:
 
-- **Distribution and updates.** A full-trust utility that reaches across profile
+- **Distribution and updates.** The MSIX build wired up here is a working
+  signing dry-run, but a full-trust utility that reaches across profile
   directories and reads another app's credentials fits an unpackaged installer
-  better than a sandboxed package, so the app ships unpackaged — the same shape
-  Claude Desktop itself uses on Windows, and the sibling of the Sparkle-and-Homebrew
-  story on the Mac. The per-user `dist/install.ps1` copies the published folder
-  into place, puts it in the Start menu and starts it at login. Which update feed
-  it rides, and whether a release is signed at all, are the maintainer's call.
+  better than a sandboxed package — the same shape Claude Desktop itself uses on
+  Windows, and the sibling of the Sparkle-and-Homebrew story on the Mac. Which
+  installer, which update feed, and whether a release is signed at all are the
+  maintainer's call.
+- **The manifest identity** is still the scaffold's placeholder name and
+  publisher. A real release sets its own.
 - **Signing in a second account** works, with one rough edge: the OAuth callback
   comes back through the `claude://` handler, which Windows routes to the default
   profile rather than the grafted instance the person is using. A small handler
