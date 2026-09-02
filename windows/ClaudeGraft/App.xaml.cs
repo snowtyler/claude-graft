@@ -42,12 +42,16 @@ public partial class App : Application
         {
             ToolTipText = "Claude Graft",
             IconSource = new BitmapImage(new Uri("ms-appx:///Assets/AppIcon.ico")),
+            // Without this a left click is held back the length of the
+            // double-click timeout, in case a second one follows — half a second
+            // of nothing between pressing the icon and the flyout appearing.
+            // Nothing here wants the double click, so the single one fires at once.
+            NoLeftClickDelay = true,
         };
         // A left click opens the flyout — the account list with its usage, the
         // Mac menu bar item's whole face — while the right click keeps the plain
         // menu as a fallback that needs no window to draw.
         _tray.LeftClickCommand = new RelayCommand(ToggleFlyout);
-        _tray.DoubleClickCommand = new RelayCommand(ShowManager);
         _tray.RightClickCommand = new RelayCommand(ShowMenu);
         _tray.ForceCreate();
 
