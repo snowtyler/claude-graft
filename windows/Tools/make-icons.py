@@ -16,21 +16,29 @@ Needs Pillow (`pip install Pillow`).
 """
 
 from pathlib import Path
-from PIL import Image
+from PIL import Image, ImageFilter
 
 REPO = Path(__file__).resolve().parents[2]
 MASTER = REPO / "Resources" / "AppIcon.icns"
 ASSETS = REPO / "windows" / "ClaudeGraft" / "Assets"
 
-# The tile and logo PNGs the app package names, each at the exact pixel size its
-# filename promises — a scale-200 tile is twice its base, a targetsize is itself.
-SQUARE = {
+# The taskbar button and Start entry of a packaged app take their icon from the
+# Square44x44 logos, never from the exe's embedded .ico, so these want the mark
+# filling the frame the way the .ico does — scaled from the cropped master, not
+# the padded one, or the mark sits inset and reads smaller than Claude's beside
+# it in the taskbar. The Store logo is a bare icon too and gets the same.
+CROPPED = {
     "Square44x44Logo.scale-200.png": 88,
     "Square44x44Logo.targetsize-24_altform-unplated.png": 24,
     "Square44x44Logo.targetsize-48_altform-lightunplated.png": 48,
+    "StoreLogo.png": 50,
+}
+
+# The larger Start tiles are meant to hold the mark centred with a margin around
+# it, so these keep the padding the macOS master carries.
+PADDED = {
     "Square150x150Logo.scale-200.png": 300,
     "LockScreenLogo.scale-200.png": 48,
-    "StoreLogo.png": 50,
 }
 
 # The wide tiles are not square; the mark sits at their height, centred, on the
@@ -43,7 +51,7 @@ WIDE = {
 # The sizes a Windows .ico carries, from the taskbar's largest down to the 16
 # the notification area shows. The mark still reads at 16, which is the whole
 # reason it is a single stroke and not a scene.
-ICO_SIZES = [16, 24, 32, 48, 64, 128, 256]
+ICO_SIZES = [16, 20, 24, 30, 32, 36, 40, 48, 64, 128, 256, 512]
 
 
 def master_1024() -> Image.Image:
@@ -59,21 +67,47 @@ def main() -> None:
 
     master = master_1024()
 
-    def square(size: int) -> Image.Image:
-        return master.resize((size, size), Image.LANCZOS)
+    # The master carries transparent padding for the macOS menu bar, which adds
+    # its own inset. The taskbar, tray and small logos want the mark filling the
+    # frame, so they scale from the content bbox with the padding cropped away.
+    bbox = master.getbbox()
+    cropped = master.crop(bbox) if bbox else master
+    # Make it square again, centred, in case the bbox was not.
+    side = max(cropped.size)
+    if cropped.size != (side, side):
+        sq = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+        sq.paste(cropped, ((side - cropped.width) // 2, (side - cropped.height) // 2), cropped)
+        cropped = sq
 
-    for name, size in SQUARE.items():
-        square(size).save(ASSETS / name)
+    def scale(source: Image.Image, size: int) -> Image.Image:
+        img = source.resize((size, size), Image.LANCZOS)
+        # A light sharpen keeps small icons crisp rather than smeared.
+        if size <= 64:
+            img = img.filter(ImageFilter.SHARPEN)
+        return img
+
+    for name, size in CROPPED.items():
+        scale(cropped, size).save(ASSETS / name)
+
+    for name, size in PADDED.items():
+        scale(master, size).save(ASSETS / name)
 
     for name, (width, height) in WIDE.items():
         canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-        mark = square(min(width, height))
+        mark = scale(master, min(width, height))
         canvas.paste(mark, ((width - mark.width) // 2, (height - mark.height) // 2), mark)
         canvas.save(ASSETS / name)
 
-    master.save(ASSETS / "AppIcon.ico", format="ICO", sizes=[(s, s) for s in ICO_SIZES])
+    # Pillow's ICO writer takes one image and a sizes list; it rescales
+    # internally, so hand it the largest and let it downsample. The sharpen
+    # at small sizes is lost this way, but the cropped bbox is what matters
+    # for the size match against Claude's icon.
+    ico_master = cropped.resize((max(ICO_SIZES), max(ICO_SIZES)), Image.LANCZOS)
+    ico_master.save(
+        ASSETS / "AppIcon.ico", format="ICO",
+        sizes=[(s, s) for s in ICO_SIZES])
 
-    print(f"wrote {len(SQUARE) + len(WIDE) + 1} assets to {ASSETS}")
+    print(f"wrote {len(CROPPED) + len(PADDED) + len(WIDE) + 1} assets to {ASSETS}")
 
 
 if __name__ == "__main__":
