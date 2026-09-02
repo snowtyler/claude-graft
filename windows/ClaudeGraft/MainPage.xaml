@@ -6,7 +6,7 @@
     xmlns:local="using:ClaudeGraft"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+    Background="Transparent"
     mc:Ignorable="d">
 
     <Grid Padding="24" RowSpacing="16">
@@ -104,17 +104,17 @@
                         </Border>
                     </DataTemplate>
                 </ListView.ItemTemplate>
+                <!-- Hint flows below the cards, never over them, while no extra
+                     profiles exist yet. -->
+                <ListView.Footer>
+                    <TextBlock x:Name="EmptyState" Visibility="Collapsed"
+                               Text="Add a profile to run a second account alongside Claude."
+                               Margin="16,16,16,0"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                               HorizontalAlignment="Center" />
+                </ListView.Footer>
             </ListView>
-
-            <!-- Hint shown below the main card while no extra profiles exist -->
-            <StackPanel x:Name="EmptyState" Visibility="Collapsed"
-                        VerticalAlignment="Top" Margin="0,110,0,0"
-                        HorizontalAlignment="Center" Spacing="6" IsHitTestVisible="False">
-                <TextBlock Text="Add a profile to run a second account alongside Claude."
-                           Style="{StaticResource CaptionTextBlockStyle}"
-                           Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                           HorizontalAlignment="Center" />
-            </StackPanel>
         </Grid>
     </Grid>
 </Page>
