@@ -96,8 +96,10 @@ public sealed partial class MainPage : Page
 
     private async Task LoadUsage(ShortcutRow row, bool interactive)
     {
-        var profile = row.Shortcut.ProfileDir;
-        var entry = await UsageMonitor.ReadAsync(profile, interactive);
+        // row.ProfileDir, not row.Shortcut.ProfileDir — the main row has no
+        // shortcut behind it, and dereferencing one swallowed its whole load in
+        // an unobserved task, which is why the main account showed no usage.
+        var entry = await UsageMonitor.ReadAsync(row.ProfileDir, interactive);
         // Back on the UI thread after the await; the row may still be shown.
         if (Rows.Contains(row)) row.SetUsage(entry);
     }
