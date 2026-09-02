@@ -18,6 +18,22 @@ public static class ClaudeProcesses
             ? WindowsProcessQuery.ClaudeProcesses()
             : Array.Empty<(int pid, string command)>();
 
+    /// Whether this is the Electron desktop app rather than the Claude Code CLI.
+    ///
+    /// Claude Desktop keeps a copy of Claude Code inside every profile and spawns
+    /// it for a bridged session — <c>…\<profile>\claude-code\<version>\claude.exe</c>,
+    /// named claude.exe like the app, and carrying neither <c>--type=</c> nor
+    /// <c>--user-data-dir</c>. By flags alone it is indistinguishable from the
+    /// main instance, so a bridged session running with the main window closed
+    /// made the profile look open, and reopening it revealed that windowless CLI
+    /// process and did nothing — inconsistent, since it turned on whether a
+    /// session happened to be bridging. Identity comes from the binary, the way
+    /// the Mac build's isClaudeProcess reads it: the desktop app lives under
+    /// <c>AnthropicClaude\app-<version>\</c>, where only the Electron process and
+    /// its helpers run, and every one of them owns a window worth showing.
+    public static bool IsClaudeDesktop(string command) =>
+        command.Contains(@"AnthropicClaude\app-", StringComparison.OrdinalIgnoreCase);
+
     /// A helper process — a renderer, a GPU or utility process — rather than the
     /// browser process that owns the window. Electron marks these with --type;
     /// only the one without it answers to being shown.
@@ -30,7 +46,7 @@ public static class ClaudeProcesses
     /// The main binary of a Claude on no profile in particular — no helper flag,
     /// and no --user-data-dir, which is the only mark the default profile has.
     public static bool IsDefaultInstance(string command) =>
-        !IsHelper(command) && !HasUserDataDir(command);
+        IsClaudeDesktop(command) && !IsHelper(command) && !HasUserDataDir(command);
 
     /// Whether a command line carries this exact profile's --user-data-dir.
     ///
@@ -64,7 +80,7 @@ public static class ClaudeProcesses
         // does on the Mac.
         if (Fs.SamePath(profile, GraftPaths.DefaultProfile))
             return processes.Any(p => IsDefaultInstance(p.command));
-        return processes.Any(p => CarriesDataDir(p.command, profile));
+        return processes.Any(p => IsClaudeDesktop(p.command) && CarriesDataDir(p.command, profile));
     }
 
     public static int? ProcessIdentifier(string profile) => ProcessIdentifier(profile, Enumerate());
@@ -77,7 +93,7 @@ public static class ClaudeProcesses
         if (Fs.SamePath(profile, GraftPaths.DefaultProfile))
             return processes.Where(p => IsDefaultInstance(p.command))
                             .Select(p => (int?)p.pid).FirstOrDefault();
-        return processes.Where(p => !IsHelper(p.command) && CarriesDataDir(p.command, profile))
+        return processes.Where(p => IsClaudeDesktop(p.command) && !IsHelper(p.command) && CarriesDataDir(p.command, profile))
                         .Select(p => (int?)p.pid).FirstOrDefault();
     }
 }
