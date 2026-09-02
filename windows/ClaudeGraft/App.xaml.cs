@@ -64,14 +64,21 @@ public partial class App : Application
     {
         // Read on this thread, the click's own, before hopping to the UI thread:
         // the pointer is on the icon now and will have moved by the time the
-        // window is measured and placed.
+        // window is measured and placed. The foreground window is read here too,
+        // as early as the click allows, so the flyout can hand focus back to the
+        // app the person was in when it dismisses — before the click has had a
+        // chance to move it to the shell.
         var anchor = TrayAnchor.CursorNow();
+        var priorForeground = GetForegroundWindow();
         OnUi(() =>
         {
             _flyout ??= new FlyoutWindow(ShowManager, Quit);
-            _flyout.Toggle(anchor);
+            _flyout.Toggle(anchor, priorForeground);
         });
     }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern nint GetForegroundWindow();
 
     private void ShowMenu()
     {

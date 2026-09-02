@@ -6,12 +6,13 @@
     xmlns:local="using:ClaudeGraft"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    Width="340"
+    Width="380"
     mc:Ignorable="d">
 
-    <!-- The rounded, hairline-bordered panel the acrylic shows through. The
-         window itself is borderless, so the shape lives here. -->
-    <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
+    <!-- Transparent inside so the window's mica is the surface, with a slim edge
+         to define the panel against the wallpaper, rounded to match the window's
+         own corner. -->
+    <Border Background="Transparent"
             BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
             BorderThickness="1" CornerRadius="8">
         <StackPanel>
@@ -19,10 +20,10 @@
                  flyout past the screen. -->
             <ScrollViewer MaxHeight="520" VerticalScrollBarVisibility="Auto"
                           HorizontalScrollMode="Disabled">
-            <ItemsControl ItemsSource="{x:Bind Rows}" Padding="8,8,8,4">
+            <ItemsControl ItemsSource="{x:Bind Rows}" Padding="12,12,12,6">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="local:ShortcutRow">
-                        <StackPanel Spacing="8" Padding="8,10">
+                        <StackPanel Spacing="10" Padding="10,12">
                             <Grid ColumnSpacing="10">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
@@ -40,7 +41,12 @@
                                         Padding="16,4" MinHeight="0" />
                             </Grid>
 
-                            <StackPanel Spacing="4" Visibility="{x:Bind BarsVisibility, Mode=OneWay}">
+                            <!-- Always in the layout, so the row is its full height
+                                 from the first frame rather than growing once the
+                                 usage arrives — which showed as the flyout opening
+                                 to half its size and then jumping. The bindings
+                                 read "· 0%" until the figures land. -->
+                            <StackPanel Spacing="4">
                                 <TextBlock Text="{x:Bind FiveHourText, Mode=OneWay}"
                                            Style="{StaticResource CaptionTextBlockStyle}"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -50,10 +56,6 @@
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 <ProgressBar Value="{x:Bind Week, Mode=OneWay}" Maximum="100" />
                             </StackPanel>
-                            <TextBlock Text="No usage reported yet"
-                                       Visibility="{x:Bind NoUsageVisibility, Mode=OneWay}"
-                                       Style="{StaticResource CaptionTextBlockStyle}"
-                                       Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                         </StackPanel>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -61,15 +63,15 @@
             </ScrollViewer>
 
             <!-- Actions -->
-            <Border Height="1" Margin="8,4"
+            <Border Height="1" Margin="12,4"
                     Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
-            <StackPanel Padding="8,4,8,8">
+            <StackPanel Padding="12,6,12,10">
                 <Button Click="Manager_Click" HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Left" Background="Transparent"
-                        BorderThickness="0" Content="Open Claude Graft" Padding="10,8" />
+                        BorderThickness="0" Content="Open Claude Graft" Padding="12,9" />
                 <Button Click="Quit_Click" HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Left" Background="Transparent"
-                        BorderThickness="0" Content="Quit Claude Graft" Padding="10,8" />
+                        BorderThickness="0" Content="Quit Claude Graft" Padding="12,9" />
             </StackPanel>
         </StackPanel>
     </Border>
