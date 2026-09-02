@@ -24,6 +24,7 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+
         _tray = new TaskbarIcon
         {
             ToolTipText = "Claude Graft",
