@@ -44,13 +44,42 @@ public static class Launcher
     /// store both write it, which is the one loss this app exists to avoid.
     public static void Open(GraftConfig config)
     {
+        var filing = FilingProfiles(config);
         if (ClaudeProcesses.IsRunning(config.ProfileDir))
         {
             if (ClaudeProcesses.ProcessIdentifier(config.ProfileDir) is int pid) Reveal(pid);
+            // A profile already open is the one case nothing else covers: no
+            // launch to file records on the way to, and no timer behind it. So
+            // the sweep runs on the way past instead, after the window is up.
+            SquareUp(filing);
             return;
         }
+        // Apply first, so a record filed through a graft lands where the link now
+        // points; sweep before launch, so the records are on disk before Claude
+        // reads its sidebar as it comes up.
         Graft.Apply(config);
+        SquareUp(filing);
         Launch(config.ProfileDir);
+    }
+
+    /// Mirror every known pair back into line, then file the records for any
+    /// session whose transcript survived without one. The state report the Mac
+    /// writes here is not ported yet; the mirror and the record sweep are what a
+    /// launch has to do before a sidebar is built.
+    private static void SquareUp(IReadOnlyList<string> filingInto)
+    {
+        Graft.MirrorKnownPairs();
+        Graft.FileMissingSessionRecords(filingInto, ClaudeProcesses.IsRunning);
+    }
+
+    /// The profiles a sweep run from this launch may file into: the profile being
+    /// opened, Claude's own, and the source it borrows from — the account that
+    /// owns a recovered session is likely one of these.
+    private static List<string> FilingProfiles(GraftConfig config)
+    {
+        var list = new List<string> { config.ProfileDir, GraftPaths.DefaultProfile };
+        if (!string.IsNullOrEmpty(config.SourceDir)) list.Add(config.SourceDir!);
+        return list;
     }
 
     private static void Launch(string profile)
