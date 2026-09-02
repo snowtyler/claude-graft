@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ClaudeGraft.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+dd310d4440f91817dfc73fe1c2509d4b88a16ddd")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5aa23b5d0a40ecc0c8c02a96049ce4117590ca6b")]
 [assembly: System.Reflection.AssemblyProductAttribute("ClaudeGraft.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ClaudeGraft.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using ClaudeGraft.Core;
 using H.NotifyIcon;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
