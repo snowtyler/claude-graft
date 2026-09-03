@@ -12,7 +12,7 @@
     <!-- Transparent inside so the window's mica is the surface, with a slim edge
          to define the panel against the wallpaper, rounded to match the window's
          own corner. -->
-    <Border Background="Transparent"
+    <Border x:Name="RootBorder" Background="Transparent"
             BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
             BorderThickness="1" CornerRadius="8">
         <StackPanel>

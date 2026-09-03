@@ -18,6 +18,26 @@ public partial class App : Application
 {
     public static ShortcutStore Store { get; } = new();
 
+    /// The app's preferences, applied by every window as it is built and again
+    /// whenever they change. Held here, saved on change, and announced so the
+    /// open windows re-dress themselves without being hunted down individually.
+    public static GraftSettings Settings { get; private set; } = GraftSettings.Load();
+    public static event Action? SettingsChanged;
+
+    public static void ApplySettings(GraftSettings updated)
+    {
+        // Pressing Done with nothing touched should be as quiet as Cancel: no
+        // save, and above all no re-apply, since reassigning a window's backdrop
+        // flashes it even when the material is the same.
+        if (updated.Theme == Settings.Theme
+            && updated.Backdrop == Settings.Backdrop
+            && updated.StartHidden == Settings.StartHidden) return;
+
+        Settings = updated;
+        updated.Save();
+        SettingsChanged?.Invoke();
+    }
+
     private TaskbarIcon? _tray;
     private MainWindow? _window;
     private FlyoutWindow? _flyout;
@@ -58,6 +78,11 @@ public partial class App : Application
         // Built now, hidden, so the first left click shows it rather than paying
         // to construct a window and its backdrop before anything appears.
         _flyout = new FlyoutWindow(ShowManager, Quit);
+
+        // A tray app comes up hidden by default — the notification-area icon is
+        // the whole of it until asked for more. Turned off, it opens the manager
+        // straight away, for someone who would rather see the window on launch.
+        if (!Settings.StartHidden) ShowManager();
     }
 
     private void ToggleFlyout()
@@ -99,6 +124,7 @@ public partial class App : Application
         }
         items.Add((TrayMenu.Separator, false, null));
         items.Add(("Manage Profiles…", true, ShowManager));
+        items.Add(("Settings…", true, ShowSettings));
         items.Add(("Quit", true, Quit));
 
         TrayMenu.Show(items);
@@ -108,6 +134,14 @@ public partial class App : Application
     {
         _window ??= new MainWindow();
         _window.Show();
+    });
+
+    /// Settings live in a dialog on the manager window, so opening them from the
+    /// tray brings the window up first — a dialog needs a window to sit in.
+    private void ShowSettings() => OnUi(() =>
+    {
+        _window ??= new MainWindow();
+        _window.ShowSettings();
     });
 
     private void Quit() => OnUi(() =>

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using ClaudeGraft.Core;
 using Microsoft.UI.Composition;
 using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Windowing;
@@ -27,7 +28,7 @@ public sealed class FlyoutWindow : Window
     private FlyoutEdge _edge;
     private RectInt32 _rect;   // where the window rests, once the slide has settled
     private nint _priorForeground;   // the window to hand focus back to on dismiss
-    private MicaController? _backdrop;
+    private ISystemBackdropControllerWithTargets? _backdrop;
     private SystemBackdropConfiguration? _backdropConfig;
 
     public FlyoutWindow(Action openManager, Action quit)
@@ -55,7 +56,8 @@ public sealed class FlyoutWindow : Window
         presenter.IsAlwaysOnTop = false;
         AppWindow.SetPresenter(presenter);
         AppWindow.IsShownInSwitchers = false;
-        SetupBackdrop();
+        ApplyAppearance();
+        App.SettingsChanged += ApplyAppearance;
         StyleFrame();
         RemoveNonClientFrame();
 
@@ -273,31 +275,62 @@ public sealed class FlyoutWindow : Window
         SetWindowSubclass(hwnd, _subclass, 1, 0);
     }
 
-    /// The backdrop, driven directly rather than through the SystemBackdrop
-    /// property, so its configuration is ours to set — and set once, with
-    /// IsInputActive pinned true. Left to the default, WinUI drops the material to
-    /// its opaque fallback colour whenever the window is not the active one, which
-    /// is precisely what dismiss does: the surface turned an opaque dark grey as
-    /// it slid down behind the taskbar, and that solid block was the shadow it
-    /// left. Held active, it stays translucent the whole way out.
-    private void SetupBackdrop()
-    {
-        if (!MicaController.IsSupported()) return;
+    /// Theme and backdrop from the current settings, applied on build and again
+    /// whenever they change.
+    ///
+    /// The backdrop is driven through a controller rather than the SystemBackdrop
+    /// property so its configuration is ours to set — with IsInputActive pinned
+    /// true. Left to the default, WinUI drops the material to its opaque fallback
+    /// colour whenever the window is not the active one, which is precisely what
+    /// dismiss does: the surface turned an opaque dark grey as it slid down behind
+    /// the taskbar, and that solid block was the shadow it left. Held active, it
+    /// stays translucent the whole way out. The Solid setting has no controller at
+    /// all — the flyout paints its own opaque surface instead of a material.
+    private BackdropMaterial? _appliedBackdrop;
 
-        _backdropConfig = new SystemBackdropConfiguration
+    private void ApplyAppearance()
+    {
+        _view.RequestedTheme = Appearance.ToElementTheme(App.Settings.Theme);
+
+        _backdropConfig ??= new SystemBackdropConfiguration { IsInputActive = true };
+        _backdropConfig.Theme = _view.ActualTheme switch
         {
-            IsInputActive = true,
-            Theme = _view.ActualTheme switch
-            {
-                ElementTheme.Light => SystemBackdropTheme.Light,
-                ElementTheme.Dark => SystemBackdropTheme.Dark,
-                _ => SystemBackdropTheme.Default,
-            },
+            ElementTheme.Light => SystemBackdropTheme.Light,
+            ElementTheme.Dark => SystemBackdropTheme.Dark,
+            _ => SystemBackdropTheme.Default,
         };
-        _backdrop = new MicaController();
-        _backdrop.AddSystemBackdropTarget(this.As<ICompositionSupportsSystemBackdrop>());
-        _backdrop.SetSystemBackdropConfiguration(_backdropConfig);
+
+        // The controller reads its theme from the config object it already holds,
+        // so a theme change needs no rebuild — only a change of material does, and
+        // rebuilding one that has not changed is wasted work.
+        if (_appliedBackdrop != App.Settings.Backdrop)
+        {
+            _backdrop?.Dispose();
+            _backdrop = BuildController(App.Settings.Backdrop);
+            if (_backdrop is not null)
+            {
+                _view.SetOpaqueSurface(false);
+                _backdrop.AddSystemBackdropTarget(this.As<ICompositionSupportsSystemBackdrop>());
+                _backdrop.SetSystemBackdropConfiguration(_backdropConfig);
+            }
+            else
+            {
+                _view.SetOpaqueSurface(true);
+            }
+            _appliedBackdrop = App.Settings.Backdrop;
+        }
     }
+
+    /// The controller for a material, or null for Solid and for a material the
+    /// machine cannot render — in which case the flyout falls back to its own
+    /// opaque surface rather than a see-through window.
+    private static ISystemBackdropControllerWithTargets? BuildController(BackdropMaterial material) => material switch
+    {
+        BackdropMaterial.Mica when MicaController.IsSupported() => new MicaController(),
+        BackdropMaterial.MicaAlt when MicaController.IsSupported() => new MicaController { Kind = MicaKind.BaseAlt },
+        BackdropMaterial.Acrylic when DesktopAcrylicController.IsSupported() => new DesktopAcrylicController(),
+        _ => null,
+    };
 
     private void StyleFrame()
     {

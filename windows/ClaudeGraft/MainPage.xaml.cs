@@ -71,6 +71,38 @@ public sealed partial class MainPage : Page
 
     private void Refresh_Click(object sender, RoutedEventArgs e) => Reload(interactive: true);
 
+    private async void Settings_Click(object sender, RoutedEventArgs e) => await OpenSettingsAsync();
+
+    /// Every dialog goes through here first. A dialog lives in the popup layer, a
+    /// sibling of the themed content rather than a child of it, so it inherits
+    /// neither the theme set on the page's root nor — as it turns out — an
+    /// app-level corner override: the stock template rounds its surface from an
+    /// OverlayCornerRadius resolved at the dialog's own scope, which no resource
+    /// higher up ever reached. So the theme is set on the dialog directly, and the
+    /// corner is set both ways the SDK might read it — the resource the stock
+    /// template looks up, and the CornerRadius a template-bound one would — so the
+    /// modal rounds to the 8px used everywhere else and wears the chosen theme.
+    private void PrepareDialog(ContentDialog dialog)
+    {
+        dialog.XamlRoot = XamlRoot;
+        dialog.RequestedTheme = Appearance.ToElementTheme(App.Settings.Theme);
+        dialog.CornerRadius = new CornerRadius(8);
+        dialog.Resources["OverlayCornerRadius"] = new CornerRadius(8);
+    }
+
+    /// Opens the settings dialog and, once Done is pressed, writes the auto-start
+    /// shortcut and hands the rest to the app to save and apply everywhere.
+    public async Task OpenSettingsAsync()
+    {
+        var dialog = new SettingsDialog(App.Settings);
+        PrepareDialog(dialog);
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        {
+            AutoStart.Set(dialog.AutoStartEnabled);
+            App.ApplySettings(dialog.Result);
+        }
+    }
+
     private void Open_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement { Tag: ShortcutRow row })
@@ -92,7 +124,8 @@ public sealed partial class MainPage : Page
 
     private async Task EditProfile(Shortcut? existing)
     {
-        var dialog = new ProfileDialog(App.Store, existing) { XamlRoot = XamlRoot };
+        var dialog = new ProfileDialog(App.Store, existing);
+        PrepareDialog(dialog);
         var result = await dialog.ShowAsync();
 
         if (result == ContentDialogResult.Primary)
@@ -171,13 +204,13 @@ public sealed partial class MainPage : Page
 
         var confirm = new ContentDialog
         {
-            XamlRoot = XamlRoot,
             Title = "Remove profile?",
             Content = body,
             PrimaryButtonText = "Remove",
             CloseButtonText = "Cancel",
             DefaultButton = ContentDialogButton.Close,
         };
+        PrepareDialog(confirm);
 
         if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
 
@@ -188,12 +221,15 @@ public sealed partial class MainPage : Page
         if (problem is not null) await Warn("The profile folder was kept", problem);
     }
 
-    private async Task Warn(string title, string message) =>
-        await new ContentDialog
+    private async Task Warn(string title, string message)
+    {
+        var dialog = new ContentDialog
         {
-            XamlRoot = XamlRoot,
             Title = title,
             Content = message,
             CloseButtonText = "OK",
-        }.ShowAsync();
+        };
+        PrepareDialog(dialog);
+        await dialog.ShowAsync();
+    }
 }
