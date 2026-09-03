@@ -1,0 +1,67 @@
+name: Windows Release
+
+on:
+  push:
+    tags:
+      - 'win-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version from tag
+        id: version
+        shell: bash
+        run: echo "version=${GITHUB_REF_NAME#win-v}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore windows/ClaudeGraft/ClaudeGraft.csproj -r win-x64
+
+      - name: Publish
+        run: >
+          dotnet publish windows/ClaudeGraft/ClaudeGraft.csproj
+          -c Release
+          -p:Platform=x64
+          -o windows/dist/ClaudeGraft
+          --no-restore
+
+      - name: Download VC++ Redistributable
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" `
+            -OutFile "windows/installer/vc_redist.x64.exe"
+
+      - name: Install Inno Setup 7
+        shell: pwsh
+        run: |
+          $url = 'https://files.jrsoftware.org/is/7/innosetup-7.1.0.exe'
+          Invoke-WebRequest -Uri $url -OutFile "$env:TEMP\innosetup.exe"
+          Start-Process "$env:TEMP\innosetup.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 7\ISCC.exe" `
+            /DMyAppVersion="${{ steps.version.outputs.version }}" `
+            /O"windows/dist" `
+            "windows/installer/ClaudeGraft.iss"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: v${{ steps.version.outputs.version }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            windows/dist/ClaudeGraft-${{ steps.version.outputs.version }}-x64-setup.exe
