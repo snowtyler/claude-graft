@@ -43,7 +43,10 @@ public sealed class ShortcutRow : INotifyPropertyChanged
         if (running == _running) return;
         _running = running;
         Notify(nameof(StatusBrush));
+        Notify(nameof(StatusLabel));
     }
+
+    public string StatusLabel => _running ? "A Claude is open on this profile" : "No Claude is open on this profile";
 
     // Lit green when a Claude holds the profile; a faint, theme-neutral grey
     // when none does, so the dot is legible on either background without a
