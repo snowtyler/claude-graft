@@ -40,6 +40,10 @@
                         <TextBlock Text="Refresh" />
                     </StackPanel>
                 </Button>
+                <Button Click="Settings_Click" ToolTipService.ToolTip="Settings"
+                        VerticalAlignment="Stretch">
+                    <FontIcon Glyph="&#xE713;" FontSize="14" VerticalAlignment="Center" />
+                </Button>
             </StackPanel>
         </Grid>
 
