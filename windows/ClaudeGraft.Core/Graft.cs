@@ -241,6 +241,101 @@ public static partial class Graft
         catch { return null; }
     }
 
+    // MARK: - Moving a profile to a new folder
+
+    public enum ProfileMove { Moved, NothingToMove, TargetExists, Failed }
+
+    /// Move a profile's data from one folder to another when its folder is
+    /// changed in the window, so the chats and login follow the rename rather
+    /// than being abandoned at the old name with an empty folder standing in.
+    ///
+    /// Three guards hold it in. It refuses when something already sits at the new
+    /// name — merging two profiles' data is not what a rename means, and writing
+    /// over it is worse — so the caller sends the person back to pick an unused
+    /// name. It does nothing when there is no old folder to move, since the graft
+    /// that follows will make the new one. And the path-keyed state moves with the
+    /// folder: the mirror baselines and the sweep's record of where each session
+    /// sat both name the old path, and a mirror whose baseline has gone reads as a
+    /// first pass and stashes the live history away — the "moved, not cleared"
+    /// mistake, reached here by a rename rather than a sign-in. The caller is
+    /// responsible for the other half of the safety: a profile whose Claude is
+    /// running must not have its files moved out from under it.
+    public static ProfileMove MoveProfileFolder(string oldFolder, string newFolder)
+    {
+        var from = Path.GetFullPath(GraftPaths.Profile(oldFolder));
+        var to = Path.GetFullPath(GraftPaths.Profile(newFolder));
+        if (Fs.SamePath(from, to)) return ProfileMove.NothingToMove;
+        if (!Directory.Exists(from)) return ProfileMove.NothingToMove;
+        if (Fs.Exists(to)) return ProfileMove.TargetExists;
+
+        try
+        {
+            // Same volume — both are children of the profiles root — so this is a
+            // rename, and a rename carries the junctions and stashes inside whole,
+            // targets untouched, rather than walking into them.
+            Directory.Move(from, to);
+        }
+        catch
+        {
+            Diagnostics.Note("profile.move.failed", new Dictionary<string, object?>
+            {
+                ["from"] = from, ["to"] = to,
+            });
+            return ProfileMove.Failed;
+        }
+
+        RenameProfileInState(from, to);
+        Diagnostics.Note("profile.move", new Dictionary<string, object?>
+        {
+            ["from"] = from, ["to"] = to,
+        });
+        return ProfileMove.Moved;
+    }
+
+    /// Rewrites every path this app has written down that sat at or inside the old
+    /// profile folder to sit at the new one instead. String work on the stored
+    /// keys, not a re-resolve, so it matches how they were written whether or not
+    /// the folders still exist by their old names.
+    private static void RenameProfileInState(string oldRoot, string newRoot)
+    {
+        var mirror = LoadMirrorState();
+        var movedPairs = new Dictionary<string, Dictionary<string, string>>();
+        foreach (var (key, value) in mirror.Pairs)
+        {
+            if (PairHalves(key) is not (string borrower, string source))
+            {
+                movedPairs[key] = value;
+                continue;
+            }
+            var one = RemapPath(borrower, oldRoot, newRoot) ?? borrower;
+            var other = RemapPath(source, oldRoot, newRoot) ?? source;
+            movedPairs[one + PairSeparator + other] = value;
+        }
+        mirror.Pairs = movedPairs;
+        SaveMirrorState(mirror);
+
+        var records = SessionRecordState.Load(SessionRecordStateFile);
+        var moved = false;
+        foreach (var session in records.Records.Keys.ToList())
+            if (RemapPath(records.Records[session], oldRoot, newRoot) is string moved2)
+            {
+                records.Records[session] = moved2;
+                moved = true;
+            }
+        if (moved) records.Save(SessionRecordStateFile);
+    }
+
+    /// A path rewritten from under one root to the other, or null when it sat
+    /// under neither and is left as it was.
+    private static string? RemapPath(string path, string oldRoot, string newRoot)
+    {
+        if (Fs.SamePath(path, oldRoot)) return newRoot;
+        var prefix = oldRoot + Path.DirectorySeparatorChar;
+        return path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            ? newRoot + Path.DirectorySeparatorChar + path[prefix.Length..]
+            : null;
+    }
+
     // MARK: - Filesystem moves
 
     /// Move a file or directory, whichever it is. Directory.Move and File.Move
