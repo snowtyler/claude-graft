@@ -9,11 +9,18 @@ namespace ClaudeGraft;
 public sealed partial class MainPage : Page
 {
     public ObservableCollection<ShortcutRow> Rows { get; } = new();
+    private readonly DispatcherTimer _processTimer = new() { Interval = TimeSpan.FromSeconds(5) };
 
     public MainPage()
     {
         InitializeComponent();
-        Loaded += (_, _) => Reload();
+        Loaded += (_, _) =>
+        {
+            Reload();
+            _processTimer.Start();
+        };
+        Unloaded += (_, _) => _processTimer.Stop();
+        _processTimer.Tick += async (_, _) => await MarkRunning(Rows.ToList());
     }
 
     private void Reload(bool interactive = false)
@@ -101,6 +108,20 @@ public sealed partial class MainPage : Page
             AutoStart.Set(dialog.AutoStartEnabled);
             App.ApplySettings(dialog.Result);
         }
+    }
+
+    private async void Start_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: ShortcutRow row } || row.Starting) return;
+        row.Problem = null;
+        row.Starting = true;
+
+        var problem = await Task.Run(() => SessionStarter.StartAsync(row.ProfileDir));
+
+        UsageMonitor.Invalidate(row.ProfileDir);
+        row.Starting = false;
+        row.Problem = problem;
+        if (Rows.Contains(row)) await LoadUsage(row, interactive: true);
     }
 
     private void Open_Click(object sender, RoutedEventArgs e)

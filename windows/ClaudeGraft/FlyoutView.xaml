@@ -38,14 +38,17 @@
                                            Style="{StaticResource BodyStrongTextBlockStyle}" />
                                 <StackPanel Grid.Column="2" Orientation="Horizontal"
                                             Spacing="8" VerticalAlignment="Center">
-                                    <ProgressRing IsActive="{x:Bind Starting, Mode=OneWay}"
-                                                  Visibility="{x:Bind StartingVisibility, Mode=OneWay}"
-                                                  Width="16" Height="16" VerticalAlignment="Center" />
-                                    <Button Content="Start Session" Click="Start_Click" Tag="{x:Bind}"
-                                            Visibility="{x:Bind StartVisibility, Mode=OneWay}"
-                                            IsEnabled="{x:Bind StartEnabled, Mode=OneWay}"
-                                            Padding="10,4" MinHeight="0"
-                                            ToolTipService.ToolTip="{x:Bind StartTooltip, Mode=OneWay}" />
+                                    <Border Background="Transparent" ToolTipService.ToolTip="{x:Bind StartTooltip, Mode=OneWay}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <ProgressRing IsActive="{x:Bind Starting, Mode=OneWay}"
+                                                          Visibility="{x:Bind StartingVisibility, Mode=OneWay}"
+                                                          Width="16" Height="16" VerticalAlignment="Center" />
+                                            <Button Content="Start Session" Click="Start_Click" Tag="{x:Bind}"
+                                                    Visibility="{x:Bind StartVisibility, Mode=OneWay}"
+                                                    IsEnabled="{x:Bind StartEnabled, Mode=OneWay}"
+                                                    Padding="10,4" MinHeight="0" />
+                                        </StackPanel>
+                                    </Border>
                                     <Button Content="Open" Click="Open_Click" Tag="{x:Bind}"
                                             Style="{StaticResource AccentButtonStyle}"
                                             Padding="16,4" MinHeight="0" />

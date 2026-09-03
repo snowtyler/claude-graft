@@ -37,7 +37,7 @@
                 <Button Click="Refresh_Click">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="&#xE72C;" FontSize="14" />
-                        <TextBlock Text="Refresh" />
+                        <TextBlock Text="Refresh Usage" />
                     </StackPanel>
                 </Button>
                 <Button Click="Settings_Click" ToolTipService.ToolTip="Settings"
@@ -91,6 +91,16 @@
                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                         <Button Content="Edit" Click="Edit_Click" Tag="{x:Bind}"
                                                 Visibility="{x:Bind EditVisibility}" />
+                                        <Border Background="Transparent" ToolTipService.ToolTip="{x:Bind StartTooltip, Mode=OneWay}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <ProgressRing IsActive="{x:Bind Starting, Mode=OneWay}"
+                                                              Visibility="{x:Bind StartingVisibility, Mode=OneWay}"
+                                                              Width="16" Height="16" VerticalAlignment="Center" />
+                                                <Button Content="Start Session" Click="Start_Click" Tag="{x:Bind}"
+                                                        Visibility="{x:Bind StartVisibility, Mode=OneWay}"
+                                                        IsEnabled="{x:Bind StartEnabled, Mode=OneWay}" />
+                                            </StackPanel>
+                                        </Border>
                                         <Button Content="Open" Click="Open_Click" Tag="{x:Bind}"
                                                 Style="{StaticResource AccentButtonStyle}" />
                                     </StackPanel>
@@ -111,6 +121,11 @@
                                            Visibility="{x:Bind NoUsageVisibility, Mode=OneWay}"
                                            Style="{StaticResource CaptionTextBlockStyle}"
                                            Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                                <TextBlock Text="{x:Bind Problem, Mode=OneWay}"
+                                           Visibility="{x:Bind ProblemVisibility, Mode=OneWay}"
+                                           TextWrapping="Wrap"
+                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                           Foreground="{ThemeResource SystemFillColorCautionBrush}" />
                             </StackPanel>
                         </Border>
                     </DataTemplate>
