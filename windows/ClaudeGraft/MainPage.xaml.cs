@@ -28,8 +28,20 @@ public sealed partial class MainPage : Page
             Rows.Add(row);
             _ = LoadUsage(row, interactive);   // fills the bars in when the answer arrives
         }
+        _ = MarkRunning(rows);
         // The hint sits below the main card while there are no shortcuts yet.
         EmptyState.Visibility = App.Store.Shortcuts.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// Lights each row's dot for the profile a Claude is holding, the way the
+    /// flyout does. Reading what is running is a WMI query, slow enough that doing
+    /// it inline would stall the list drawing, so it runs off the UI thread and
+    /// sets the dots when it lands — a beat late is nothing the eye catches.
+    private async Task MarkRunning(IReadOnlyList<ShortcutRow> rows)
+    {
+        var processes = await Task.Run(ClaudeProcesses.Enumerate);
+        foreach (var row in rows)
+            if (Rows.Contains(row)) row.SetRunning(ClaudeProcesses.IsRunning(row.ProfileDir, processes));
     }
 
     private async Task LoadUsage(ShortcutRow row, bool interactive)
