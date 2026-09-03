@@ -44,7 +44,6 @@ public static class UsageMonitor
         public DateTimeOffset BackoffUntil;
         public int Failures;
         public DateTimeOffset RetryUntil; // a service Retry-After — honoured even for a press
-        public string? Plan;
     }
 
     /// A disk sample read as a figure that is current now. Claude records the

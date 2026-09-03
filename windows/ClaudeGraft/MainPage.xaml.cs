@@ -87,6 +87,38 @@ public sealed partial class MainPage : Page
         {
             var shortcut = dialog.Result;
             var previousName = existing?.Name;
+            var previousFolder = existing?.Folder;
+
+            // A changed folder moves the profile's chats and login to the new
+            // name rather than abandoning them at the old one. Its Claude must be
+            // closed first — moving the files it has open could lose a chat — and
+            // the move itself refuses to write over a folder already in use.
+            if (existing is not null && previousFolder is not null
+                && !Fs.SamePath(GraftPaths.Profile(previousFolder), GraftPaths.Profile(shortcut.Folder)))
+            {
+                if (ClaudeProcesses.IsRunning(GraftPaths.Profile(previousFolder)))
+                {
+                    await Warn("Close Claude first",
+                        $"“{existing.Name}” is open. Quit its Claude window before changing the folder — "
+                        + "moving a profile's files while Claude is using them could lose chats.");
+                    return;
+                }
+                var moved = await Task.Run(() => Graft.MoveProfileFolder(previousFolder, shortcut.Folder));
+                if (moved == Graft.ProfileMove.TargetExists)
+                {
+                    await Warn("That folder is already in use",
+                        $"A folder named “{shortcut.Folder}” already exists. Pick a name that is not in use, "
+                        + "so nothing there is overwritten.");
+                    return;
+                }
+                if (moved == Graft.ProfileMove.Failed)
+                {
+                    await Warn("Could not move the profile",
+                        "Its files could not be moved, so nothing was changed. Make sure its Claude is closed and try again.");
+                    return;
+                }
+            }
+
             if (dialog.IsNew) App.Store.Add(shortcut);
             else App.Store.Update(shortcut);
 
