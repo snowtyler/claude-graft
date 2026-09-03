@@ -41,17 +41,15 @@ jobs:
           Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" `
             -OutFile "windows/installer/vc_redist.x64.exe"
 
-      - name: Install Inno Setup 7
+      - name: Install Inno Setup
         shell: pwsh
-        run: |
-          $url = 'https://files.jrsoftware.org/is/7/innosetup-7.1.0.exe'
-          Invoke-WebRequest -Uri $url -OutFile "$env:TEMP\innosetup.exe"
-          Start-Process "$env:TEMP\innosetup.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait
+        run: choco install innosetup --yes --no-progress
 
       - name: Build installer
         shell: pwsh
         run: |
-          & "C:\Program Files (x86)\Inno Setup 7\ISCC.exe" `
+          $iscc = Get-ChildItem "C:\Program Files*\Inno Setup*\ISCC.exe" -Recurse | Select-Object -First 1
+          & $iscc.FullName `
             /DMyAppVersion="${{ steps.version.outputs.version }}" `
             /O"windows/dist" `
             "windows/installer/ClaudeGraft.iss"
