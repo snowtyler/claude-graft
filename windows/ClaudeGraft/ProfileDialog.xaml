@@ -6,12 +6,22 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
+    CornerRadius="8"
     PrimaryButtonText="Save"
     CloseButtonText="Cancel"
     DefaultButton="Primary"
     PrimaryButtonStyle="{StaticResource DialogPrimaryButtonStyle}"
     SecondaryButtonStyle="{StaticResource DialogNeutralButtonStyle}"
     CloseButtonStyle="{StaticResource DialogNeutralButtonStyle}">
+
+    <!-- The dialog template rounds its surface from OverlayCornerRadius resolved
+         at its own scope; an app-level override never reached it, so it is set
+         here where the template will find it. Both this and the CornerRadius
+         above are given, so the corners match the 8px used everywhere else
+         whichever one the SDK's template reads. -->
+    <ContentDialog.Resources>
+        <CornerRadius x:Key="OverlayCornerRadius">8</CornerRadius>
+    </ContentDialog.Resources>
 
     <StackPanel Spacing="14" Width="380">
         <StackPanel Spacing="6">
