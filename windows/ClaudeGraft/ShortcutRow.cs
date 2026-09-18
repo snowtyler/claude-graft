@@ -22,6 +22,12 @@ public sealed class ShortcutRow : INotifyPropertyChanged
     public bool IsEditable => Shortcut is not null;
     public Visibility EditVisibility => IsEditable ? Visibility.Visible : Visibility.Collapsed;
 
+    /// Whether the app keeps this account's five-hour window open on its own. Held
+    /// on the shortcut for a grafted profile and in the app's settings for the
+    /// main one, which has no shortcut behind it; the checkbox reads it here and
+    /// the page persists the change.
+    public bool KeepWarm => Shortcut?.KeepWarm ?? App.Settings.KeepMainWarm;
+
     public static ShortcutRow ForShortcut(Shortcut s) => new()
     {
         Shortcut = s, ProfileDir = s.ProfileDir, Name = s.Name,

@@ -1,4 +1,6 @@
+using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 using ClaudeGraft.Core;
 using H.NotifyIcon;
@@ -41,6 +43,7 @@ public partial class App : Application
     private TaskbarIcon? _tray;
     private MainWindow? _window;
     private FlyoutWindow? _flyout;
+    private Timer? _warmTimer;
 
     // The tray's click callbacks arrive on H.NotifyIcon's message-window
     // thread, not this one; anything touching a WinUI window has to hop back to
@@ -118,6 +121,38 @@ public partial class App : Application
         // the whole of it until asked for more. Turned off, it opens the manager
         // straight away, for someone who would rather see the window on launch.
         if (!Settings.StartHidden) ShowManager();
+
+        // The one thing the app does off nobody's press: keep an opted-in
+        // account's five-hour window open. It runs on its own timer, from launch,
+        // window or no window — the app spends most of its life as a tray icon
+        // with no manager window built at all, so the manager's usage timer, which
+        // only ticks once that window exists, could never carry it. The threadpool
+        // timer touches no UI, so it does not need one either. First pass after a
+        // short beat, so a login-time launch is not asking the network before it
+        // is up; every five minutes after, which the usage cache mostly answers
+        // for free.
+        _warmTimer = new Timer(
+            _ => _ = SweepWarmProfiles(), null, TimeSpan.FromSeconds(20), TimeSpan.FromMinutes(5));
+    }
+
+    private async Task SweepWarmProfiles()
+    {
+        try { await AutoStarter.SweepAsync(WarmProfiles()); }
+        catch (Exception e) { Record("autostart.sweep", e); }
+    }
+
+    /// The profiles whose owners asked to keep their window open — the main Claude
+    /// when its box is ticked, and each grafted shortcut carrying the flag. Read
+    /// off the list already in memory rather than reloaded, so a sweep on the
+    /// threadpool thread does not reassign the collection the windows are drawing.
+    private static IEnumerable<string> WarmProfiles()
+    {
+        var profiles = new List<string>();
+        if (Settings.KeepMainWarm) profiles.Add(GraftPaths.DefaultProfile);
+        // Snapshot first: this runs on the threadpool while the windows may be
+        // editing the list, and enumerating one mid-change throws.
+        profiles.AddRange(Store.Shortcuts.ToList().Where(s => s.KeepWarm).Select(s => s.ProfileDir));
+        return profiles;
     }
 
     private void ToggleFlyout()

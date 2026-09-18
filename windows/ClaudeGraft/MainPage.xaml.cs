@@ -174,6 +174,26 @@ public sealed partial class MainPage : Page
         if (Rows.Contains(row)) await LoadUsage(row, interactive: true);
     }
 
+    /// Persists the keep-warm choice where that profile carries it — on the
+    /// shortcut for a grafted one, in the app's settings for the main Claude. The
+    /// background sweep reads both the next time it runs, so nothing else has to be
+    /// nudged; a start is at most a few minutes away, not this instant.
+    private void KeepWarm_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (sender is not CheckBox { Tag: ShortcutRow row } box) return;
+        var on = box.IsChecked == true;
+        if (row.Shortcut is Shortcut shortcut)
+        {
+            shortcut.KeepWarm = on;
+            App.Store.Update(shortcut);
+        }
+        else
+        {
+            App.Settings.KeepMainWarm = on;
+            App.Settings.Save();
+        }
+    }
+
     private void Open_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement { Tag: ShortcutRow row })

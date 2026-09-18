@@ -27,6 +27,11 @@ public sealed class GraftSettings
     [JsonPropertyName("backdrop")] public BackdropMaterial Backdrop { get; set; } = BackdropMaterial.Mica;
     [JsonPropertyName("startHidden")] public bool StartHidden { get; set; } = true;
 
+    /// Whether the app keeps the main Claude's five-hour window open on its own.
+    /// The grafted profiles carry this on their shortcut; the main one has no
+    /// shortcut to hold it, so it lives here beside the rest of the preferences.
+    [JsonPropertyName("keepMainWarm")] public bool KeepMainWarm { get; set; }
+
     private static string SettingsFile => Path.Combine(GraftPaths.OwnData, "settings.json");
 
     private static readonly JsonSerializerOptions Options = new()
