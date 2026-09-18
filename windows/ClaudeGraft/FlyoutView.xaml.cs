@@ -68,10 +68,17 @@ public sealed partial class FlyoutView : UserControl
         var entry = await ProfileRows.ReadUsageSafe(row.ProfileDir, interactive: true);
         // Back on the UI thread after the await; the row may have been cleared
         // by a reload since.
-        if (entry is not null && Rows.Contains(row))
+        if (!Rows.Contains(row)) return;
+        if (entry is not null)
         {
             row.SetUsage(entry);
             LayoutChanged?.Invoke();   // the bars just appeared; the flyout is taller now
+        }
+        else
+        {
+            // No reading at all: un-gate Start Session rather than leaving it
+            // held on a usage figure that never comes.
+            row.MarkUsageUnavailable();
         }
     }
 
