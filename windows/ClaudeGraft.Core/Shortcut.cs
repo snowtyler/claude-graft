@@ -33,6 +33,11 @@ public sealed class Shortcut
     /// Name the bundle was last installed under, so a rename can clean up.
     [JsonPropertyName("installedName")] public string? InstalledName { get; set; }
 
+    /// Whether the app opens this account's five-hour window on its own when it
+    /// finds it closed — the one thing it does off nobody's press. Off unless the
+    /// owner turned it on, and absent from an older file reads as off.
+    [JsonPropertyName("keepWarm")] public bool KeepWarm { get; set; }
+
     [JsonIgnore] public string ProfileDir => GraftPaths.Profile(Folder);
 
     public static Shortcut New(string name, string? folder = null, ShortcutSource? source = null) => new()
