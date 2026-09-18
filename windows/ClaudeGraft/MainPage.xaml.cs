@@ -10,6 +10,13 @@ public sealed partial class MainPage : Page
 {
     public ObservableCollection<ShortcutRow> Rows { get; } = new();
     private readonly DispatcherTimer _processTimer = new() { Interval = TimeSpan.FromSeconds(5) };
+    // The window is built once and only hidden on close, so Loaded fires a single
+    // time and its usage read is the only one there would ever be. A first read
+    // that comes up empty — the app auto-started at login before the network was
+    // up — would then stay empty for the life of the process. This poll is what
+    // heals that, and keeps the figures current the way the Mac's own 30s timer
+    // does; the polling budget makes a tick that already has a fresh reading free.
+    private readonly DispatcherTimer _usageTimer = new() { Interval = TimeSpan.FromSeconds(30) };
 
     public MainPage()
     {
@@ -18,26 +25,66 @@ public sealed partial class MainPage : Page
         {
             Reload();
             _processTimer.Start();
+            _usageTimer.Start();
         };
-        Unloaded += (_, _) => _processTimer.Stop();
+        Unloaded += (_, _) =>
+        {
+            _processTimer.Stop();
+            _usageTimer.Stop();
+        };
         _processTimer.Tick += async (_, _) => await MarkRunning(Rows.ToList());
+        _usageTimer.Tick += (_, _) => RefreshUsageQuietly();
     }
 
-    private void Reload(bool interactive = false)
+    /// A background usage read for every current row, off any button and without
+    /// rebuilding the list — the timer's tick and the window reappearing both run
+    /// through here. It leaves Refresh Usage alone: that button reflects a read
+    /// the person asked for, not one a timer took.
+    private void RefreshUsageQuietly(bool interactive = false)
     {
+        foreach (var row in Rows.ToList())
+            _ = LoadUsage(row, interactive);
+    }
+
+    /// The window only hides on close and shows again on the next open, so its
+    /// one Loaded is long past by then; this is called each time it reappears so
+    /// a figure that failed to load, or has gone stale since, is fetched afresh.
+    public void OnShown()
+    {
+        RefreshUsageQuietly(interactive: true);
+        _ = MarkRunning(Rows.ToList());
+    }
+
+    private int _reloadGeneration;
+
+    private async void Reload(bool interactive = false)
+    {
+        // A later reload — finishing an edit while the first load is still in
+        // flight — must own the button, or the earlier one's finally re-enables
+        // it while the newer readings are still coming.
+        var generation = ++_reloadGeneration;
         App.Store.Load();
         Rows.Clear();
         // The main Claude leads, the way it does in the Mac dropdown.
         var rows = new List<ShortcutRow> { ShortcutRow.Main() };
         rows.AddRange(App.Store.Shortcuts.Select(ShortcutRow.ForShortcut));
+        // The hint sits below the main card while there are no shortcuts yet.
+        EmptyState.Visibility = App.Store.Shortcuts.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        // Held while any row is still reaching for a figure, so Refresh Usage is
+        // not offered — nor a press swallowed — until every instance has an
+        // up-to-date reading in hand. LoadUsage owns its own failures, so the
+        // WhenAll only completes, never throws.
+        RefreshButton.IsEnabled = false;
+        var loads = new List<Task>();
         foreach (var row in rows)
         {
             Rows.Add(row);
-            _ = LoadUsage(row, interactive);   // fills the bars in when the answer arrives
+            loads.Add(LoadUsage(row, interactive));   // fills the bars in when the answer arrives
         }
         _ = MarkRunning(rows);
-        // The hint sits below the main card while there are no shortcuts yet.
-        EmptyState.Visibility = App.Store.Shortcuts.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        try { await Task.WhenAll(loads); }
+        finally { if (generation == _reloadGeneration) RefreshButton.IsEnabled = true; }
     }
 
     /// Lights each row's dot for the profile a Claude is holding, the way the
@@ -68,6 +115,9 @@ public sealed partial class MainPage : Page
         }
         catch (Exception e)
         {
+            // A read that threw leaves the row without a figure; un-gate Start
+            // Session so it is not held on a reading that will never land.
+            if (Rows.Contains(row)) row.MarkUsageUnavailable();
             Diagnostics.Note("usage.rowFailed", new Dictionary<string, object?>
             {
                 ["profile"] = row.ProfileDir,

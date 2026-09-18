@@ -84,17 +84,33 @@ public sealed class ShortcutRow : INotifyPropertyChanged
         Notify(nameof(Pulse));
     }
 
+    /// A usage read that threw rather than returning a reading leaves the button
+    /// gated for ever otherwise. The state is then unknown, which is the case the
+    /// button is left enabled for — the same fallback SetUsage makes when the
+    /// reading it got cannot say a window is open.
+    public void MarkUsageUnavailable()
+    {
+        if (_usageKnown) return;
+        _usageKnown = true;
+        Notify(nameof(StartEnabled));
+        Notify(nameof(StartTooltip));
+    }
+
     private bool _windowOpen;
 
     /// Start Session opens a five-hour window; there is nothing for it to do once
     /// one is open — a second message neither restarts nor extends it — so the
     /// button greys out while a window is confirmed open, and while a start of its
-    /// own is already in flight.
-    public bool StartEnabled => !_starting && !_windowOpen;
+    /// own is already in flight. It is also held until the first usage reading
+    /// lands: before then whether a window is open is unknown, and offering the
+    /// button in that gap lets a press fire a message the account did not need.
+    public bool StartEnabled => _usageKnown && !_starting && !_windowOpen;
 
-    public string StartTooltip => _windowOpen
-        ? "This account's five-hour window is already open"
-        : "Sends one short message to this account to open its five-hour window";
+    public string StartTooltip => !_usageKnown
+        ? "Waiting for this account's usage to load"
+        : _windowOpen
+            ? "This account's five-hour window is already open"
+            : "Sends one short message to this account to open its five-hour window";
 
     /// Bumped on every usage read, to replay the bars' fill. See BarPulse.
     public int Pulse { get; private set; }

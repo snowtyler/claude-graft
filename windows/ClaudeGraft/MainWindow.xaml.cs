@@ -53,6 +53,11 @@ public sealed partial class MainWindow : Window
     {
         AppWindow.Show();
         Activate();
+        // The page loads its usage once, when it is first built; every reopen
+        // after that has to ask for a fresh read itself, or a first read that
+        // came up empty would never be retried. Harmless on the first show, when
+        // the list is still filling and there is nothing yet to refresh.
+        if (RootFrame.Content is MainPage page) page.OnShown();
     }
 
     /// Brings the window up and opens the settings dialog on it — the tray's
