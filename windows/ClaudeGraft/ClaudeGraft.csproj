@@ -93,6 +93,12 @@
   <Target Name="CopyLooseIcon" AfterTargets="Build;Publish">
     <Copy SourceFiles="$(MSBuildThisFileDirectory)Assets\AppIcon.ico" DestinationFolder="$(OutDir)Assets" SkipUnchangedFiles="true" Condition="'$(PublishDir)' == ''" />
     <Copy SourceFiles="$(MSBuildThisFileDirectory)Assets\AppIcon.ico" DestinationFolder="$(PublishDir)Assets" SkipUnchangedFiles="true" Condition="'$(PublishDir)' != ''" />
+    <!-- The header wordmark's logo is a scale-qualified asset, so it ships only
+         packed into resources.pri and an Image bound to it comes up blank in an
+         unpackaged install. Copy it out under a plain name the loose-file path
+         can reach, the same way the taskbar icon is copied above. -->
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)Assets\Square150x150Logo.scale-200.png" DestinationFiles="$(OutDir)Assets\Logo.png" SkipUnchangedFiles="true" Condition="'$(PublishDir)' == ''" />
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)Assets\Square150x150Logo.scale-200.png" DestinationFiles="$(PublishDir)Assets\Logo.png" SkipUnchangedFiles="true" Condition="'$(PublishDir)' != ''" />
   </Target>
 
   <Target Name="BundleLauncher" AfterTargets="Build">

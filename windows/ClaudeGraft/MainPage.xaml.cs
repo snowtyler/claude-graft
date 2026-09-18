@@ -21,6 +21,13 @@ public sealed partial class MainPage : Page
     public MainPage()
     {
         InitializeComponent();
+        // The logo is a scale-qualified asset that ships only inside resources.pri,
+        // so an unpackaged install has no ms-appx entry for it; the build copies a
+        // plain-named file out beside the binary and it is loaded from there, the
+        // same loose-file spot the window's own icon comes from.
+        var logo = System.IO.Path.Combine(System.AppContext.BaseDirectory, "Assets", "Logo.png");
+        if (System.IO.File.Exists(logo))
+            LogoImage.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(logo));
         Loaded += (_, _) =>
         {
             Reload();

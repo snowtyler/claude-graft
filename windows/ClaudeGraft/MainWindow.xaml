@@ -14,11 +14,9 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TitleBar x:Name="AppTitleBar" Title="ClaudeGraft">
-            <TitleBar.IconSource>
-                <ImageIconSource ImageSource="Assets/AppIcon.ico" />
-            </TitleBar.IconSource>
-        </TitleBar>
+        <!-- The logo and wordmark live in the page header, so the title bar is
+             just a drag region: no icon, no title text, only the caption buttons. -->
+        <TitleBar x:Name="AppTitleBar" />
 
         <!--
             The Frame hosts pages for your application content. Add your UI to
