@@ -47,7 +47,42 @@ public partial class App : Application
     // the UI thread or it faults. Captured here, on the thread that owns the UI.
     private DispatcherQueue? _ui;
 
-    public App() => InitializeComponent();
+    public App()
+    {
+        // Wired before InitializeComponent and before OnLaunched build any window,
+        // because the crash this catches is a managed throw on the XAML startup
+        // path: it surfaces to the Windows event log as a stowed exception in
+        // Microsoft.UI.Xaml with no type, message or stack, and left nothing at
+        // all in this app's own diagnostics — a launch that freezes and dies with
+        // no record of why. These three cover the three ways a throw goes
+        // unobserved: the UI dispatcher, a background thread, and a dropped task.
+        UnhandledException += (_, e) => Record("app.unhandled", e.Exception);
+        AppDomain.CurrentDomain.UnhandledException +=
+            (_, e) => Record("domain.unhandled", e.ExceptionObject as Exception);
+        TaskScheduler.UnobservedTaskException +=
+            (_, e) => Record("task.unobserved", e.Exception);
+
+        InitializeComponent();
+    }
+
+    // Nothing is swallowed — the exception is written down and left to take the
+    // process down as it would have, since a half-built window kept alive is a
+    // worse state than the crash. The chain is walked so the real cause, wrapped
+    // a few layers deep by the time WinUI marshals it, is not lost.
+    private static void Record(string @event, Exception? error)
+    {
+        var fields = new Dictionary<string, object?>();
+        var depth = 0;
+        for (var e = error; e is not null && depth < 5; e = e.InnerException, depth++)
+        {
+            var suffix = depth == 0 ? "" : $".inner{depth}";
+            fields["type" + suffix] = e.GetType().FullName;
+            fields["message" + suffix] = e.Message;
+            fields["stack" + suffix] = e.StackTrace;
+        }
+        if (error is null) fields["type"] = "(none)";
+        Diagnostics.Note(@event, fields);
+    }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
