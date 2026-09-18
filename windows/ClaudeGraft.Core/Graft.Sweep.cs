@@ -43,7 +43,7 @@ public static partial class Graft
         IReadOnlyCollection<double> deletions,
         DateTime lastWrite,
         string? ownerProfile,
-        bool ownerIsRunning,
+        bool anyDesktopRunning,
         DateTime now,
         TimeSpan quietWindow)
     {
@@ -62,13 +62,19 @@ public static partial class Graft
             if (facts.LastActivityAt > d - 60_000 && facts.LastActivityAt <= d)
                 return SessionFiling.Withdrawn;
 
-        // The wait is for one thing only: the Claude signed into the owner's
-        // account writing the record itself, which it does within a second of a
-        // session opening. No such Claude running is nobody about to write it,
-        // and waiting then is waiting for something that is not coming — which is
-        // what made closing a chat and reaching straight for the other profile
-        // the one move guaranteed to miss it.
-        if (ownerIsRunning && now - lastWrite < quietWindow) return SessionFiling.TooRecent;
+        // The wait is for one thing only: a Claude Desktop window writing the
+        // record itself, which it does within a second of a session opening. The
+        // window that will do so is the one the session was typed into, and its
+        // account need not be the session's owner — the owner is stamped from the
+        // command line login, the record is filed under the window's account. So
+        // the question is whether any window at all is up, not whether one on the
+        // owner's account is: asking only after the owner ran the sweep past a
+        // window on another account and filed a duplicate into a second profile,
+        // the stray chat that is the symptom here. No window up is nobody about to
+        // write it, and waiting then is waiting for something that is not coming —
+        // which is what made closing a chat and reaching straight for the other
+        // profile the one move guaranteed to miss it.
+        if (anyDesktopRunning && now - lastWrite < quietWindow) return SessionFiling.TooRecent;
         if (ownerProfile is null) return SessionFiling.NoOwnerProfile;
         return SessionFiling.File;
     }

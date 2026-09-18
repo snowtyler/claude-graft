@@ -90,6 +90,21 @@ public class ProcessDetectionTests
         Assert.False(ClaudeProcesses.IsRunning(profile, new List<(int, string)> { (100, Browser()) }));
     }
 
+    [Fact(DisplayName = "any window up is seen whichever profile it is on, and a bridged CLI does not count as one")]
+    public void AnyDesktopUp()
+    {
+        var other = @"C:\Users\T\AppData\Roaming\Claude-2";
+        // A window on some other profile is still a window that may record a
+        // session — the whole reason the quiet window asks account-blind.
+        Assert.True(ClaudeProcesses.AnyDesktopRunning(new List<(int, string)> { (100, Browser(other)) }));
+
+        // A renderer alone is no window, and a bridged Claude Code CLI is not a
+        // desktop window at all, so neither is one about to write a record.
+        Assert.False(ClaudeProcesses.AnyDesktopRunning(new List<(int, string)> { (200, Helper(other)) }));
+        Assert.False(ClaudeProcesses.AnyDesktopRunning(new List<(int, string)> { (300, BridgedCli()) }));
+        Assert.False(ClaudeProcesses.AnyDesktopRunning(new List<(int, string)>()));
+    }
+
     [Fact(DisplayName = "the pid handed back for a profile is the browser process, never a helper")]
     public void PidIsBrowser()
     {

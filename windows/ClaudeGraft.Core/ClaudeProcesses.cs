@@ -83,6 +83,22 @@ public static class ClaudeProcesses
         return processes.Any(p => IsClaudeDesktop(p.command) && CarriesDataDir(p.command, profile));
     }
 
+    public static bool AnyDesktopRunning() => AnyDesktopRunning(Enumerate());
+
+    /// Whether any Claude Desktop window is up, on whatever profile. The record
+    /// sweep's quiet window waits on this rather than on a Claude signed into the
+    /// session's owner account, because on Windows the two are not the same
+    /// question: a bridged session's owner is stamped from the machine-wide
+    /// command line login, while the window that files its record — and the
+    /// account folder it files under — is the one it was typed into. A session
+    /// started in a window on one account while the command line was logged into
+    /// another is owned by the second and recorded by the first, so asking only
+    /// after the owner's account missed the window that was about to record it and
+    /// filed a duplicate into a second profile. Helpers are left out; only a
+    /// window-owning process records a session.
+    public static bool AnyDesktopRunning(IReadOnlyList<(int pid, string command)> processes) =>
+        processes.Any(p => IsClaudeDesktop(p.command) && !IsHelper(p.command));
+
     public static int? ProcessIdentifier(string profile) => ProcessIdentifier(profile, Enumerate());
 
     /// The pid of the Claude holding this profile, if one holds it — the browser

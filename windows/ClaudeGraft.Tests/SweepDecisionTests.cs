@@ -31,7 +31,7 @@ public class SessionFilingTests
         IReadOnlyCollection<double>? deletions = null,
         DateTime? lastWrite = null,
         string? ownerProfile = "C:\\profile",
-        bool ownerIsRunning = true,
+        bool anyDesktopRunning = true,
         DateTime? now = null,
         TimeSpan? quietWindow = null) =>
         Graft.DecideFiling(
@@ -41,7 +41,7 @@ public class SessionFilingTests
             deletions ?? Array.Empty<double>(),
             lastWrite ?? DateTime.UtcNow.AddMinutes(-5),
             ownerProfile,
-            ownerIsRunning,
+            anyDesktopRunning,
             now ?? DateTime.UtcNow,
             quietWindow ?? TimeSpan.FromSeconds(60));
 
@@ -76,16 +76,16 @@ public class SessionFilingTests
                    lastWrite: DateTime.UtcNow.AddMinutes(-5)));
     }
 
-    [Fact(DisplayName = "a transcript still warm is held back while the owner is running")]
+    [Fact(DisplayName = "a transcript still warm is held back while any Claude window is up")]
     public void TooRecent() =>
         Assert.Equal(SessionFiling.TooRecent,
-            Decide(Facts(), lastWrite: DateTime.UtcNow, ownerIsRunning: true));
+            Decide(Facts(), lastWrite: DateTime.UtcNow, anyDesktopRunning: true));
 
-    [Fact(DisplayName = "with no Claude signed into the owner's account running, the wait is skipped")]
-    public void NoWaitWhenOwnerAbsent() =>
-        // warm transcript, but owner not running, owner profile present -> filed
+    [Fact(DisplayName = "with no Claude window up, the wait is skipped")]
+    public void NoWaitWhenNothingUp() =>
+        // warm transcript, but nothing running, owner profile present -> filed
         Assert.Equal(SessionFiling.File,
-            Decide(Facts(), lastWrite: DateTime.UtcNow, ownerIsRunning: false));
+            Decide(Facts(), lastWrite: DateTime.UtcNow, anyDesktopRunning: false));
 
     [Fact(DisplayName = "a session whose owner lives on no profile here waits for one")]
     public void NoOwnerProfile() =>

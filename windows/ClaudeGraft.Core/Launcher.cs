@@ -70,7 +70,7 @@ public static class Launcher
     private static void SquareUp(IReadOnlyList<string> filingInto)
     {
         Graft.MirrorKnownPairs();
-        Graft.FileMissingSessionRecords(filingInto, ClaudeProcesses.IsRunning);
+        Graft.FileMissingSessionRecords(filingInto, ClaudeProcesses.AnyDesktopRunning);
     }
 
     /// The profiles a sweep run from this launch may file into: the profile being
