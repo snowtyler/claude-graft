@@ -30,9 +30,9 @@ public sealed class OrchestratorTests : IDisposable
         _t.Dispose();
     }
 
-    // Nothing is running in a test, so the quiet window is skipped and a settled
-    // transcript files at once.
-    private static readonly Func<string, bool> NothingRunning = _ => false;
+    // No Claude window is up in a test, so the quiet window is skipped and a
+    // settled transcript files at once.
+    private static readonly Func<bool> NothingRunning = () => false;
 
     private string MakeProfile(string name, string account = Account, string org = Org)
     {
@@ -124,14 +124,19 @@ public sealed class OrchestratorTests : IDisposable
         Assert.Equal("{\"cliSessionId\":\"has\"}", File.ReadAllText(RecordPath(profile, "has")));
     }
 
-    [Fact(DisplayName = "a warm transcript is held back while the owner's Claude is running")]
+    [Fact(DisplayName = "a warm transcript is held back while any Claude window is up")]
     public void HeldWhileRunning()
     {
+        // The profile holding the account is not signed in as anyone running —
+        // the window that would record this warm session is on another account —
+        // and it is still held, because any window at all may be the one about to
+        // write the record. Asking only after the owner's account filed the stray
+        // duplicate this guards.
         var profile = MakeProfile("Claude");
         // last activity now, so it falls inside the quiet window.
         MakeTranscript("warm", last: DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"));
 
-        var filed = Graft.FileMissingSessionRecords(new[] { profile }, isRunning: _ => true);
+        var filed = Graft.FileMissingSessionRecords(new[] { profile }, anyDesktopRunning: () => true);
         Assert.Empty(filed);
         Assert.False(File.Exists(RecordPath(profile, "warm")));
     }

@@ -171,15 +171,17 @@ public static partial class Graft
     /// keeps the ones it wrote current while their transcripts move, and hands
     /// back what it filed so the caller can say so.
     ///
-    /// <paramref name="isRunning"/> answers whether a Claude signed into a given
-    /// profile is running — the one thing the quiet window waits on. It is
-    /// injected rather than defaulted so a test can drive it and so the process
-    /// detection can be ported and wired in on its own; the app must supply the
-    /// real check, since defaulting it to "nothing is running" would file a
-    /// record the owner's own window is about to write, giving two.
+    /// <paramref name="anyDesktopRunning"/> answers whether any Claude Desktop
+    /// window is up at all — the one thing the quiet window waits on. It is a
+    /// window, on whichever account, that writes a session's record, and not
+    /// necessarily one signed into the session's owner account, so the check is
+    /// deliberately account-blind. It is injected rather than defaulted so a test
+    /// can drive it and so the process detection can be ported and wired in on its
+    /// own; the app must supply the real check, since defaulting it to "nothing is
+    /// running" would file a record a window is about to write, giving two.
     public static IReadOnlyList<SessionFacts> FileMissingSessionRecords(
         IEnumerable<string> filingInto,
-        Func<string, bool> isRunning,
+        Func<bool> anyDesktopRunning,
         DateTime? nowOpt = null,
         TimeSpan? quietWindowOpt = null)
     {
@@ -258,14 +260,9 @@ public static partial class Graft
 
         var filed = new List<SessionFacts>();
         var visited = new HashSet<string>();
-        var runningProfiles = new Dictionary<string, bool>();
-        bool Running(string profile)
-        {
-            if (runningProfiles.TryGetValue(profile, out var known)) return known;
-            var answer = isRunning(profile);
-            runningProfiles[profile] = answer;
-            return answer;
-        }
+        // One question for the whole pass, and an account-blind one, so it is
+        // asked once rather than per owner.
+        var desktopUp = anyDesktopRunning();
 
         List<string> projects;
         try { projects = Directory.EnumerateDirectories(GraftPaths.ClaudeProjects).Select(Path.GetFileName).ToList()!; }
@@ -343,7 +340,7 @@ public static partial class Graft
 
                 if (owner is null) continue;
                 if (DecideFiling(facts, recorded, withdrawn, guessableDeletions, lastWrite,
-                        owner, Running(owner), now, quietWindow) != SessionFiling.File) continue;
+                        owner, desktopUp, now, quietWindow) != SessionFiling.File) continue;
 
                 var destination = Path.GetDirectoryName(RecordFile(facts, owner))!;
                 if (!MayFileRecords(destination, contents.Stores))
