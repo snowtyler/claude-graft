@@ -15,36 +15,47 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Header -->
-        <Grid Grid.Row="0" ColumnSpacing="12">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <StackPanel Grid.Column="0" Spacing="2">
-                <TextBlock Text="Claude Graft" Style="{StaticResource TitleTextBlockStyle}" FontWeight="Bold" />
-                <TextBlock Text="Extra Claude Desktop profiles, each with its own login and chats."
-                           Style="{StaticResource CaptionTextBlockStyle}"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-            </StackPanel>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top">
-                <Button Click="Add_Click" Style="{StaticResource AccentButtonStyle}">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon Glyph="&#xE710;" FontSize="14" />
-                        <TextBlock Text="Add Profile" />
-                    </StackPanel>
-                </Button>
-                <Button x:Name="RefreshButton" Click="Refresh_Click">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon Glyph="&#xE72C;" FontSize="14" />
-                        <TextBlock Text="Refresh Usage" />
-                    </StackPanel>
-                </Button>
-                <Button Click="Settings_Click" ToolTipService.ToolTip="Settings"
-                        VerticalAlignment="Stretch">
-                    <FontIcon Glyph="&#xE713;" FontSize="14" VerticalAlignment="Center" />
-                </Button>
-            </StackPanel>
+        <!-- Header: the logo and wordmark share a row with the actions, and the
+             one-line description sits full-width beneath them. -->
+        <Grid Grid.Row="0" RowSpacing="6">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid Grid.Row="0" ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                    <Image x:Name="LogoImage"
+                           Width="52" Height="52" VerticalAlignment="Center" />
+                    <TextBlock Text="Claude Graft" FontSize="36" FontWeight="Bold"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Button Click="Add_Click" Style="{StaticResource AccentButtonStyle}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE710;" FontSize="14" />
+                            <TextBlock Text="Add Profile" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="RefreshButton" Click="Refresh_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE72C;" FontSize="14" />
+                            <TextBlock Text="Refresh Usage" />
+                        </StackPanel>
+                    </Button>
+                    <Button Click="Settings_Click" ToolTipService.ToolTip="Settings"
+                            VerticalAlignment="Stretch">
+                        <FontIcon Glyph="&#xE713;" FontSize="14" VerticalAlignment="Center" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+            <TextBlock Grid.Row="1"
+                       Text="Extra Claude Desktop profiles, each with its own login and chats."
+                       Style="{StaticResource CaptionTextBlockStyle}"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
         </Grid>
 
         <!-- Profile list -->
