@@ -36,6 +36,11 @@ jobs:
           -o windows/dist/ClaudeGraft
           --no-restore
 
+      # Sidebar sync skips silently without it, so a release missing it looks fine.
+      - name: Stage bundled Electron
+        shell: pwsh
+        run: ./windows/fetch-electron.ps1
+
       - name: Download VC++ Redistributable
         shell: pwsh
         run: |
@@ -61,6 +66,6 @@ jobs:
           name: v${{ steps.version.outputs.version }}
           draft: false
           prerelease: false
-          generate_release_notes: true
+          body_path: windows/release-notes/${{ steps.version.outputs.version }}.md
           files: |
             windows/dist/ClaudeGraft-${{ steps.version.outputs.version }}-x64-setup.exe
