@@ -11,6 +11,14 @@ Comments say **why**, never what. Delete a comment that restates the line under 
     // hour, which is how a client earns a rate limit rather than avoids one.
     failures += 1
 
+A comment is for the non-obvious: a workaround, an edge-case quirk, a knotty
+piece of regex or arithmetic, an external constraint. Never a narration of the
+line beside it — no `// loop through items`, `// initialize variable`, `// check
+if user exists`. Reach for a clearer name or shape before reaching for a
+comment. Never leave a mark that the code was generated or changed — no
+`// Added`, no `/* Updated logic */`, no changelog in the source. And leave the
+docs and docstrings already here alone unless the task is to rework them.
+
 Prose in the README, not bullet lists. Tests read as sentences — `check(…, "a
 profile with no stored login has no token")`, not `"testTokenNil"`.
 
