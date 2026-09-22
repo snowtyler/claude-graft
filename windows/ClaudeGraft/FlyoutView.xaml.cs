@@ -34,9 +34,7 @@ public sealed partial class FlyoutView : UserControl
     /// is no material behind it, or leaves it transparent so a material shows
     /// through. The window's mica is what the transparent case reveals.
     public void SetOpaqueSurface(bool opaque) =>
-        RootBorder.Background = opaque
-            ? (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SolidBackgroundFillColorBaseBrush"]
-            : new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
+        OpaqueSurface.Visibility = opaque ? Visibility.Visible : Visibility.Collapsed;
 
     /// Rebuilds the list and refreshes usage. Called each time the flyout opens,
     /// so the figures are current the way pressing the Mac menu bar item makes

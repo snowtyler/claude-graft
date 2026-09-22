@@ -93,16 +93,13 @@ public sealed partial class MainWindow : Window
         }
 
         if (AppWindow is not null && AppWindowTitleBar.IsCustomizationSupported())
-            AppWindow.TitleBar.PreferredTheme = IsDark(settings.Theme)
-                ? TitleBarTheme.Dark : TitleBarTheme.Light;
+            AppWindow.TitleBar.PreferredTheme = settings.Theme switch
+            {
+                AppTheme.Dark => TitleBarTheme.Dark,
+                AppTheme.Light => TitleBarTheme.Light,
+                // Not Application.RequestedTheme, which is fixed at startup and
+                // left the bar on the old theme after Windows switched.
+                _ => TitleBarTheme.UseDefaultAppMode,
+            };
     }
-
-    /// Whether the resolved theme is dark — the explicit choice, or what Windows
-    /// is set to when the choice is System.
-    private static bool IsDark(AppTheme theme) => theme switch
-    {
-        AppTheme.Dark => true,
-        AppTheme.Light => false,
-        _ => Application.Current.RequestedTheme == ApplicationTheme.Dark,
-    };
 }
