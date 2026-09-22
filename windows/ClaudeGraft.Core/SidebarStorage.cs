@@ -13,12 +13,18 @@ namespace ClaudeGraft.Core;
 /// </summary>
 public static class SidebarStorage
 {
-    /// The bundled runtime, beside the running executable. Absent in a dev build
+    /// The bundled runtime. Beside the running executable for the app, and one
+    /// level up for the shortcut launcher, which lives in its own <c>launcher\</c>
+    /// subfolder while Electron sits at the install root. Absent in a dev build
     /// that has not staged Electron, in which case sidebar sync simply skips.
     public static string? ElectronExe()
     {
-        var exe = Path.Combine(AppContext.BaseDirectory, "electron", "electron.exe");
-        return File.Exists(exe) ? exe : null;
+        foreach (var dir in new[] { AppContext.BaseDirectory, Path.Combine(AppContext.BaseDirectory, "..") })
+        {
+            var exe = Path.GetFullPath(Path.Combine(dir, "electron", "electron.exe"));
+            if (File.Exists(exe)) return exe;
+        }
+        return null;
     }
 
     private static string PrepareApp()
@@ -299,9 +305,13 @@ async function storageOperation(action, raw) {
                 request.onsuccess = () => resolve(request.result);
                 request.onerror = () => reject(Error('unreadable-storage'));
             });
-            if (typeof pin !== 'string' || localStorage.getItem('dframe-store') === null)
-                throw Error('not-initialized');
-            return {pin, local: Object.fromEntries(['dframe-store',
+            // dframe-store is Claude's marker that this profile's sidebar exists;
+            // the code-pin key is absent until a code session is first pinned, so
+            // a freshly grafted profile that is to receive pins reads as an empty
+            // set rather than uninitialised.
+            if (localStorage.getItem('dframe-store') === null) throw Error('not-initialized');
+            const pinState = typeof pin === 'string' ? pin : JSON.stringify({state: {starredIds: []}, version: 0});
+            return {pin: pinState, local: Object.fromEntries(['dframe-store',
                 'LSS-persisted.starred-local-code-sessions', 'LSS-persisted.dframe-local-slice',
                 'ccd-sync-owner', 'ccd-sync-active', 'ccd-sync-quarantine', 'ccd-sync-pending:ccd/dframe-store']
                 .map(key => [key, localStorage.getItem(key)]))};

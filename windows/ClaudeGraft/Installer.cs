@@ -105,6 +105,24 @@ public static class Installer
         return File.Exists(LauncherExe);
     }
 
+    /// Stage the sidebar-sync runtime beside the launcher copy. The launcher runs
+    /// from its own stable folder, not the app's, so the Electron bundled with the
+    /// app is not on hand there. Large, so files copy only when actually newer.
+    public static void StageLauncherElectron()
+    {
+        var source = Path.Combine(AppContext.BaseDirectory, "electron");
+        if (!Directory.Exists(source)) return;
+        var dest = Path.Combine(LauncherDir, "electron");
+        foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+        {
+            var relative = Path.GetRelativePath(source, file);
+            var target = Path.Combine(dest, relative);
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            if (!File.Exists(target) || File.GetLastWriteTimeUtc(file) > File.GetLastWriteTimeUtc(target))
+                File.Copy(file, target, overwrite: true);
+        }
+    }
+
     /// Where the launcher stub's build output sits — bundled beside the app once
     /// packaged, or found in the repo's build output during development.
     private static string? StubSource()
