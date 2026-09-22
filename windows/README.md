@@ -70,13 +70,17 @@ The port is the code, not a decision about how it ships. Distribution and
 signing belong to whoever owns this repository, since they turn on keys and
 channels a contributor does not have, so the port leaves them alone:
 
-- **Distribution and updates.** The MSIX build wired up here is a working
-  signing dry-run, but a full-trust utility that reaches across profile
+- **Distribution and updates.** A full-trust utility that reaches across profile
   directories and reads another app's credentials fits an unpackaged installer
   better than a sandboxed package — the same shape Claude Desktop itself uses on
-  Windows, and the sibling of the Sparkle-and-Homebrew story on the Mac. Which
-  installer, which update feed, and whether a release is signed at all are the
-  maintainer's call.
+  Windows. So a release is an Inno Setup installer, built and published to the
+  repository's GitHub releases by the tag-driven workflow, and the app updates
+  itself from that feed: it polls the releases API for the newest full release
+  carrying a setup asset, and offers it from the tray and the flyout. The install
+  is a press, not a schedule — a found update lights the icon and the button, and
+  downloading and running the installer waits for the person to ask. Whether a
+  release is signed at all is still the maintainer's call; the feed is the
+  repository the build was published from and nothing else is contacted.
 - **The manifest identity** is still the scaffold's placeholder name and
   publisher. A real release sets its own.
 - **Signing in a second account** works, with one rough edge: the OAuth callback

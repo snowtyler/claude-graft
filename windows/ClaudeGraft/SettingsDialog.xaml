@@ -50,7 +50,21 @@
 
         <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
-        <TextBlock x:Name="VersionText" Style="{ThemeResource CaptionTextBlockStyle}"
-                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        <StackPanel Spacing="8">
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="VersionText" Grid.Column="0" VerticalAlignment="Center"
+                           Style="{ThemeResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <Button x:Name="CheckButton" Grid.Column="1" Content="Check for Updates"
+                        Click="Check_Click" Padding="12,4" MinHeight="0" />
+            </Grid>
+            <TextBlock x:Name="UpdateStatus" Style="{ThemeResource CaptionTextBlockStyle}"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       TextWrapping="Wrap" Visibility="Collapsed" />
+        </StackPanel>
     </StackPanel>
 </ContentDialog>

@@ -86,13 +86,23 @@
             </ItemsControl>
             </ScrollViewer>
 
-            <!-- Actions -->
+            <!-- The "Version X is available" line; hidden until a check finds one,
+                 its content set in code. -->
+            <Button x:Name="AvailableButton" Click="Install_Click" Visibility="Collapsed"
+                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                    Background="Transparent" BorderThickness="0" Padding="22,4,12,4"
+                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+
+            <!-- Actions, ordered to match the Mac dropdown. -->
             <Border Height="1" Margin="12,4"
                     Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
             <StackPanel Padding="12,6,12,10">
                 <Button x:Name="RefreshButton" Click="Refresh_Click" HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Left" Background="Transparent"
                         BorderThickness="0" Content="Refresh Usage" Padding="12,9" />
+                <Button x:Name="CheckButton" Click="Check_Click" HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Left" Background="Transparent"
+                        BorderThickness="0" Content="Check for Updates…" Padding="12,9" />
                 <Button Click="Manager_Click" HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Left" Background="Transparent"
                         BorderThickness="0" Content="Open Claude Graft" Padding="12,9" />

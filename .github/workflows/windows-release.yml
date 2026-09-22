@@ -32,6 +32,7 @@ jobs:
           dotnet publish windows/ClaudeGraft/ClaudeGraft.csproj
           -c Release
           -p:Platform=x64
+          -p:GraftVersion=${{ steps.version.outputs.version }}
           -o windows/dist/ClaudeGraft
           --no-restore
 

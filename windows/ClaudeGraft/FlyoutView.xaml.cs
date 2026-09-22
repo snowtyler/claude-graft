@@ -26,6 +26,8 @@ public sealed partial class FlyoutView : UserControl
     /// the window, so its own SizeChanged cannot see the overflow; this says so.
     public event Action? LayoutChanged;
 
+    private Updater.Release? _update;
+
     public FlyoutView() => InitializeComponent();
 
     /// Paints the flyout's own surface opaque, for the Solid backdrop where there
@@ -48,8 +50,47 @@ public sealed partial class FlyoutView : UserControl
             Rows.Add(row);
             _ = LoadUsage(row);
         }
+        ReflectUpdate();
         LayoutChanged?.Invoke();
         _ = MarkRunning(rows);
+    }
+
+    private void ReflectUpdate()
+    {
+        _update = App.AvailableUpdate;
+        CheckButton.IsEnabled = true;
+        CheckButton.Content = "Check for Updates…";
+        AvailableButton.Content = _update is null ? null : $"Version {_update.Version} is available";
+        AvailableButton.Visibility = _update is null ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private async void Check_Click(object sender, RoutedEventArgs e)
+    {
+        CheckButton.IsEnabled = false;
+        CheckButton.Content = "Checking for Updates…";
+        // A failed check is left silent, the way the Mac's is; the reason is in diagnostics.
+        try { await App.Instance.RunUpdateCheckAsync(); }
+        catch { }
+        ReflectUpdate();
+        LayoutChanged?.Invoke();
+    }
+
+    private async void Install_Click(object sender, RoutedEventArgs e)
+    {
+        if (_update is null) return;
+        AvailableButton.IsEnabled = false;
+        AvailableButton.Content = "Downloading…";
+        try
+        {
+            // On success the app quits inside here and the installer takes over,
+            // so control does not return; only a failure lands below.
+            await App.Instance.InstallUpdateAsync(_update);
+        }
+        catch
+        {
+            AvailableButton.Content = $"Version {_update.Version} is available";
+            AvailableButton.IsEnabled = true;
+        }
     }
 
     /// The dots come in after the window is up, not before it: reading which
