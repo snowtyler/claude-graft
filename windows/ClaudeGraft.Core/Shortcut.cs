@@ -38,6 +38,12 @@ public sealed class Shortcut
     /// owner turned it on, and absent from an older file reads as off.
     [JsonPropertyName("keepWarm")] public bool KeepWarm { get; set; }
 
+    /// The account whose elsewhere-chats this shortcut has been told to stop
+    /// asking about on Open. Keyed by account, since signing into a different one
+    /// is a new question; absent from an older file reads as never asked. It
+    /// silences the Open prompt, not the offer still shown in the window.
+    [JsonPropertyName("stopAskingChatsFor")] public string? StopAskingChatsFor { get; set; }
+
     [JsonIgnore] public string ProfileDir => GraftPaths.Profile(Folder);
 
     public static Shortcut New(string name, string? folder = null, ShortcutSource? source = null) => new()

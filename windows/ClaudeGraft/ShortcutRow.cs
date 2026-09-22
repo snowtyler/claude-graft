@@ -160,6 +160,56 @@ public sealed class ShortcutRow : INotifyPropertyChanged
     public Visibility StartVisibility => _starting ? Visibility.Collapsed : Visibility.Visible;
     public Visibility StartingVisibility => _starting ? Visibility.Visible : Visibility.Collapsed;
 
+    private Graft.ChatsElsewhere? _elsewhere;
+
+    /// Chats another profile holds for this profile's account. Filled in async
+    /// like the usage figures, and only for a shortcut keeping its own chats.
+    public Graft.ChatsElsewhere? Elsewhere => _elsewhere;
+
+    public void SetChatsElsewhere(Graft.ChatsElsewhere? found)
+    {
+        _elsewhere = found;
+        foreach (var name in new[]
+        {
+            nameof(ElsewhereVisibility), nameof(ElsewhereNote), nameof(AdoptLabel),
+        }) Notify(name);
+    }
+
+    public Visibility ElsewhereVisibility =>
+        _elsewhere is not null ? Visibility.Visible : Visibility.Collapsed;
+
+    /// Named, counted and qualified: the profile says where, the count says
+    /// whether this is the history being missed, merge-or-recovery says the stakes.
+    public string ElsewhereNote => _elsewhere is not { } found
+        ? ""
+        : $"{App.Store.NameOfProfile(found.Profile)} is holding {Chats(found.Count)} for the account this "
+          + "profile is signed into that this one has not got. "
+          + (found.Merging
+              ? "This profile has chats of its own too, so they are merged rather than either set being replaced."
+              : "This profile has none of its own yet.");
+
+    public string AdoptLabel => _elsewhere?.Merging == true ? "Merge Them Here" : "Copy Them Here";
+
+    public static string Chats(int count) => count == 1 ? "1 chat" : $"{count} chats";
+
+    private string? _copiedNote;
+
+    /// What the last copy did, kept on screen because Claude may not be open to
+    /// show the answer for itself.
+    public string? CopiedNote
+    {
+        get => _copiedNote;
+        set
+        {
+            _copiedNote = value;
+            Notify(nameof(CopiedNote));
+            Notify(nameof(CopiedNoteVisibility));
+        }
+    }
+
+    public Visibility CopiedNoteVisibility =>
+        string.IsNullOrEmpty(_copiedNote) ? Visibility.Collapsed : Visibility.Visible;
+
     private string? _problem;
 
     /// Why the last start could not open a window, in the words the Mac dropdown

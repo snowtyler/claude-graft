@@ -17,6 +17,7 @@ public static partial class Graft
 
         foreach (var item in SharedItems)
             Relink(Path.Combine(source, item), Path.Combine(profile, item));
+        CopyDesktopServers(source, profile);
         MirrorChatStores(source, profile);
         CopyAppearance(source, profile);
     }

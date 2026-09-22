@@ -112,6 +112,9 @@ public static partial class Graft
         UnmirrorChatStores(profile);
         foreach (var item in SharedItems)
             Unstash(Path.Combine(profile, item));
+        // No longer linked, but older grafts left a link and a backup behind, so
+        // the local settings file and anything stashed under it still come back.
+        Unstash(Path.Combine(profile, "claude_desktop_config.json"));
         foreach (var store in GraftPaths.ChatStoreNames)
         {
             var dst = Path.Combine(profile, store);

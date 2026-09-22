@@ -77,6 +77,15 @@ public sealed class ShortcutStore
         _ => "Main Claude",
     };
 
+    /// What to call a profile on screen. Claude's own has no shortcut standing
+    /// for it, and a folder name is not what anybody calls either of them.
+    public string NameOfProfile(string profile)
+    {
+        if (Fs.SamePath(profile, GraftPaths.DefaultProfile)) return "Claude";
+        return Shortcuts.FirstOrDefault(s => Fs.SamePath(s.ProfileDir, profile))?.Name
+               ?? Path.GetFileName(profile.TrimEnd(Path.DirectorySeparatorChar));
+    }
+
     /// Numbering starts at two, since the stock app is the first one.
     public string UniqueName(string @base = "Claude")
     {

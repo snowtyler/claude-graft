@@ -57,6 +57,12 @@ public class AutoStarterTests
 /// every relaunch, and a startup crash-loop firing the sweep seconds after each
 /// launch is the very runaway the cooldown exists to stop. So it is on disk, and
 /// a fresh read is a stand-in for a restart.
+///
+/// In the shared collection like every other class that redirects the profiles
+/// root: it sets <c>GraftPaths.ProfilesRootOverride</c>, a process-wide static,
+/// so running in parallel with the serialized collection raced that override out
+/// from under whichever graft was mid-pass.
+[Collection("GlobalState")]
 public sealed class AutoStartCooldownTests : IDisposable
 {
     private readonly TempDir _t = new();

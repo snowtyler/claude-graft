@@ -137,6 +137,32 @@
                                            TextWrapping="Wrap"
                                            Style="{StaticResource CaptionTextBlockStyle}"
                                            Foreground="{ThemeResource SystemFillColorCautionBrush}" />
+
+                                <!-- Chats an account switch left in another profile: an offer to
+                                     bring them over, standing for as long as any are still missing. -->
+                                <Border Visibility="{x:Bind ElsewhereVisibility, Mode=OneWay}"
+                                        Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1" CornerRadius="6" Padding="12,10">
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" VerticalAlignment="Center"
+                                                   Text="{x:Bind ElsewhereNote, Mode=OneWay}"
+                                                   TextWrapping="Wrap"
+                                                   Style="{StaticResource CaptionTextBlockStyle}" />
+                                        <Button Grid.Column="1" VerticalAlignment="Center"
+                                                Content="{x:Bind AdoptLabel, Mode=OneWay}"
+                                                Click="Adopt_Click" Tag="{x:Bind}" />
+                                    </Grid>
+                                </Border>
+                                <TextBlock Text="{x:Bind CopiedNote, Mode=OneWay}"
+                                           Visibility="{x:Bind CopiedNoteVisibility, Mode=OneWay}"
+                                           TextWrapping="Wrap"
+                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 <CheckBox Content="Keep the 5-hour window open automatically"
                                           IsChecked="{x:Bind KeepWarm, Mode=OneWay}"
                                           Checked="KeepWarm_Toggled" Unchecked="KeepWarm_Toggled"
