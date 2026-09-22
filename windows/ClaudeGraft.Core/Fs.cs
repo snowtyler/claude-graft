@@ -16,6 +16,16 @@ public static class Fs
 
     public static bool IsDirectory(string path) => Directory.Exists(path);
 
+    /// A reparse point — junction or symlink — whether it stands where a file or a
+    /// directory would. <see cref="Junction.IsLink"/> only recognises directory
+    /// links, so a symlinked <c>local_*.json</c> record needs this before it is
+    /// read or written over.
+    public static bool IsReparsePoint(string path)
+    {
+        try { return (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0; }
+        catch { return false; }
+    }
+
     /// When the item was last written, or the distant past for one that is not
     /// there — which is what lets newestChild sort a missing entry last rather
     /// than throw.

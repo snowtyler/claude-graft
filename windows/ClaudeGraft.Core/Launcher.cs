@@ -60,7 +60,30 @@ public static class Launcher
         // reads its sidebar as it comes up.
         Graft.Apply(config);
         SquareUp(filing);
-        Launch(config.ProfileDir);
+        // The sidebar sync and the launch are one critical section: releasing the
+        // lock between them would let another launcher start syncing while this
+        // one opens Claude into the very databases it is reconciling. The
+        // running-check is rechecked here too, since a Claude may have started
+        // during Apply/SquareUp.
+        SidebarSync.WithLaunchLock(locked =>
+        {
+            // Never open into a synchronization we could not serialize against.
+            // Acquisition only fails here on a broken lock, not on contention
+            // (which blocks), so declining costs nothing in normal operation.
+            if (!locked)
+            {
+                Diagnostics.Note("sidebar.launch-lock-unavailable",
+                    new Dictionary<string, object?> { ["profile"] = Path.GetFileName(config.ProfileDir) });
+                return;
+            }
+            if (ClaudeProcesses.IsRunning(config.ProfileDir))
+            {
+                if (ClaudeProcesses.ProcessIdentifier(config.ProfileDir) is int pid) Reveal(pid);
+                return;
+            }
+            SidebarSync.Synchronize(config.ProfileDir);
+            Launch(config.ProfileDir);
+        });
     }
 
     /// Mirror every known pair back into line, then file the records for any
