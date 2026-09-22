@@ -7,6 +7,7 @@ using H.NotifyIcon;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Microsoft.Toolkit.Uwp.Notifications;
 
 namespace ClaudeGraft;
 
@@ -26,6 +27,12 @@ public partial class App : Application
     public static GraftSettings Settings { get; private set; } = GraftSettings.Load();
     public static event Action? SettingsChanged;
 
+    internal static App Instance => (App)Current;
+
+    /// Held here so a background check and a manual one share one answer, and the
+    /// flyout can show it the moment it opens rather than waiting on a fresh check.
+    public static Updater.Release? AvailableUpdate { get; private set; }
+
     public static void ApplySettings(GraftSettings updated)
     {
         // Pressing Done with nothing touched should be as quiet as Cancel: no
@@ -44,6 +51,8 @@ public partial class App : Application
     private MainWindow? _window;
     private FlyoutWindow? _flyout;
     private Timer? _warmTimer;
+    private Timer? _updateTimer;
+    private string? _notifiedVersion;
 
     // The tray's click callbacks arrive on H.NotifyIcon's message-window
     // thread, not this one; anything touching a WinUI window has to hop back to
@@ -113,6 +122,8 @@ public partial class App : Application
         _tray.RightClickCommand = new RelayCommand(ShowMenu);
         _tray.ForceCreate();
 
+        RegisterNotifications();
+
         // Built now, hidden, so the first left click shows it rather than paying
         // to construct a window and its backdrop before anything appears.
         _flyout = new FlyoutWindow(ShowManager, Quit);
@@ -133,6 +144,108 @@ public partial class App : Application
         // for free.
         _warmTimer = new Timer(
             _ => _ = SweepWarmProfiles(), null, TimeSpan.FromSeconds(20), TimeSpan.FromMinutes(5));
+
+        // A minute in, so a login-time launch is not on the network before it is
+        // up; every six hours after, well inside GitHub's unauthenticated rate
+        // limit. A found update only lights the tray and the button — nothing here
+        // installs on its own.
+        _updateTimer = new Timer(
+            _ => _ = CheckForUpdates(), null, TimeSpan.FromSeconds(60), TimeSpan.FromHours(6));
+    }
+
+    /// The classic toast path, not WinUI's AppNotificationManager, which needs a
+    /// resource DLL the self-contained runtime does not ship and throws at
+    /// registration. This one registers its own activator for an unpackaged app.
+    private void RegisterNotifications()
+    {
+        try { ToastNotificationManagerCompat.OnActivated += OnToastActivated; }
+        catch (Exception e) { Record("notify.register", e); }
+    }
+
+    private void ShowUpdateNotification(Updater.Release release)
+    {
+        try
+        {
+            new ToastContentBuilder()
+                .AddText("Claude Graft update available")
+                .AddText($"Version {release.Version} is ready to install.")
+                .AddButton(new ToastButton().SetContent("Install").AddArgument("action", "install"))
+                .AddButton(new ToastButton().SetContent("Dismiss").SetDismissActivation())
+                .Show();
+        }
+        catch (Exception e) { Record("notify.show", e); }
+    }
+
+    // Only Install reaches here — Dismiss is handled by the toast itself — and the
+    // callback is off a background thread, so it hops to the UI thread to act.
+    private void OnToastActivated(ToastNotificationActivatedEventArgsCompat e)
+    {
+        var args = ToastArguments.Parse(e.Argument);
+        if (!args.TryGetValue("action", out var action) || action != "install") return;
+        OnUi(() => { if (AvailableUpdate is { } release) _ = InstallUpdateAsync(release); });
+    }
+
+    private async Task CheckForUpdates()
+    {
+        try
+        {
+            var found = await Updater.CheckAsync();
+            OnUi(() => SetAvailableUpdate(found));
+        }
+        catch (Exception e) { Record("update.check", e); }
+    }
+
+    /// Throws through to the caller so a failed check can be told from one that
+    /// found nothing — the button says something different for each.
+    internal async Task<Updater.Release?> RunUpdateCheckAsync()
+    {
+        try
+        {
+            var found = await Updater.CheckAsync();
+            SetAvailableUpdate(found);
+            return found;
+        }
+        catch (Exception e)
+        {
+            Record("update.check", e);
+            throw;
+        }
+    }
+
+    private void SetAvailableUpdate(Updater.Release? release)
+    {
+        AvailableUpdate = release;
+
+        // The notify half of the feature: the icon a person is not looking at
+        // still says an update is waiting. Once per version, so a check every six
+        // hours does not keep rewriting the same tooltip.
+        var version = release?.Version.ToString();
+        if (version is not null && version != _notifiedVersion)
+        {
+            _notifiedVersion = version;
+            if (_tray is not null) _tray.ToolTipText = $"Claude Graft — update {version} ready";
+            ShowUpdateNotification(release!);
+        }
+        else if (release is null && _tray is not null)
+        {
+            _tray.ToolTipText = "Claude Graft";
+        }
+    }
+
+    /// Fetches the installer and hands off to it, then quits — the installer
+    /// cannot replace a running exe, so the process that holds it open has to go.
+    /// The Inno installer brings the app back once it finishes.
+    internal async Task InstallUpdateAsync(Updater.Release release)
+    {
+        var path = await Updater.DownloadAsync(release);
+        Diagnostics.Note("update.install",
+            new Dictionary<string, object?> { ["version"] = release.Version.ToString(), ["path"] = path });
+        Updater.LaunchInstaller(path);
+        OnUi(() =>
+        {
+            _tray?.Dispose();
+            Exit();
+        });
     }
 
     private async Task SweepWarmProfiles()
@@ -193,6 +306,11 @@ public partial class App : Application
             }
         }
         items.Add((TrayMenu.Separator, false, null));
+        // The Mac's wording: "Version X is available" installs it, otherwise the
+        // plain "Check for Updates".
+        items.Add(AvailableUpdate is { } ready
+            ? ($"Version {ready.Version} is available", true, () => _ = InstallUpdateAsync(ready))
+            : ("Check for Updates", true, () => _ = CheckForUpdates()));
         items.Add(("Manage Profiles…", true, ShowManager));
         items.Add(("Settings…", true, ShowSettings));
         items.Add(("Quit", true, Quit));

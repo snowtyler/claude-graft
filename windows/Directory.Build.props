@@ -1,0 +1,18 @@
+<Project>
+  <!--
+    The repo-root VERSION file is the one place the number is written down, the
+    way build.sh stamps it into the Mac bundle. Nothing here stamped it at all,
+    so every build reported 1.0.0.0 no matter what VERSION said — which an update
+    check, comparing the running build against the latest release, cannot work
+    without. Stamped into every assembly so Assembly.GetName().Version is the
+    truth. The release workflow overrides GraftVersion from the tag, so the
+    binary and the release it came from always agree.
+  -->
+  <PropertyGroup>
+    <GraftVersionRaw Condition="'$(GraftVersion)' == ''">$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)..\VERSION'))</GraftVersionRaw>
+    <GraftVersion Condition="'$(GraftVersion)' == ''">$(GraftVersionRaw.Trim())</GraftVersion>
+    <Version>$(GraftVersion)</Version>
+    <AssemblyVersion>$(GraftVersion)</AssemblyVersion>
+    <FileVersion>$(GraftVersion)</FileVersion>
+  </PropertyGroup>
+</Project>

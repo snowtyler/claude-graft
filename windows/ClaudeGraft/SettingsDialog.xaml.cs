@@ -1,5 +1,6 @@
 using System.Reflection;
 using ClaudeGraft.Core;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
 namespace ClaudeGraft;
@@ -27,6 +28,54 @@ public sealed partial class SettingsDialog : ContentDialog
         VersionText.Text = version is null
             ? "Claude Graft"
             : $"Claude Graft {version.Major}.{version.Minor}.{version.Build}";
+
+        ReflectUpdate();
+    }
+
+    private Updater.Release? _update;
+
+    private void ReflectUpdate()
+    {
+        _update = App.AvailableUpdate;
+        CheckButton.IsEnabled = true;
+        CheckButton.Content = _update is null ? "Check for Updates" : $"Install Update {_update.Version}";
+        if (_update is not null) ShowStatus($"Version {_update.Version} is available.");
+    }
+
+    // Unlike the flyout, which stays quiet like the Mac dropdown, the settings
+    // page reports the outcome in words: a person who opened it and pressed is
+    // owed an answer.
+    private async void Check_Click(object sender, RoutedEventArgs e)
+    {
+        if (_update is not null)
+        {
+            CheckButton.IsEnabled = false;
+            CheckButton.Content = "Downloading…";
+            try { await App.Instance.InstallUpdateAsync(_update); }
+            catch { ReflectUpdate(); ShowStatus("The update could not be downloaded."); }
+            return;
+        }
+
+        CheckButton.IsEnabled = false;
+        CheckButton.Content = "Checking for Updates…";
+        ShowStatus(null);
+        try
+        {
+            var found = await App.Instance.RunUpdateCheckAsync();
+            ReflectUpdate();
+            if (found is null) ShowStatus("You’re up to date.");
+        }
+        catch
+        {
+            ReflectUpdate();
+            ShowStatus("Couldn’t reach the update server.");
+        }
+    }
+
+    private void ShowStatus(string? text)
+    {
+        UpdateStatus.Text = text ?? "";
+        UpdateStatus.Visibility = text is null ? Visibility.Collapsed : Visibility.Visible;
     }
 
     /// The settings as chosen. Read after the dialog closes on Done.
