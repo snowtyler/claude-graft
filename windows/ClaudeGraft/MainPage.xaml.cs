@@ -60,6 +60,7 @@ public sealed partial class MainPage : Page
     {
         RefreshUsageQuietly(interactive: true);
         _ = MarkRunning(Rows.ToList());
+        _ = MarkChatsElsewhere(Rows.ToList());
     }
 
     private int _reloadGeneration;
@@ -90,6 +91,7 @@ public sealed partial class MainPage : Page
             loads.Add(LoadUsage(row, interactive));   // fills the bars in when the answer arrives
         }
         _ = MarkRunning(rows);
+        _ = MarkChatsElsewhere(rows);
         try { await Task.WhenAll(loads); }
         finally { if (generation == _reloadGeneration) RefreshButton.IsEnabled = true; }
     }
@@ -201,15 +203,144 @@ public sealed partial class MainPage : Page
         }
     }
 
-    private void Open_Click(object sender, RoutedEventArgs e)
+    /// Shortcuts asked about their elsewhere-chats already, for this run only. The
+    /// dialog's checkbox is the permanent silence; this just stops a second Open
+    /// press re-asking.
+    private readonly HashSet<Guid> _askedAboutChats = new();
+
+    private async void Open_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is FrameworkElement { Tag: ShortcutRow row })
+        if (sender is not FrameworkElement { Tag: ShortcutRow row }) return;
+
+        // Before opening, never after: Claude builds its sidebar at launch, so the
+        // copy has to happen first to land in the window about to open.
+        if (row.Shortcut is { } s && row.Elsewhere is { } found
+            && s.StopAskingChatsFor != found.Account && !_askedAboutChats.Contains(s.Id))
         {
-            var config = row.Shortcut is Shortcut s
-                ? App.Store.ConfigFor(s)
-                : new GraftConfig { ProfileDir = row.ProfileDir, SourceDir = null };
-            Task.Run(() => Launcher.Open(config));
+            if (!await AskAboutChats(row, s, found)) return;
         }
+        OpenRow(row);
+    }
+
+    private static void OpenRow(ShortcutRow row)
+    {
+        var config = row.Shortcut is Shortcut s
+            ? App.Store.ConfigFor(s)
+            : new GraftConfig { ProfileDir = row.ProfileDir, SourceDir = null };
+        Task.Run(() => Launcher.Open(config));
+    }
+
+    /// The offer at the door. Four choices folded into a dialog's three buttons
+    /// and a checkbox: copy or merge them across, open without them, or cancel,
+    /// with "don't ask again" alongside — the persistent silence the Mac gives a
+    /// button of its own. Returns whether to go on and open the window.
+    private async Task<bool> AskAboutChats(ShortcutRow row, Shortcut s, Graft.ChatsElsewhere found)
+    {
+        var dontAsk = new CheckBox { Content = "Don't ask again for this account" };
+        var body = new StackPanel { Spacing = 12 };
+        body.Children.Add(new TextBlock
+        {
+            Text = row.ElsewhereNote
+                   + "\n\nClaude builds its sidebar as it starts, so bringing them over now is what puts "
+                   + "them in the window about to open. Every Claude has to be closed for that.",
+            TextWrapping = TextWrapping.Wrap,
+        });
+        body.Children.Add(dontAsk);
+
+        var dialog = new ContentDialog
+        {
+            Title = found.Merging
+                ? "Merge this account's other chats in first?"
+                : "Bring this account's chats across first?",
+            Content = body,
+            PrimaryButtonText = row.AdoptLabel,
+            SecondaryButtonText = "Open Without Them",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+        };
+        PrepareDialog(dialog);
+        var result = await dialog.ShowAsync();
+
+        if (result == ContentDialogResult.None) return false;   // Cancel: leave it, do not open
+
+        if (dontAsk.IsChecked == true)
+        {
+            s.StopAskingChatsFor = found.Account;
+            App.Store.Update(s);
+        }
+
+        if (result == ContentDialogResult.Secondary)   // Open Without Them
+        {
+            if (dontAsk.IsChecked != true) _askedAboutChats.Add(s.Id);
+            return true;
+        }
+
+        // Copy / Merge Them Here. Open only once something arrived and nothing is
+        // running: a copy refused for an open Claude leaves the "quit X" note that
+        // opening a window would bury, and stays askable next time.
+        var adoption = await Adopt(row, found);
+        return adoption.Running.Count == 0 && adoption.Copied > 0;
+    }
+
+    private async void Adopt_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: ShortcutRow row } && row.Elsewhere is { } found)
+            await Adopt(row, found);
+    }
+
+    /// Off the UI thread, because it copies files and asks what is running. The
+    /// result note stays on the row afterward, since Claude may not be open to
+    /// show the answer for itself.
+    private async Task<Graft.Adoption> Adopt(ShortcutRow row, Graft.ChatsElsewhere found)
+    {
+        var profile = row.ProfileDir;
+        var result = await Task.Run(() => Graft.AdoptChats(found.Profile, profile, found.Account));
+        if (!Rows.Contains(row)) return result;
+
+        row.CopiedNote = result.Running.Count > 0
+            ? "Nothing copied — quit " + NamesOf(result.Running) + " first"
+            : result.Copied == 0
+                ? "Nothing was copied"
+                : $"{ShortcutRow.Chats(result.Copied)} copied from {App.Store.NameOfProfile(found.Profile)}";
+
+        // Once they are here the offer stops being made, and after a partial copy
+        // the count drops to whatever is still missing.
+        await MarkChatsElsewhere(new[] { row });
+        return result;
+    }
+
+    /// A list of profiles as a sentence: "Claude", "Claude and Claude-Work",
+    /// "Claude, Claude-Work and Claude-Play".
+    private static string NamesOf(IReadOnlyList<string> profiles)
+    {
+        var names = profiles.Select(App.Store.NameOfProfile).ToList();
+        return names.Count switch
+        {
+            0 => "",
+            1 => names[0],
+            2 => names[0] + " and " + names[1],
+            _ => string.Join(", ", names.Take(names.Count - 1)) + " and " + names[^1],
+        };
+    }
+
+    /// Fills each eligible row's "chats found elsewhere" offer, off the UI thread
+    /// because it walks every profile's stores. Only a shortcut keeping its own
+    /// chats is asked: the main row holds no shortcut, and a grafted one is having
+    /// its sidebar filled from a source already.
+    private async Task MarkChatsElsewhere(IReadOnlyList<ShortcutRow> rows)
+    {
+        var offers = await Task.Run(() =>
+        {
+            var profiles = Graft.SessionStoreProfiles();
+            var map = new Dictionary<ShortcutRow, Graft.ChatsElsewhere?>();
+            foreach (var row in rows)
+                map[row] = row.Shortcut is { Source.Kind: SourceKind.Own } s
+                    ? Graft.FindChatsElsewhere(s.ProfileDir, profiles)
+                    : null;
+            return map;
+        });
+        foreach (var (row, offer) in offers)
+            if (Rows.Contains(row)) row.SetChatsElsewhere(offer);
     }
 
     private async void Add_Click(object sender, RoutedEventArgs e) => await EditProfile(null);
