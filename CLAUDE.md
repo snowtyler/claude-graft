@@ -19,6 +19,12 @@ comment. Never leave a mark that the code was generated or changed — no
 `// Added`, no `/* Updated logic */`, no changelog in the source. And leave the
 docs and docstrings already here alone unless the task is to rework them.
 
+And keep it short. A why-comment is a line, two at the outside; when it wants a
+paragraph the reason has become an invariant, and invariants live in this file
+or the README, not in a block beside the code. Porting from the mac build is
+where this slips — that source is commented at length on purpose, so carry the
+reason across, not the prose that surrounds it there.
+
 Prose in the README, not bullet lists. Tests read as sentences — `check(…, "a
 profile with no stored login has no token")`, not `"testTokenNil"`.
 
