@@ -17,6 +17,9 @@ public static partial class Graft
         if (Fs.SamePath(source, profile)) return;
         const string name = "claude_desktop_config.json";
         var destination = Path.Combine(profile, name);
+        // An older build shared this file, which on Windows left a broken junction
+        // the profile's Claude cannot read. Restore its own copy before merging.
+        RestoreOwnFile(destination);
 
         // Missing reads as empty to merge into; unparseable (caught mid-write)
         // reads as null so the caller bails rather than clobbering it. mcpServers

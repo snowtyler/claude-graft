@@ -14,17 +14,30 @@ public static class Launcher
 {
     /// The Claude Desktop binary, newest installed version. Squirrel keeps each
     /// version in its own app-<version> folder under LocalAppData.
+    ///
+    /// Ordered by parsed version, never by the folder name as a string: an
+    /// ordinal sort puts app-2.2553.1 above app-2.2553.13 — the path separator
+    /// after the "1" outranks the "3" — so Graft launched a stale build and left
+    /// Claude asking for an update its own updater had already installed.
     public static string? ClaudeExe()
     {
         var root = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AnthropicClaude");
         if (!Directory.Exists(root)) return null;
-        return Directory.EnumerateDirectories(root, "app-*")
-            .Select(d => Path.Combine(d, "claude.exe"))
-            .Where(File.Exists)
-            .OrderByDescending(p => p, StringComparer.Ordinal)
-            .FirstOrDefault();
+        var newest = NewestApp(Directory.EnumerateDirectories(root, "app-*")
+            .Where(d => File.Exists(Path.Combine(d, "claude.exe"))));
+        return newest is null ? null : Path.Combine(newest, "claude.exe");
     }
+
+    /// The app-<version> directory with the highest parsed version. Anything not
+    /// spelled app-<version> is ignored rather than guessed at.
+    public static string? NewestApp(IEnumerable<string> appDirs) =>
+        appDirs
+            .Select(d => (dir: d, version: Version.TryParse(Path.GetFileName(d)["app-".Length..], out var v) ? v : null))
+            .Where(x => x.version is not null)
+            .OrderByDescending(x => x.version)
+            .Select(x => x.dir)
+            .FirstOrDefault();
 
     /// Open the profile a shortcut folder names, resolving its source from the
     /// shared list — which is what a desktop shortcut hands the launcher stub.

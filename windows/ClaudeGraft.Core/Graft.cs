@@ -189,6 +189,16 @@ public static partial class Graft
         // Linking something to itself would stash the real thing away and leave
         // a link pointing at its own empty name.
         if (Fs.SamePath(target, link)) return false;
+        // A junction stands in only for a directory. Pointed at a file it becomes
+        // a directory reparse point that opens as ENOENT — which is how a grafted
+        // profile's settings file came to error — so a file target is not linked;
+        // the profile keeps its own copy, and any broken junction an older build
+        // left here is undone.
+        if (!Fs.IsDirectory(target))
+        {
+            RestoreOwnFile(link);
+            return false;
+        }
         if (Junction.IsLink(link))
         {
             if (Fs.SamePath(Junction.Target(link) ?? "", target)) return true;
@@ -205,6 +215,28 @@ public static partial class Graft
             return true;
         }
         catch { return false; }
+    }
+
+    /// Drop a broken directory junction an older build made where a file belongs
+    /// and bring the profile's own copy back from the stash. Robust to a junction
+    /// whose target has gone: the reparse point is removed by name, never
+    /// followed, so nothing in the source is touched.
+    public static void RestoreOwnFile(string link)
+    {
+        if (Fs.IsReparsePoint(link))
+        {
+            try { Directory.Delete(link); }
+            catch { try { File.Delete(link); } catch { } }
+        }
+        var stashed = StashPath(link);
+        if (!Fs.Exists(link) && Fs.Exists(stashed))
+        {
+            Diagnostics.Note("relink.restoreOwnFile", new Dictionary<string, object?>
+            {
+                ["file"] = Path.GetFileName(link),
+            });
+            Move(stashed, link);
+        }
     }
 
     // MARK: - Profile identity
