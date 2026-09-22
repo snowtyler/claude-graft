@@ -163,6 +163,11 @@
                                            TextWrapping="Wrap"
                                            Style="{StaticResource CaptionTextBlockStyle}"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock Text="{x:Bind SidebarStatus, Mode=OneWay}"
+                                           Visibility="{x:Bind SidebarStatusVisibility, Mode=OneWay}"
+                                           TextWrapping="Wrap"
+                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                                 <CheckBox Content="Keep the 5-hour window open automatically"
                                           IsChecked="{x:Bind KeepWarm, Mode=OneWay}"
                                           Checked="KeepWarm_Toggled" Unchecked="KeepWarm_Toggled"

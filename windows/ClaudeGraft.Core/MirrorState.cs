@@ -25,14 +25,15 @@ public sealed class MirrorState
         catch { return new MirrorState(); }
     }
 
-    public void Save(string path)
+    public bool Save(string path)
     {
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             AtomicWrite.Bytes(path, JsonSerializer.SerializeToUtf8Bytes(this, Options));
+            return true;
         }
-        catch { }
+        catch { return false; }
     }
 }
 
@@ -41,7 +42,17 @@ public static partial class Graft
     private static string MirrorStateFile => Path.Combine(GraftPaths.OwnData, "mirrored-chats.json");
 
     public static MirrorState LoadMirrorState() => MirrorState.Load(MirrorStateFile);
-    public static void SaveMirrorState(MirrorState state) => state.Save(MirrorStateFile);
+
+    public static void SaveMirrorState(MirrorState state) => SidebarSync.WithLaunchLock(held =>
+    {
+        // The mirror-state save must happen regardless of the sidebar launch lock
+        // — persisting a graft's pairs never depended on it, and skipping it would
+        // lose graft state. Only the sidebar-baseline prune needs serialization,
+        // so it runs only with the lock held and after a successful save; it reads
+        // the live pairs back from disk, so it can never drop a baseline for a
+        // pair still recorded there.
+        if (state.Save(MirrorStateFile) && held) SidebarSync.ForgetPairsLocked();
+    });
 
     /// A byte no path can contain, so the two halves of a key always come back
     /// apart the way they went together.

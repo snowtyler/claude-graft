@@ -332,15 +332,21 @@ public sealed partial class MainPage : Page
         var offers = await Task.Run(() =>
         {
             var profiles = Graft.SessionStoreProfiles();
-            var map = new Dictionary<ShortcutRow, Graft.ChatsElsewhere?>();
+            var map = new Dictionary<ShortcutRow, (Graft.ChatsElsewhere? offer, string? status)>();
             foreach (var row in rows)
-                map[row] = row.Shortcut is { Source.Kind: SourceKind.Own } s
-                    ? Graft.FindChatsElsewhere(s.ProfileDir, profiles)
-                    : null;
+                map[row] = (
+                    row.Shortcut is { Source.Kind: SourceKind.Own } s
+                        ? Graft.FindChatsElsewhere(s.ProfileDir, profiles)
+                        : null,
+                    SidebarSync.Status(row.ProfileDir));
             return map;
         });
-        foreach (var (row, offer) in offers)
-            if (Rows.Contains(row)) row.SetChatsElsewhere(offer);
+        foreach (var (row, value) in offers)
+            if (Rows.Contains(row))
+            {
+                row.SetChatsElsewhere(value.offer);
+                row.SetSidebarStatus(value.status);
+            }
     }
 
     private async void Add_Click(object sender, RoutedEventArgs e) => await EditProfile(null);

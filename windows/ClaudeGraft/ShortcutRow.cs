@@ -192,6 +192,22 @@ public sealed class ShortcutRow : INotifyPropertyChanged
 
     public static string Chats(int count) => count == 1 ? "1 chat" : $"{count} chats";
 
+    private string? _sidebarStatus;
+
+    /// Where pin/order sync stands for this profile: synced, waiting on a Claude
+    /// to close, or a retry. Only shared profiles ever carry one.
+    public string? SidebarStatus => _sidebarStatus;
+    public Visibility SidebarStatusVisibility =>
+        string.IsNullOrEmpty(_sidebarStatus) ? Visibility.Collapsed : Visibility.Visible;
+
+    public void SetSidebarStatus(string? status)
+    {
+        if (status == _sidebarStatus) return;
+        _sidebarStatus = status;
+        Notify(nameof(SidebarStatus));
+        Notify(nameof(SidebarStatusVisibility));
+    }
+
     private string? _copiedNote;
 
     /// What the last copy did, kept on screen because Claude may not be open to
