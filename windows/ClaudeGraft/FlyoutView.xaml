@@ -71,6 +71,14 @@
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 <ProgressBar Value="{x:Bind Week, Mode=OneWay}" Maximum="100"
                                              local:BarPulse.Key="{x:Bind Pulse, Mode=OneWay}" />
+                                <StackPanel Spacing="4" Margin="0,4,0,0"
+                                            Visibility="{x:Bind FableVisibility, Mode=OneWay}">
+                                    <TextBlock Text="{x:Bind FableText, Mode=OneWay}"
+                                               Style="{StaticResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <ProgressBar Value="{x:Bind Fable, Mode=OneWay}" Maximum="100"
+                                                 local:BarPulse.Key="{x:Bind Pulse, Mode=OneWay}" />
+                                </StackPanel>
                             </StackPanel>
 
                             <!-- Why the last Start Session could not open a window,

@@ -15,6 +15,9 @@ public sealed record Usage
     public required DateTimeOffset Sampled { get; init; }
     public DateTimeOffset? FiveHourReset { get; init; }
     public DateTimeOffset? WeekReset { get; init; }
+    /// Only the live endpoint reports these; the on-disk history has no per-model figures.
+    public int? Fable { get; init; }
+    public DateTimeOffset? FableReset { get; init; }
 
     /// Claude only writes this while it runs, so an old sample says nothing
     /// useful about a five-hour window that has since rolled over.

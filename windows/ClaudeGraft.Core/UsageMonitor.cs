@@ -120,6 +120,8 @@ public static class UsageMonitor
                 Sampled = DateTimeOffset.UtcNow,
                 FiveHourReset = reading.FiveHourReset,
                 WeekReset = reading.WeekReset,
+                Fable = reading.Fable,
+                FableReset = reading.FableReset,
             },
             IsLive = true,
             Plan = reading.Plan,

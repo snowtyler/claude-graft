@@ -71,6 +71,7 @@ public sealed class ShortcutRow : INotifyPropertyChanged
         foreach (var name in new[]
         {
             nameof(FiveHour), nameof(Week), nameof(FiveHourText), nameof(WeekText),
+            nameof(Fable), nameof(FableText), nameof(FableVisibility),
             nameof(BarsVisibility), nameof(NoUsageVisibility),
         }) Notify(name);
         // Only a live reading is trusted to say a window is open. On the stale
@@ -126,6 +127,10 @@ public sealed class ShortcutRow : INotifyPropertyChanged
 
     public string FiveHourText => Line("5 hours", FiveHour, _usage?.Usage?.FiveHourReset);
     public string WeekText => Line("Week", Week, _usage?.Usage?.WeekReset);
+
+    public int Fable => _usage?.Usage?.Fable ?? 0;
+    public string FableText => Line("Fable", Fable, _usage?.Usage?.FableReset);
+    public Visibility FableVisibility => _usage?.Usage?.Fable is not null ? Visibility.Visible : Visibility.Collapsed;
 
     private static string Line(string label, int percent, DateTimeOffset? reset)
     {

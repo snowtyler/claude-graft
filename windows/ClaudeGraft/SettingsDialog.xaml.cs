@@ -23,6 +23,7 @@ public sealed partial class SettingsDialog : ContentDialog
         BackdropBox.SelectedIndex = (int)current.Backdrop;
         AutoStartSwitch.IsOn = AutoStart.IsEnabled();
         StartHiddenSwitch.IsOn = current.StartHidden;
+        _current = current;
 
         var version = Assembly.GetExecutingAssembly().GetName().Version;
         VersionText.Text = version is null
@@ -32,6 +33,7 @@ public sealed partial class SettingsDialog : ContentDialog
         ReflectUpdate();
     }
 
+    private readonly GraftSettings _current;
     private Updater.Release? _update;
 
     private void ReflectUpdate()
@@ -84,6 +86,8 @@ public sealed partial class SettingsDialog : ContentDialog
         Theme = (AppTheme)ThemeBox.SelectedIndex,
         Backdrop = (BackdropMaterial)BackdropBox.SelectedIndex,
         StartHidden = StartHiddenSwitch.IsOn,
+        // Set from the main card rather than here, but a save must not drop it.
+        KeepMainWarm = _current.KeepMainWarm,
     };
 
     /// Whether the person asked to start with Windows — applied to the Startup
