@@ -22,6 +22,8 @@ public static class UsageApi
         public DateTimeOffset? FiveHourReset { get; init; }
         public DateTimeOffset? WeekReset { get; init; }
         public string? Plan { get; init; }
+        public int? Fable { get; init; }
+        public DateTimeOffset? FableReset { get; init; }
     }
 
     public sealed class Failure : Exception
@@ -63,6 +65,7 @@ public static class UsageApi
     {
         if (Window(body, "five_hour") is not { } session) return null;
         var weekly = Window(body, "seven_day");
+        var fable = FableWindow(body);
         return new Reading
         {
             FiveHour = session.used,
@@ -71,17 +74,43 @@ public static class UsageApi
             WeekReset = weekly?.resets,
             Plan = body.TryGetProperty("subscription_type", out var s) && s.ValueKind == JsonValueKind.String
                 ? Capitalize(s.GetString()) : null,
+            Fable = fable?.used,
+            FableReset = fable?.resets,
         };
     }
 
     private static (int used, DateTimeOffset? resets)? Window(JsonElement body, string name)
     {
         if (!body.TryGetProperty(name, out var window) || window.ValueKind != JsonValueKind.Object) return null;
-        if (!window.TryGetProperty("utilization", out var util) || util.ValueKind != JsonValueKind.Number) return null;
-        var used = (int)Math.Round(util.GetDouble());
+        if (Percentage(window, "utilization") is not int used) return null;
         DateTimeOffset? resets = window.TryGetProperty("resets_at", out var r) ? ParseDate(r) : null;
         return (used, resets);
     }
+
+    // Only some accounts carry a Fable limit, and it sits among the per-model
+    // weekly windows rather than beside five_hour and seven_day.
+    private static (int used, DateTimeOffset? resets)? FableWindow(JsonElement body)
+    {
+        if (!body.TryGetProperty("limits", out var limits) || limits.ValueKind != JsonValueKind.Array) return null;
+        foreach (var limit in limits.EnumerateArray())
+        {
+            if (limit.ValueKind != JsonValueKind.Object
+                || !limit.TryGetProperty("kind", out var kind) || kind.ValueKind != JsonValueKind.String
+                || kind.GetString() != "weekly_scoped"
+                || !limit.TryGetProperty("scope", out var scope) || scope.ValueKind != JsonValueKind.Object
+                || !scope.TryGetProperty("model", out var model) || model.ValueKind != JsonValueKind.Object
+                || !model.TryGetProperty("display_name", out var name) || name.ValueKind != JsonValueKind.String
+                || name.GetString()?.Contains("fable", StringComparison.OrdinalIgnoreCase) != true)
+                continue;
+            if ((Percentage(limit, "percent") ?? Percentage(limit, "utilization")) is not int used) return null;
+            return (used, limit.TryGetProperty("resets_at", out var r) ? ParseDate(r) : null);
+        }
+        return null;
+    }
+
+    private static int? Percentage(JsonElement obj, string name) =>
+        obj.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number
+            ? (int)Math.Round(value.GetDouble()) : null;
 
     private static DateTimeOffset? ParseDate(JsonElement value)
     {

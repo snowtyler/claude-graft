@@ -35,6 +35,38 @@ public class UsageApiTests
     [Fact(DisplayName = "a response with no five-hour window is unreadable")]
     public void RejectsMissingSession() =>
         Assert.Null(UsageApi.ReadingFrom(Body("{\"seven_day\":{\"utilization\":10}}")));
+
+    private const string Session = "\"five_hour\":{\"utilization\":1}";
+
+    [Fact(DisplayName = "a weekly Fable limit among the per-model windows is read with its reset")]
+    public void ParsesFable()
+    {
+        var reading = UsageApi.ReadingFrom(Body("{" + Session + ",\"limits\":[" +
+            "{\"kind\":\"weekly_scoped\",\"scope\":{\"model\":{\"display_name\":\"Claude Opus 5.5\"}},\"percent\":80}," +
+            "{\"kind\":\"weekly_scoped\",\"scope\":{\"model\":{\"display_name\":\"Claude Fable 5.1\"}}," +
+            "\"percent\":12,\"resets_at\":\"2026-09-05T00:00:00Z\"}]}"));
+        Assert.Equal(12, reading!.Fable);
+        Assert.Equal(new DateTimeOffset(2026, 9, 5, 0, 0, 0, TimeSpan.Zero), reading.FableReset);
+    }
+
+    [Fact(DisplayName = "a Fable limit giving only utilization falls back to it, rounded")]
+    public void FableFallsBackToUtilization()
+    {
+        var reading = UsageApi.ReadingFrom(Body("{" + Session + ",\"limits\":[" +
+            "{\"kind\":\"weekly_scoped\",\"scope\":{\"model\":{\"display_name\":\"claude fable\"}}," +
+            "\"utilization\":33.6,\"resets_at\":1788566400}]}"));
+        Assert.Equal(34, reading!.Fable);
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1788566400), reading.FableReset);
+    }
+
+    [Fact(DisplayName = "an account with no Fable limit reports no Fable figure")]
+    public void NoFable()
+    {
+        Assert.Null(UsageApi.ReadingFrom(Body("{" + Session + "}"))!.Fable);
+        Assert.Null(UsageApi.ReadingFrom(Body("{" + Session + ",\"limits\":[]}"))!.Fable);
+        Assert.Null(UsageApi.ReadingFrom(Body("{" + Session + ",\"limits\":[" +
+            "{\"kind\":\"five_hour_scoped\",\"scope\":{\"model\":{\"display_name\":\"Claude Fable 5.1\"}},\"percent\":5}]}"))!.Fable);
+    }
 }
 
 public class UsageDiskTests

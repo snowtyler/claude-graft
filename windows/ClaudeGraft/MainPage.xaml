@@ -127,6 +127,13 @@
                                                Style="{StaticResource CaptionTextBlockStyle}"
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                     <ProgressBar Value="{x:Bind Week, Mode=OneWay}" Maximum="100" />
+                                    <StackPanel Spacing="6" Margin="0,4,0,0"
+                                                Visibility="{x:Bind FableVisibility, Mode=OneWay}">
+                                        <TextBlock Text="{x:Bind FableText, Mode=OneWay}"
+                                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        <ProgressBar Value="{x:Bind Fable, Mode=OneWay}" Maximum="100" />
+                                    </StackPanel>
                                 </StackPanel>
                                 <TextBlock Text="No usage reported yet"
                                            Visibility="{x:Bind NoUsageVisibility, Mode=OneWay}"
