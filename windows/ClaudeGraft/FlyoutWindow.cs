@@ -58,6 +58,9 @@ public sealed class FlyoutWindow : Window
         AppWindow.IsShownInSwitchers = false;
         ApplyAppearance();
         App.SettingsChanged += ApplyAppearance;
+        // On System, Windows switching theme re-themes the text but not the
+        // backdrop, which holds whatever theme it was last handed.
+        _view.ActualThemeChanged += (_, _) => SyncBackdropTheme();
         StyleFrame();
         RemoveNonClientFrame();
 
@@ -292,13 +295,7 @@ public sealed class FlyoutWindow : Window
     {
         _view.RequestedTheme = Appearance.ToElementTheme(App.Settings.Theme);
 
-        _backdropConfig ??= new SystemBackdropConfiguration { IsInputActive = true };
-        _backdropConfig.Theme = _view.ActualTheme switch
-        {
-            ElementTheme.Light => SystemBackdropTheme.Light,
-            ElementTheme.Dark => SystemBackdropTheme.Dark,
-            _ => SystemBackdropTheme.Default,
-        };
+        SyncBackdropTheme();
 
         // The controller reads its theme from the config object it already holds,
         // so a theme change needs no rebuild — only a change of material does, and
@@ -319,6 +316,17 @@ public sealed class FlyoutWindow : Window
             }
             _appliedBackdrop = App.Settings.Backdrop;
         }
+    }
+
+    private void SyncBackdropTheme()
+    {
+        _backdropConfig ??= new SystemBackdropConfiguration { IsInputActive = true };
+        _backdropConfig.Theme = _view.ActualTheme switch
+        {
+            ElementTheme.Light => SystemBackdropTheme.Light,
+            ElementTheme.Dark => SystemBackdropTheme.Dark,
+            _ => SystemBackdropTheme.Default,
+        };
     }
 
     /// The controller for a material, or null for Solid and for a material the
