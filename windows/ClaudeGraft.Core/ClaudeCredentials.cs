@@ -28,6 +28,9 @@ public static class ClaudeCredentials
 
     private static readonly string[] CacheKeys = { "oauth:tokenCacheV2", "oauth:tokenCache" };
 
+    public static bool HasCachedLogin(System.Text.Json.Nodes.JsonObject config) =>
+        CacheKeys.Any(config.ContainsKey);
+
     public sealed record Token
     {
         public required string Value { get; init; }

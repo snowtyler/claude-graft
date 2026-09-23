@@ -30,9 +30,11 @@ public static class ClaudeProcesses
     /// session happened to be bridging. Identity comes from the binary, the way
     /// the Mac build's isClaudeProcess reads it: the desktop app lives under
     /// <c>AnthropicClaude\app-<version>\</c>, where only the Electron process and
-    /// its helpers run, and every one of them owns a window worth showing.
+    /// its helpers run, and every one of them owns a window worth showing. The
+    /// packaged install's WindowsApps folder holds the same.
     public static bool IsClaudeDesktop(string command) =>
-        command.Contains(@"AnthropicClaude\app-", StringComparison.OrdinalIgnoreCase);
+        command.Contains(@"AnthropicClaude\app-", StringComparison.OrdinalIgnoreCase)
+        || PackagedClaude.IsPackagePath(command);
 
     /// A helper process — a renderer, a GPU or utility process — rather than the
     /// browser process that owns the window. Electron marks these with --type;

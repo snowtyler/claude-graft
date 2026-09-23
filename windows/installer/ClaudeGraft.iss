@@ -30,6 +30,9 @@ SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayIcon={app}\{#MyAppExeName}
 ArchitecturesInstallIn64BitMode=x64compatible
+; Graft answers a close by hiding to the tray, so the Restart Manager's polite
+; request never ends it and setup waited for ever; force ends it after asking.
+CloseApplications=force
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

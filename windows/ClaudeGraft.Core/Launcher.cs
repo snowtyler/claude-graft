@@ -19,7 +19,9 @@ public static class Launcher
     /// ordinal sort puts app-2.2553.1 above app-2.2553.13 — the path separator
     /// after the "1" outranks the "3" — so Graft launched a stale build and left
     /// Claude asking for an update its own updater had already installed.
-    public static string? ClaudeExe()
+    public static string? ClaudeExe() => SquirrelExe() ?? PackagedClaude.Locate()?.Exe;
+
+    private static string? SquirrelExe()
     {
         var root = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AnthropicClaude");
@@ -121,18 +123,24 @@ public static class Launcher
 
     private static void Launch(string profile)
     {
-        var exe = ClaudeExe();
-        if (exe is null) return;
         // A shortcut always carries its own profile; the default profile is the
         // one launched with no --user-data-dir at all.
         var args = Fs.SamePath(profile, GraftPaths.DefaultProfile)
             ? ""
             : $"--user-data-dir=\"{profile}\"";
-        try
+        if (SquirrelExe() is { } exe)
         {
-            Process.Start(new ProcessStartInfo(exe, args) { UseShellExecute = false });
+            try { Process.Start(new ProcessStartInfo(exe, args) { UseShellExecute = false }); }
+            catch { }
         }
-        catch { }
+        else if (PackagedClaude.Locate() is { } package && !PackagedClaude.Activate(package, args))
+        {
+            Diagnostics.Note("launch.activationFailed", new Dictionary<string, object?>
+            {
+                ["profile"] = Path.GetFileName(profile),
+                ["app"] = package.AppUserModelId,
+            });
+        }
     }
 
     // MARK: - Reveal
