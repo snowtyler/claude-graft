@@ -141,14 +141,6 @@ public sealed partial class FlyoutView : UserControl
         }
     }
 
-    private void SignIn_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { Tag: ShortcutRow row })
-        {
-            ProfileRows.Open(row);
-            DismissRequested?.Invoke();
-        }
-    }
 
     /// Opens a five-hour window on one account by sending it a single short
     /// message, the way the Mac dropdown's per-row Start Session does. Only a

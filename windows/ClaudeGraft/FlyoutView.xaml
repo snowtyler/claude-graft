@@ -44,9 +44,6 @@
                                            Style="{StaticResource BodyStrongTextBlockStyle}" />
                                 <StackPanel Grid.Column="2" Orientation="Horizontal"
                                             Spacing="8" VerticalAlignment="Center">
-                                    <Button Content="Sign In" Click="SignIn_Click" Tag="{x:Bind}"
-                                            Visibility="{x:Bind SignInVisibility, Mode=OneWay}"
-                                            Padding="10,4" MinHeight="0" />
                                     <Border Background="Transparent" ToolTipService.ToolTip="{x:Bind StartTooltip, Mode=OneWay}"
                                             Visibility="{x:Bind SignedInVisibility, Mode=OneWay}">
                                         <StackPanel Orientation="Horizontal">
@@ -59,7 +56,7 @@
                                                     Padding="10,4" MinHeight="0" />
                                         </StackPanel>
                                     </Border>
-                                    <Button Content="Open" Click="Open_Click" Tag="{x:Bind}"
+                                    <Button Content="{x:Bind OpenLabel, Mode=OneWay}" Click="Open_Click" Tag="{x:Bind}"
                                             Style="{StaticResource AccentButtonStyle}"
                                             Padding="16,4" MinHeight="0" />
                                 </StackPanel>
