@@ -95,33 +95,50 @@ public sealed class ShortcutRow : INotifyPropertyChanged
     private UsageEntry? _usage;
     private bool _usageKnown;
 
-    public void SetUsage(UsageEntry entry)
+    /// <paramref name="sweep"/> overrides the row's own idea of a newer figure,
+    /// for a view that rebuilds its rows and so has to remember across them.
+    public void SetUsage(UsageEntry entry, bool? sweep = null)
     {
+        var fresh = sweep ?? (!_usageKnown || entry.UpdatedAt != _usage?.UpdatedAt);
         _usage = entry;
         _usageKnown = true;
         foreach (var name in new[]
         {
             nameof(FiveHour), nameof(Week), nameof(FiveHourText), nameof(WeekText),
             nameof(Fable), nameof(FableText), nameof(FableVisibility),
-            nameof(BarsVisibility), nameof(NoUsageVisibility),
+            nameof(BarsVisibility), nameof(NoUsageVisibility), nameof(BarsOpacity),
         }) Notify(name);
         NotifyStatus();
-        // Only a live reading is trusted to say a window is open. On the stale
-        // disk fallback, or with the endpoint refusing, the state is unknown — and
-        // greying the one useful action out on a guess is worse than leaving it, so
-        // uncertainty leaves it enabled.
-        _windowOpen = entry.IsLive
-            && (entry.Usage?.FiveHourReset is DateTimeOffset r && r > DateTimeOffset.UtcNow
-                || entry.Usage?.FiveHour > 0);
         Notify(nameof(StartEnabled));
         Notify(nameof(StartTooltip));
 
         // Last, so the bars have this reading's values before the sweep reads them
-        // off to fill back up to. A bump each read is what makes the fill a sign
-        // the usage was refreshed rather than only that a number moved.
+        // off to fill back up to. Only a newer figure sweeps: replaying a cached one
+        // said the usage was refreshed when nothing had been asked.
+        if (!fresh) return;
         Pulse++;
         Notify(nameof(Pulse));
     }
+
+    /// Recomputes everything that moves with the clock alone — the countdowns, a
+    /// window rolling over at its reset, the figure's age — with no read at all.
+    public void Tick()
+    {
+        if (!_usageKnown) return;
+        foreach (var name in new[]
+        {
+            nameof(FiveHour), nameof(Week), nameof(Fable), nameof(FiveHourText), nameof(WeekText),
+            nameof(FableText), nameof(BarsOpacity), nameof(StartEnabled), nameof(StartTooltip),
+        }) Notify(name);
+        NotifyStatus();
+    }
+
+    /// The figures as they stand now: a window past its reset has closed.
+    private Usage? Current => _usage?.Usage is { } u ? UsageStatus.Rolled(u, DateTimeOffset.UtcNow) : null;
+
+    /// A figure that is old, off disk, or stuck behind a refusal is drawn faint,
+    /// so it reads as not current before the caption is read.
+    public double BarsOpacity => UsageStatus.IsStale(_usage, DateTimeOffset.UtcNow) ? 0.45 : 1.0;
 
     /// A usage read that threw rather than returning a reading leaves the button
     /// gated for ever otherwise. The state is then unknown, which is the case the
@@ -135,7 +152,12 @@ public sealed class ShortcutRow : INotifyPropertyChanged
         Notify(nameof(StartTooltip));
     }
 
-    private bool _windowOpen;
+    // Only a live reading is trusted to say a window is open. On the stale disk
+    // fallback, or with the endpoint refusing, the state is unknown — and greying
+    // the one useful action out on a guess is worse than leaving it, so
+    // uncertainty leaves it enabled.
+    private bool WindowOpen => _usage?.IsLive == true
+        && (Current?.FiveHourReset is DateTimeOffset r && r > DateTimeOffset.UtcNow || Current?.FiveHour > 0);
 
     /// Start Session opens a five-hour window; there is nothing for it to do once
     /// one is open — a second message neither restarts nor extends it — so the
@@ -143,25 +165,25 @@ public sealed class ShortcutRow : INotifyPropertyChanged
     /// own is already in flight. It is also held until the first usage reading
     /// lands: before then whether a window is open is unknown, and offering the
     /// button in that gap lets a press fire a message the account did not need.
-    public bool StartEnabled => _usageKnown && !_starting && !_windowOpen;
+    public bool StartEnabled => _usageKnown && !_starting && !WindowOpen;
 
     public string StartTooltip => !_usageKnown
         ? "Waiting for this account's usage to load"
-        : _windowOpen
+        : WindowOpen
             ? "This account's five-hour window is already open"
             : "Sends one short message to this account to open its five-hour window";
 
     /// Bumped on every usage read, to replay the bars' fill. See BarPulse.
     public int Pulse { get; private set; }
 
-    public int FiveHour => _usage?.Usage?.FiveHour ?? 0;
-    public int Week => _usage?.Usage?.Week ?? 0;
+    public int FiveHour => Current?.FiveHour ?? 0;
+    public int Week => Current?.Week ?? 0;
 
-    public string FiveHourText => Line("5 hours", FiveHour, _usage?.Usage?.FiveHourReset);
-    public string WeekText => Line("Week", Week, _usage?.Usage?.WeekReset);
+    public string FiveHourText => Line("5 hours", FiveHour, Current?.FiveHourReset);
+    public string WeekText => Line("Week", Week, Current?.WeekReset);
 
-    public int Fable => _usage?.Usage?.Fable ?? 0;
-    public string FableText => Line("Fable", Fable, _usage?.Usage?.FableReset);
+    public int Fable => Current?.Fable ?? 0;
+    public string FableText => Line("Fable", Fable, Current?.FableReset);
     public Visibility FableVisibility => _usage?.Usage?.Fable is not null ? Visibility.Visible : Visibility.Collapsed;
 
     private static string Line(string label, int percent, DateTimeOffset? reset)

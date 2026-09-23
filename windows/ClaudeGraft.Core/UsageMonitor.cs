@@ -137,21 +137,7 @@ public static class UsageMonitor
     public static async Task<UsageEntry> ReadAsync(string profile, bool interactive = false)
     {
         var reading = await LiveAsync(profile, interactive).ConfigureAwait(false);
-        UsageRefusal? refusal;
-        DateTimeOffset liveAt;
-        lock (Lock)
-        {
-            var state = State(profile);
-            liveAt = state.LiveAt;
-            var retryAt = state.RetryUntil > state.BackoffUntil ? state.RetryUntil : state.BackoffUntil;
-            refusal = state.LastRefusal is RefusalKind kind
-                ? new UsageRefusal
-                {
-                    Kind = kind, Status = state.LastStatus,
-                    RetryAt = retryAt > DateTimeOffset.UtcNow ? retryAt : null,
-                }
-                : null;
-        }
+        var (refusal, liveAt) = Standing(profile);
         if (reading is null)
         {
             // The endpoint has never answered for this profile, so there is no
@@ -159,27 +145,55 @@ public static class UsageMonitor
             var disk = AsCurrentFigure(Graft.UsageOf(profile), DateTimeOffset.UtcNow);
             return new UsageEntry { Usage = disk, IsLive = false, UpdatedAt = disk?.Sampled, Refusal = refusal };
         }
-
-        var org = Graft.UsageOf(profile)?.Organization;
-        return new UsageEntry
-        {
-            Usage = new Usage
-            {
-                FiveHour = reading.FiveHour,
-                Week = reading.Week,
-                Organization = org,
-                Sampled = liveAt,
-                FiveHourReset = reading.FiveHourReset,
-                WeekReset = reading.WeekReset,
-                Fable = reading.Fable,
-                FableReset = reading.FableReset,
-            },
-            IsLive = true,
-            Plan = reading.Plan,
-            UpdatedAt = liveAt,
-            Refusal = refusal,
-        };
+        return LiveEntry(reading, liveAt, refusal, Graft.UsageOf(profile)?.Organization);
     }
+
+    /// The last live figure already in hand, with no read and no disk history, so
+    /// a view can be built showing it rather than starting its bars from nothing.
+    public static UsageEntry? Peek(string profile)
+    {
+        UsageApi.Reading? reading;
+        lock (Lock) reading = State(profile).LastLive;
+        if (reading is null) return null;
+        var (refusal, liveAt) = Standing(profile);
+        return LiveEntry(reading, liveAt, refusal, null);
+    }
+
+    private static (UsageRefusal? refusal, DateTimeOffset liveAt) Standing(string profile)
+    {
+        lock (Lock)
+        {
+            var state = State(profile);
+            var retryAt = state.RetryUntil > state.BackoffUntil ? state.RetryUntil : state.BackoffUntil;
+            var refusal = state.LastRefusal is RefusalKind kind
+                ? new UsageRefusal
+                {
+                    Kind = kind, Status = state.LastStatus,
+                    RetryAt = retryAt > DateTimeOffset.UtcNow ? retryAt : null,
+                }
+                : null;
+            return (refusal, state.LiveAt);
+        }
+    }
+
+    private static UsageEntry LiveEntry(UsageApi.Reading reading, DateTimeOffset liveAt, UsageRefusal? refusal, string? org) => new()
+    {
+        Usage = new Usage
+        {
+            FiveHour = reading.FiveHour,
+            Week = reading.Week,
+            Organization = org,
+            Sampled = liveAt,
+            FiveHourReset = reading.FiveHourReset,
+            WeekReset = reading.WeekReset,
+            Fable = reading.Fable,
+            FableReset = reading.FableReset,
+        },
+        IsLive = true,
+        Plan = reading.Plan,
+        UpdatedAt = liveAt,
+        Refusal = refusal,
+    };
 
     /// Marks a profile's figure stale — after starting a session, say, which
     /// opens a window the cached reading predates. The next read must refetch,
@@ -188,6 +202,17 @@ public static class UsageMonitor
     public static void Invalidate(string profile)
     {
         lock (Lock) State(profile).Invalidated = true;
+    }
+
+    /// Until when a press for this profile would be held off, or null when one
+    /// would go out.
+    public static DateTimeOffset? HeldUntil(string profile)
+    {
+        lock (Lock)
+        {
+            var until = State(profile).RetryUntil;
+            return until > DateTimeOffset.UtcNow ? until : null;
+        }
     }
 
     /// A Retry-After the service means as a wait, or null to fall back on our own
