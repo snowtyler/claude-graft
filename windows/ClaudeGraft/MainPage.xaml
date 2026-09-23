@@ -185,7 +185,7 @@
                                 <CheckBox Content="Keep the 5-hour window open automatically"
                                           Visibility="{x:Bind SignedInVisibility, Mode=OneWay}"
                                           IsChecked="{x:Bind KeepWarm, Mode=OneWay}"
-                                          Checked="KeepWarm_Toggled" Unchecked="KeepWarm_Toggled"
+                                          Click="KeepWarm_Click"
                                           Tag="{x:Bind}"
                                           ToolTipService.ToolTip="Sends one short message on its own whenever this account's window is found closed, so its five hours are always running." />
                             </StackPanel>

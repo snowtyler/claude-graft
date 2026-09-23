@@ -217,7 +217,10 @@ public sealed partial class MainPage : Page
     /// shortcut for a grafted one, in the app's settings for the main Claude. The
     /// background sweep reads both the next time it runs, so nothing else has to be
     /// nudged; a start is at most a few minutes away, not this instant.
-    private void KeepWarm_Toggled(object sender, RoutedEventArgs e)
+    ///
+    /// Click, never Checked/Unchecked: a reused row's binding sets IsChecked before
+    /// Tag, so those fired for the row it used to hold and unticked it on a reload.
+    private void KeepWarm_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not CheckBox { Tag: ShortcutRow row } box) return;
         var on = box.IsChecked == true;
