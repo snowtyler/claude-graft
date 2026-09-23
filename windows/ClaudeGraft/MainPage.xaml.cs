@@ -254,10 +254,6 @@ public sealed partial class MainPage : Page
 
     private static void OpenRow(ShortcutRow row) => ProfileRows.Open(row);
 
-    private void SignIn_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { Tag: ShortcutRow row }) ProfileRows.Open(row);
-    }
 
     /// The offer at the door. Four choices folded into a dialog's three buttons
     /// and a checkbox: copy or merge them across, open without them, or cancel,

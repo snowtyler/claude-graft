@@ -54,20 +54,21 @@ public sealed class ShortcutRow : INotifyPropertyChanged
         _signedIn = signedIn;
         foreach (var name in new[]
         {
-            nameof(SignedIn), nameof(SignInVisibility), nameof(SignedInVisibility),
+            nameof(SignedIn), nameof(SignInVisibility), nameof(SignedInVisibility), nameof(OpenLabel),
             nameof(BarsVisibility), nameof(NoUsageVisibility),
         }) Notify(name);
     }
 
     public Visibility SignInVisibility => _signedIn ? Visibility.Collapsed : Visibility.Visible;
     public Visibility SignedInVisibility => _signedIn ? Visibility.Visible : Visibility.Collapsed;
+    public string OpenLabel => _signedIn ? "Open" : "Sign In";
 
     /// Google sign-in hands the login back through a claude:// link, and Windows
     /// gives those to the main Claude whichever profile asked, so an extra
     /// profile has to be signed in by email.
     public string SignInNote => Shortcut is null
         ? "Not signed in yet. Sign In opens Claude so you can log in."
-        : "Not signed in yet. Sign in with your email address, not Google: a Google sign-in lands in the main Claude window instead of this profile.";
+        : "Not signed in yet. Google account login is not supported, use your email to sign in.";
 
     private bool _running;
 

@@ -103,9 +103,6 @@
                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                         <Button Content="Edit" Click="Edit_Click" Tag="{x:Bind}"
                                                 Visibility="{x:Bind EditVisibility}" />
-                                        <Button Content="Sign In" Click="SignIn_Click" Tag="{x:Bind}"
-                                                Visibility="{x:Bind SignInVisibility, Mode=OneWay}"
-                                                ToolTipService.ToolTip="Opens this profile so you can sign in with your email address" />
                                         <Border Background="Transparent" ToolTipService.ToolTip="{x:Bind StartTooltip, Mode=OneWay}"
                                                 Visibility="{x:Bind SignedInVisibility, Mode=OneWay}">
                                             <StackPanel Orientation="Horizontal">
@@ -117,7 +114,7 @@
                                                         IsEnabled="{x:Bind StartEnabled, Mode=OneWay}" />
                                             </StackPanel>
                                         </Border>
-                                        <Button Content="Open" Click="Open_Click" Tag="{x:Bind}"
+                                        <Button Content="{x:Bind OpenLabel, Mode=OneWay}" Click="Open_Click" Tag="{x:Bind}"
                                                 Style="{StaticResource AccentButtonStyle}" />
                                     </StackPanel>
                                 </Grid>
