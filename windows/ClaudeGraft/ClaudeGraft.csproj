@@ -85,12 +85,10 @@
   </PropertyGroup>
 
   <!--
-    The launcher stub a desktop shortcut points at has to travel with the app,
-    so it can be copied to its stable spot on a machine that never saw the repo.
-    Publish it into the app's output under launcher\ after each build; MSIX
-    packaging stages the output directory, so it rides along into the package,
-    and EnsureLauncher finds it at BaseDirectory\launcher in dev and once
-    installed alike.
+    The launcher stub a desktop shortcut points at has to travel with the app.
+    A plain build puts it under launcher\ so a framework-dependent dev build is
+    not mistaken for a self-contained one by its apphost; a publish puts it
+    beside ClaudeGraft.exe. Installer.LauncherExe looks in both.
   -->
   <!-- The window sets its taskbar icon from a loose file on disk, but the icon
        otherwise ships only packed into the app's resources; copy it out beside
@@ -106,13 +104,21 @@
     <Copy SourceFiles="$(MSBuildThisFileDirectory)Assets\Square150x150Logo.scale-200.png" DestinationFiles="$(PublishDir)Assets\Logo.png" SkipUnchangedFiles="true" Condition="'$(PublishDir)' != ''" />
   </Target>
 
-  <Target Name="BundleLauncher" AfterTargets="Build">
-    <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)..\GraftLaunch\GraftLaunch.csproj&quot; -c $(Configuration) -o &quot;$(OutDir)launcher&quot; --nologo -v q" />
+  <!-- The self-contained Windows App SDK carries its on-device AI runtime, which
+       nothing here calls; it is a third of the app's own weight. -->
+  <Target Name="DropUnusedAIRuntime" AfterTargets="Publish">
+    <Delete Files="$(PublishDir)onnxruntime.dll;$(PublishDir)DirectML.dll" />
   </Target>
 
-  <!-- The publish output is a different folder from the build output, and it is
-       what an unpackaged install is copied from, so the stub is placed there too. -->
+  <Target Name="BundleLauncher" AfterTargets="Build">
+    <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)..\GraftLaunch\GraftLaunch.csproj&quot; -c $(Configuration) -r $(RuntimeIdentifier) -o &quot;$(OutDir)launcher&quot; --nologo -v q" />
+  </Target>
+
+  <!-- The publish output is what an install is copied from. The stub goes beside
+       ClaudeGraft.exe rather than in a subfolder so both run on the one bundled
+       runtime; the two are built from the same SDK and the same packages, so the
+       files they share are the same files. -->
   <Target Name="BundleLauncherOnPublish" AfterTargets="Publish">
-    <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)..\GraftLaunch\GraftLaunch.csproj&quot; -c $(Configuration) -o &quot;$(PublishDir)launcher&quot; --nologo -v q" />
+    <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)..\GraftLaunch\GraftLaunch.csproj&quot; -c $(Configuration) -r $(RuntimeIdentifier) -o &quot;$(PublishDir).&quot; --nologo -v q" />
   </Target>
 </Project>
