@@ -118,7 +118,8 @@ public static class SidebarStorage
                 proc.WaitForExit();
                 throw new SidebarSync.Failure("storage-timeout");
             }
-            if (proc.ExitCode != 0) throw new SidebarSync.Failure("storage-unavailable");
+            // The exit code is the only trace a helper that died before writing leaves.
+            if (proc.ExitCode != 0) throw new SidebarSync.Failure($"storage-unavailable (helper exited {proc.ExitCode})");
 
             if (JsonNode.Parse(File.ReadAllBytes(output)) is not JsonObject reply)
                 throw new SidebarSync.Failure("storage-unavailable");
