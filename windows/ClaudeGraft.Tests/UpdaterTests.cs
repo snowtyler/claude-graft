@@ -82,4 +82,20 @@ public class UpdaterTests
         Assert.Null(Updater.LatestFrom(Feed()));
         Assert.Null(Updater.LatestFrom(JsonDocument.Parse("{}").RootElement));
     }
+
+    [Theory(DisplayName = "download progress is whole percents that never run past a hundred")]
+    [InlineData(0, 1000, 0)]
+    [InlineData(425, 1000, 42)]
+    [InlineData(1000, 1000, 100)]
+    [InlineData(1200, 1000, 100)]
+    [InlineData(10, 0, 0)]
+    public void Percent(long received, long total, int expected) =>
+        Assert.Equal(expected, Updater.Percent(received, total));
+
+    [Fact(DisplayName = "an update installs with the progress window alone and asks to be relaunched")]
+    public void InstallerArguments()
+    {
+        Assert.Contains("/SILENT", Updater.InstallerArguments);
+        Assert.Contains("/update=1", Updater.InstallerArguments);
+    }
 }

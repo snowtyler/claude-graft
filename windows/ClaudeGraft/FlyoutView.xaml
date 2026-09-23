@@ -111,6 +111,8 @@
                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                     Background="Transparent" BorderThickness="0" Padding="22,4,12,4"
                     Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+            <ProgressBar x:Name="UpdateProgress" Visibility="Collapsed" Maximum="1"
+                         Margin="22,0,22,6" />
 
             <!-- Actions, ordered to match the Mac dropdown. -->
             <Border Height="1" Margin="12,4"

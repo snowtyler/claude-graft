@@ -31,6 +31,9 @@ public sealed partial class SettingsDialog : ContentDialog
             : $"Claude Graft {version.Major}.{version.Minor}.{version.Build}";
 
         ReflectUpdate();
+        App.UpdateProgressChanged += ReflectDownload;
+        Closed += (_, _) => App.UpdateProgressChanged -= ReflectDownload;
+        ReflectDownload();
     }
 
     private readonly GraftSettings _current;
@@ -44,6 +47,13 @@ public sealed partial class SettingsDialog : ContentDialog
         if (_update is not null) ShowStatus($"Version {_update.Version} is available.");
     }
 
+    private void ReflectDownload()
+    {
+        if (App.UpdateDownload is not { } fraction) return;
+        CheckButton.IsEnabled = false;
+        CheckButton.Content = $"Downloading… {(int)Math.Round(fraction * 100)}%";
+    }
+
     // Unlike the flyout, which stays quiet like the Mac dropdown, the settings
     // page reports the outcome in words: a person who opened it and pressed is
     // owed an answer.
@@ -53,8 +63,11 @@ public sealed partial class SettingsDialog : ContentDialog
         {
             CheckButton.IsEnabled = false;
             CheckButton.Content = "Downloading…";
-            try { await App.Instance.InstallUpdateAsync(_update); }
-            catch { ReflectUpdate(); ShowStatus("The update could not be downloaded."); }
+            if (!await App.Instance.InstallUpdateAsync(_update))
+            {
+                ReflectUpdate();
+                ShowStatus("The update could not be downloaded.");
+            }
             return;
         }
 

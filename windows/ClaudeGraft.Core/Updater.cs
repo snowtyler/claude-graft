@@ -121,7 +121,11 @@ public static class Updater
     /// download is checked against the size the release advertised, so a fetch
     /// cut short — a dropped connection, a proxy's error page — is caught here
     /// rather than handed to the installer as a truncated exe.
-    public static async Task<string> DownloadAsync(Release release, CancellationToken ct = default)
+    /// Progress is reported as a fraction of the advertised size, and only when
+    /// it has moved by a whole percent: a chunk arrives every few kilobytes, and
+    /// each report redraws a notification.
+    public static async Task<string> DownloadAsync(
+        Release release, IProgress<double>? progress = null, CancellationToken ct = default)
     {
         var dir = Path.Combine(Path.GetTempPath(), "ClaudeGraft-update");
         Directory.CreateDirectory(dir);
@@ -130,9 +134,23 @@ public static class Updater
         using (var response = await Http.GetAsync(release.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false))
         {
             response.EnsureSuccessStatusCode();
+            var total = release.Size > 0 ? release.Size : response.Content.Headers.ContentLength ?? 0;
             await using var source = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
             await using var file = File.Create(path);
-            await source.CopyToAsync(file, ct).ConfigureAwait(false);
+            var buffer = new byte[81920];
+            long received = 0;
+            var reported = -1;
+            int read;
+            while ((read = await source.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
+            {
+                await file.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
+                received += read;
+                if (total <= 0 || progress is null) continue;
+                var percent = Percent(received, total);
+                if (percent == reported) continue;
+                reported = percent;
+                progress.Report(percent / 100.0);
+            }
         }
 
         var got = new FileInfo(path).Length;
@@ -144,10 +162,17 @@ public static class Updater
         return path;
     }
 
-    /// Hands the installer to the shell; the Inno installer relaunches the app
-    /// once it finishes. The caller quits straight after — see InstallUpdateAsync.
+    public static int Percent(long received, long total) =>
+        total <= 0 ? 0 : (int)Math.Clamp(received * 100 / total, 0, 100);
+
+    /// An update was asked for, so there is nothing to choose: the installer runs
+    /// with its progress window alone, and /update=1 is what has it start the new
+    /// version once done, since a silent run skips its usual launch step. The
+    /// caller quits straight after — see InstallUpdateAsync.
+    public const string InstallerArguments = "/SILENT /SUPPRESSMSGBOXES /NORESTART /update=1";
+
     public static void LaunchInstaller(string path) =>
-        Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true });
+        Process.Start(new ProcessStartInfo { FileName = path, Arguments = InstallerArguments, UseShellExecute = true });
 
     private static (string name, string url, long size)? SetupAsset(JsonElement entry)
     {
