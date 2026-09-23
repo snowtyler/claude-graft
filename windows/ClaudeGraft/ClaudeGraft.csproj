@@ -70,6 +70,9 @@
          when its own version is missing. Carrying the runtime in the bundle
          removes that dependency entirely. -->
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <!-- Not left to the publish profile: a restore without the platform never
+         sees it, and a framework-dependent exe beside the launcher's runtime won't start. -->
+    <SelfContained>true</SelfContained>
     <!-- Never trimmed. The trimmer cannot see through the WinRT interop the XAML
          bindings marshal across (an ObservableCollection bound as ItemsSource
          throws in GetInterfaceTableEntries) or the reflection System.Text.Json
@@ -86,9 +89,8 @@
 
   <!--
     The launcher stub a desktop shortcut points at has to travel with the app.
-    A plain build puts it under launcher\ so a framework-dependent dev build is
-    not mistaken for a self-contained one by its apphost; a publish puts it
-    beside ClaudeGraft.exe. Installer.LauncherExe looks in both.
+    A plain build keeps it under launcher\, apart from the app's build output;
+    a publish puts it beside ClaudeGraft.exe. Installer.LauncherExe looks in both.
   -->
   <!-- The window sets its taskbar icon from a loose file on disk, but the icon
        otherwise ships only packed into the app's resources; copy it out beside
