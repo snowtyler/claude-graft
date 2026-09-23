@@ -53,6 +53,11 @@ public sealed partial class MainPage : Page
         };
         _usageTimer.Tick += (_, _) => RefreshUsageQuietly();
         Setup.RecheckRequested += () => Reload();
+        UsageMonitor.FetchingChanged += (profile, fetching) => DispatcherQueue.TryEnqueue(() =>
+        {
+            foreach (var row in Rows.Where(r => Fs.SamePath(r.ProfileDir, profile)))
+                row.SetFetching(fetching);
+        });
     }
 
     private SetupState _setup = SetupState.Ready;

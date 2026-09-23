@@ -57,6 +57,7 @@ public sealed class ShortcutRow : INotifyPropertyChanged
             nameof(SignedIn), nameof(SignInVisibility), nameof(SignedInVisibility), nameof(OpenLabel),
             nameof(BarsVisibility), nameof(NoUsageVisibility),
         }) Notify(name);
+        NotifyStatus();
     }
 
     public Visibility SignInVisibility => _signedIn ? Visibility.Collapsed : Visibility.Visible;
@@ -104,6 +105,7 @@ public sealed class ShortcutRow : INotifyPropertyChanged
             nameof(Fable), nameof(FableText), nameof(FableVisibility),
             nameof(BarsVisibility), nameof(NoUsageVisibility),
         }) Notify(name);
+        NotifyStatus();
         // Only a live reading is trusted to say a window is open. On the stale
         // disk fallback, or with the endpoint refusing, the state is unknown — and
         // greying the one useful action out on a guess is worse than leaving it, so
@@ -167,6 +169,34 @@ public sealed class ShortcutRow : INotifyPropertyChanged
         var text = $"{label} · {percent}%";
         if (reset is DateTimeOffset r && Graft.Countdown(r) is string left) text += $" · resets in {left}";
         return text;
+    }
+
+    private bool _fetching;
+
+    /// A live usage read is out for this profile, whoever started it — a press,
+    /// the window's own poll, or the keep-warm sweep in the background.
+    public void SetFetching(bool fetching)
+    {
+        if (fetching == _fetching) return;
+        _fetching = fetching;
+        NotifyStatus();
+    }
+
+    private UsageStatus.Line? Status => _signedIn ? UsageStatus.Describe(_usage, _fetching, DateTimeOffset.UtcNow) : null;
+
+    public string UsageStatusText => Status?.Text ?? "";
+    public Visibility UsageStatusVisibility => Status is { IsWarning: false } ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility UsageWarningVisibility => Status is { IsWarning: true } ? Visibility.Visible : Visibility.Collapsed;
+    public bool Fetching => _fetching;
+    public Visibility FetchingVisibility => _fetching ? Visibility.Visible : Visibility.Collapsed;
+
+    private void NotifyStatus()
+    {
+        foreach (var name in new[]
+        {
+            nameof(UsageStatusText), nameof(UsageStatusVisibility), nameof(UsageWarningVisibility),
+            nameof(Fetching), nameof(FetchingVisibility),
+        }) Notify(name);
     }
 
     public Visibility BarsVisibility =>
