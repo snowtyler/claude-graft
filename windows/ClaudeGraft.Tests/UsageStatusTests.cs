@@ -73,4 +73,65 @@ public class UsageStatusTests
     [Fact(DisplayName = "a read that never reached Anthropic is unreachable, not refused")]
     public void Unreachable() =>
         Assert.Equal(RefusalKind.Unreachable, UsageRefusal.KindOf(new HttpRequestException("offline")));
+
+    [Fact(DisplayName = "a five-hour window past its reset reads as closed and empty, the week untouched")]
+    public void FiveHourRollsOver()
+    {
+        var usage = new Usage
+        {
+            FiveHour = 20, Week = 34, Sampled = Now.AddHours(-6),
+            FiveHourReset = Now.AddMinutes(-1), WeekReset = Now.AddDays(3),
+        };
+        var rolled = UsageStatus.Rolled(usage, Now);
+        Assert.Equal(0, rolled.FiveHour);
+        Assert.Null(rolled.FiveHourReset);
+        Assert.Equal(34, rolled.Week);
+        Assert.Equal(Now.AddDays(3), rolled.WeekReset);
+    }
+
+    [Fact(DisplayName = "a window still inside its reset is left exactly as read")]
+    public void OpenWindowStands()
+    {
+        var usage = new Usage { FiveHour = 20, Week = 34, Sampled = Now, FiveHourReset = Now.AddHours(2) };
+        Assert.Equal(usage, UsageStatus.Rolled(usage, Now));
+    }
+
+    [Fact(DisplayName = "a recent live figure is drawn at full strength")]
+    public void RecentIsNotStale() =>
+        Assert.False(UsageStatus.IsStale(Live(TimeSpan.FromMinutes(4)), Now));
+
+    [Theory(DisplayName = "an old figure, a disk figure, or one behind a refusal is drawn faint")]
+    [InlineData("old")]
+    [InlineData("disk")]
+    [InlineData("refused")]
+    public void StaleIsFaint(string why)
+    {
+        var entry = why switch
+        {
+            "old" => Live(TimeSpan.FromMinutes(11)),
+            "disk" => new UsageEntry { IsLive = false, UpdatedAt = Now },
+            _ => Live(TimeSpan.FromMinutes(1), new UsageRefusal { Kind = RefusalKind.RateLimited }),
+        };
+        Assert.True(UsageStatus.IsStale(entry, Now));
+    }
+
+    [Fact(DisplayName = "Refresh reads as busy and cannot be pressed while a read is out")]
+    public void RefreshBusy() =>
+        Assert.Equal(new UsageStatus.Button("Refreshing…", false), UsageStatus.RefreshButton(true, null, Now));
+
+    [Fact(DisplayName = "Refresh counts down in seconds while every account is held off")]
+    public void RefreshHeldSeconds() =>
+        Assert.Equal(new UsageStatus.Button("Available in 40s", false),
+            UsageStatus.RefreshButton(false, Now.AddSeconds(39.2), Now));
+
+    [Fact(DisplayName = "a longer hold counts down in minutes")]
+    public void RefreshHeldMinutes() =>
+        Assert.Equal("Available in 4m", UsageStatus.RefreshButton(false, Now.AddMinutes(4.5), Now).Text);
+
+    [Fact(DisplayName = "with nothing out and nothing held, Refresh can be pressed")]
+    public void RefreshReady()
+    {
+        Assert.Equal(new UsageStatus.Button("Refresh Usage", true), UsageStatus.RefreshButton(false, null, Now));
+        Assert.True(UsageStatus.RefreshButton(false, Now.AddSeconds(-1), Now).Enabled);
+    }
 }

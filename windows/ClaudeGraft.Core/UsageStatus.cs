@@ -44,4 +44,41 @@ public static class UsageStatus
         Graft.Countdown(now, then) is { } span && now - then >= TimeSpan.FromMinutes(1)
             ? span + " ago"
             : "just now";
+
+    /// A window whose reset time has passed has closed, and a closed window has
+    /// spent nothing yet. The reset is known exactly, so this needs no request.
+    public static Usage Rolled(Usage usage, DateTimeOffset now) => usage with
+    {
+        FiveHour = usage.FiveHourReset is { } h && h <= now ? 0 : usage.FiveHour,
+        FiveHourReset = usage.FiveHourReset is { } h2 && h2 <= now ? null : usage.FiveHourReset,
+        Week = usage.WeekReset is { } w && w <= now ? 0 : usage.Week,
+        WeekReset = usage.WeekReset is { } w2 && w2 <= now ? null : usage.WeekReset,
+        Fable = usage.FableReset is { } f && f <= now ? 0 : usage.Fable,
+        FableReset = usage.FableReset is { } f2 && f2 <= now ? null : usage.FableReset,
+    };
+
+    /// Two missed polls is where a figure stops being one to read at face value.
+    public static readonly TimeSpan StaleAfter = TimeSpan.FromMinutes(10);
+
+    public static bool IsStale(UsageEntry? entry, DateTimeOffset now) =>
+        entry is not null && (entry.Refusal is not null || !entry.IsLive
+            || entry.UpdatedAt is not { } at || now - at > StaleAfter);
+
+    public sealed record Button(string Text, bool Enabled);
+
+    /// The Refresh button, which should never be pressable while a press would do
+    /// nothing: every account held off by a rate limit, or a refresh already out.
+    public static Button RefreshButton(bool busy, DateTimeOffset? heldUntil, DateTimeOffset now)
+    {
+        if (busy) return new Button("Refreshing…", false);
+        if (heldUntil is { } until && until > now)
+        {
+            var left = until - now;
+            var wait = left < TimeSpan.FromMinutes(1)
+                ? $"{(int)Math.Ceiling(left.TotalSeconds)}s"
+                : Graft.Countdown(until, now) ?? "1m";
+            return new Button($"Available in {wait}", false);
+        }
+        return new Button("Refresh Usage", true);
+    }
 }

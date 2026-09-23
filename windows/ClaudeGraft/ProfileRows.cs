@@ -18,6 +18,24 @@ internal static class ProfileRows
         return rows;
     }
 
+    /// Whether a freshly built list shows exactly what the rows on screen already
+    /// do. A rebuilt row is a new ProgressBar and a new CheckBox, and each plays its
+    /// entrance — the bar sliding in, the tick drawing, sometimes frozen half-drawn —
+    /// so a view keeps the rows it has whenever nothing about them changed.
+    public static bool SameAs(IReadOnlyList<ShortcutRow> shown, IReadOnlyList<ShortcutRow> built) =>
+        shown.Count == built.Count
+        && shown.Zip(built).All(p => Fs.SamePath(p.First.ProfileDir, p.Second.ProfileDir)
+            && p.First.Name == p.Second.Name && p.First.SourceLabel == p.Second.SourceLabel
+            && p.First.Folder == p.Second.Folder && p.First.KeepWarm == p.Second.KeepWarm);
+
+    /// When a press on Refresh could next reach any account: null unless every
+    /// signed-in one is held off, since a press still refreshes the rest.
+    public static DateTimeOffset? HeldUntil(IEnumerable<ShortcutRow> rows)
+    {
+        var held = rows.Where(r => r.SignedIn).Select(r => UsageMonitor.HeldUntil(r.ProfileDir)).ToList();
+        return held.Count > 0 && held.All(h => h is not null) ? held.Min() : null;
+    }
+
     public static void Open(ShortcutRow row)
     {
         var config = row.Shortcut is Shortcut s

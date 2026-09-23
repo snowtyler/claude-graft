@@ -17,6 +17,11 @@ public sealed partial class MainPage : Page
     // heals that, and keeps the figures current the way the Mac's own 30s timer
     // does; the polling budget makes a tick that already has a fresh reading free.
     private readonly DispatcherTimer _usageTimer = new() { Interval = TimeSpan.FromSeconds(30) };
+    // Moves what changes with time alone — the Refresh button's wait, the
+    // countdowns, a window closing at its reset — without a read.
+    private readonly DispatcherTimer _clock = new() { Interval = TimeSpan.FromSeconds(1) };
+    private int _clockTicks;
+    private bool _loading;
 
     public MainPage()
     {
@@ -33,11 +38,19 @@ public sealed partial class MainPage : Page
             Reload();
             _processTimer.Start();
             _usageTimer.Start();
+            _clock.Start();
         };
         Unloaded += (_, _) =>
         {
             _processTimer.Stop();
             _usageTimer.Stop();
+            _clock.Stop();
+        };
+        _clock.Tick += (_, _) =>
+        {
+            if (++_clockTicks % 5 == 0)
+                foreach (var row in Rows) row.Tick();
+            UpdateRefreshButton();
         };
         _processTimer.Tick += async (_, _) =>
         {
@@ -57,6 +70,7 @@ public sealed partial class MainPage : Page
         {
             foreach (var row in Rows.Where(r => Fs.SamePath(r.ProfileDir, profile)))
                 row.SetFetching(fetching);
+            UpdateRefreshButton();
         });
     }
 
@@ -106,11 +120,11 @@ public sealed partial class MainPage : Page
         // it while the newer readings are still coming.
         var generation = ++_reloadGeneration;
         App.Store.Load();
-        Rows.Clear();
-        if (!ShowSetup(Onboarding.Check(App.Store))) return;
-        // The main Claude leads, the way it does in the Mac dropdown.
-        var rows = new List<ShortcutRow> { ShortcutRow.Main() };
-        rows.AddRange(App.Store.Shortcuts.Select(ShortcutRow.ForShortcut));
+        if (!ShowSetup(Onboarding.Check(App.Store))) { Rows.Clear(); return; }
+        var built = ProfileRows.Build();
+        var keep = ProfileRows.SameAs(Rows, built);
+        var rows = keep ? Rows.ToList() : built;
+        if (!keep) Rows.Clear();
         // The hint sits below the main card while there are no shortcuts yet.
         EmptyState.Visibility = App.Store.Shortcuts.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
@@ -118,17 +132,31 @@ public sealed partial class MainPage : Page
         // not offered — nor a press swallowed — until every instance has an
         // up-to-date reading in hand. LoadUsage owns its own failures, so the
         // WhenAll only completes, never throws.
-        RefreshButton.IsEnabled = false;
+        _loading = true;
+        UpdateRefreshButton();
         var loads = new List<Task>();
         foreach (var row in rows)
         {
-            Rows.Add(row);
+            if (!keep) Rows.Add(row);
+            else row.SetSignedIn(Onboarding.IsSignedIn(row.ProfileDir));
             loads.Add(LoadUsage(row, interactive));   // fills the bars in when the answer arrives
         }
         _ = MarkRunning(rows);
         _ = MarkChatsElsewhere(rows);
         try { await Task.WhenAll(loads); }
-        finally { if (generation == _reloadGeneration) RefreshButton.IsEnabled = true; }
+        finally
+        {
+            if (generation == _reloadGeneration) _loading = false;
+            UpdateRefreshButton();
+        }
+    }
+
+    private void UpdateRefreshButton()
+    {
+        var state = UsageStatus.RefreshButton(
+            _loading || Rows.Any(r => r.Fetching), ProfileRows.HeldUntil(Rows), DateTimeOffset.UtcNow);
+        RefreshLabel.Text = state.Text;
+        RefreshButton.IsEnabled = state.Enabled;
     }
 
     /// Lights each row's dot for the profile a Claude is holding, the way the

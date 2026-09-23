@@ -75,19 +75,19 @@
                                 <TextBlock Text="{x:Bind FiveHourText, Mode=OneWay}"
                                            Style="{StaticResource CaptionTextBlockStyle}"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <ProgressBar Value="{x:Bind FiveHour, Mode=OneWay}" Maximum="100"
+                                <ProgressBar Value="{x:Bind FiveHour, Mode=OneWay}" Maximum="100" Opacity="{x:Bind BarsOpacity, Mode=OneWay}"
                                              local:BarPulse.Key="{x:Bind Pulse, Mode=OneWay}" />
                                 <TextBlock Text="{x:Bind WeekText, Mode=OneWay}" Margin="0,4,0,0"
                                            Style="{StaticResource CaptionTextBlockStyle}"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <ProgressBar Value="{x:Bind Week, Mode=OneWay}" Maximum="100"
+                                <ProgressBar Value="{x:Bind Week, Mode=OneWay}" Maximum="100" Opacity="{x:Bind BarsOpacity, Mode=OneWay}"
                                              local:BarPulse.Key="{x:Bind Pulse, Mode=OneWay}" />
                                 <StackPanel Spacing="4" Margin="0,4,0,0"
                                             Visibility="{x:Bind FableVisibility, Mode=OneWay}">
                                     <TextBlock Text="{x:Bind FableText, Mode=OneWay}"
                                                Style="{StaticResource CaptionTextBlockStyle}"
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    <ProgressBar Value="{x:Bind Fable, Mode=OneWay}" Maximum="100"
+                                    <ProgressBar Value="{x:Bind Fable, Mode=OneWay}" Maximum="100" Opacity="{x:Bind BarsOpacity, Mode=OneWay}"
                                                  local:BarPulse.Key="{x:Bind Pulse, Mode=OneWay}" />
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Spacing="6">

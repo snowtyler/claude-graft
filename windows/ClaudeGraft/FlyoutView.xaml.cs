@@ -27,6 +27,25 @@ public sealed partial class FlyoutView : UserControl
     public event Action? LayoutChanged;
 
     private Updater.Release? _update;
+    private readonly DispatcherTimer _clock = new() { Interval = TimeSpan.FromSeconds(1) };
+    private int _clockTicks;
+    private bool _refreshing;
+    // Rows are rebuilt on every open and every open reads afresh, so a sweep on
+    // each new reading swept every time. Only numbers that moved sweep now.
+    private readonly Dictionary<string, (int, int, int?)> _shown = new(StringComparer.OrdinalIgnoreCase);
+
+    private static (int, int, int?) Figures(UsageEntry entry) =>
+        (entry.Usage?.FiveHour ?? -1, entry.Usage?.Week ?? -1, entry.Usage?.Fable);
+
+    /// Whether this entry's numbers differ from the ones last on screen for the
+    /// profile, remembering these as the ones on screen now.
+    private bool Moved(string profile, UsageEntry entry)
+    {
+        var key = Path.GetFullPath(profile);
+        var moved = !_shown.TryGetValue(key, out var last) || last != Figures(entry);
+        _shown[key] = Figures(entry);
+        return moved;
+    }
 
     public FlyoutView()
     {
@@ -38,8 +57,16 @@ public sealed partial class FlyoutView : UserControl
         {
             foreach (var row in Rows.Where(r => Fs.SamePath(r.ProfileDir, profile)))
                 row.SetFetching(fetching);
+            UpdateRefreshButton();
             LayoutChanged?.Invoke();
         });
+        _clock.Tick += (_, _) =>
+        {
+            if (++_clockTicks % 5 == 0)
+                foreach (var row in Rows) row.Tick();
+            UpdateRefreshButton();
+        };
+        _clock.Start();
     }
 
     /// Paints the flyout's own surface opaque, for the Solid backdrop where there
@@ -49,21 +76,29 @@ public sealed partial class FlyoutView : UserControl
         OpaqueSurface.Visibility = opaque ? Visibility.Visible : Visibility.Collapsed;
 
     /// Rebuilds the list and refreshes usage. Called each time the flyout opens,
-    /// so the figures are current the way pressing the Mac menu bar item makes
-    /// them — interactive, since a person is looking.
+    /// but not as a press: the endpoint rate-limits hard, and someone who opens
+    /// the tray often was earning a refusal for every few opens. The five-minute
+    /// cache answers an open; Refresh Usage is the way to ask.
     public void Reload()
     {
-        Rows.Clear();
         App.Store.Load();
         var state = Onboarding.Check(App.Store);
         var ready = state == SetupState.Ready;
         Setup.Show(state);
         ProfileScroller.Visibility = ready ? Visibility.Visible : Visibility.Collapsed;
         RefreshButton.Visibility = ready ? Visibility.Visible : Visibility.Collapsed;
-        var rows = ready ? ProfileRows.Build() : new List<ShortcutRow>();
+        var built = ready ? ProfileRows.Build() : new List<ShortcutRow>();
+        var keep = ProfileRows.SameAs(Rows, built);
+        if (!keep) Rows.Clear();
+        var rows = keep ? Rows.ToList() : built;
         foreach (var row in rows)
         {
-            Rows.Add(row);
+            if (keep) row.SetSignedIn(Onboarding.IsSignedIn(row.ProfileDir));
+            // A new row is built already holding its last figure, so its bars open
+            // where they stand instead of filling up from zero while the read is out.
+            else if (UsageMonitor.Peek(row.ProfileDir) is { } known)
+                row.SetUsage(known, Moved(row.ProfileDir, known));
+            if (!keep) Rows.Add(row);
             _ = LoadUsage(row);
         }
         ReflectUpdate();
@@ -123,15 +158,17 @@ public sealed partial class FlyoutView : UserControl
             if (Rows.Contains(row)) row.SetRunning(ClaudeProcesses.IsRunning(row.ProfileDir, processes));
     }
 
-    private async Task LoadUsage(ShortcutRow row)
+    private async Task LoadUsage(ShortcutRow row) => await LoadUsage(row, interactive: false);
+
+    private async Task LoadUsage(ShortcutRow row, bool interactive)
     {
-        var entry = await ProfileRows.ReadUsageSafe(row.ProfileDir, interactive: true);
+        var entry = await ProfileRows.ReadUsageSafe(row.ProfileDir, interactive);
         // Back on the UI thread after the await; the row may have been cleared
         // by a reload since.
         if (!Rows.Contains(row)) return;
         if (entry is not null)
         {
-            row.SetUsage(entry);
+            row.SetUsage(entry, Moved(row.ProfileDir, entry));
             LayoutChanged?.Invoke();   // the bars just appeared; the flyout is taller now
         }
         else
@@ -180,19 +217,27 @@ public sealed partial class FlyoutView : UserControl
     /// looking at and pressed for.
     private async void Refresh_Click(object sender, RoutedEventArgs e)
     {
-        RefreshButton.IsEnabled = false;
-        RefreshButton.Content = "Refreshing…";
+        _refreshing = true;
+        UpdateRefreshButton();
         try
         {
             var rows = Rows.ToList();
-            await Task.WhenAll(rows.Select(LoadUsage));
+            await Task.WhenAll(rows.Select(row => LoadUsage(row, interactive: true)));
             await MarkRunning(rows);
         }
         finally
         {
-            RefreshButton.Content = "Refresh Usage";
-            RefreshButton.IsEnabled = true;
+            _refreshing = false;
+            UpdateRefreshButton();
         }
+    }
+
+    private void UpdateRefreshButton()
+    {
+        var state = UsageStatus.RefreshButton(
+            _refreshing || Rows.Any(r => r.Fetching), ProfileRows.HeldUntil(Rows), DateTimeOffset.UtcNow);
+        RefreshButton.Content = state.Text;
+        RefreshButton.IsEnabled = state.Enabled;
     }
 
     private void Manager_Click(object sender, RoutedEventArgs e)
