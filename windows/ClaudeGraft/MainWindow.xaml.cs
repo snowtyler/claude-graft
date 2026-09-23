@@ -39,8 +39,14 @@ public sealed partial class MainWindow : Window
         Closed += (_, _) => App.SettingsChanged -= ApplyAppearance;
 
         var hwnd = Win32Interop.GetWindowFromWindowId(AppWindow.Id);
+        // Tall enough for two cards without scrolling, but never past a small or
+        // heavily scaled screen, and centred so the extra height is not pushed off it.
         var scale = GetDpiForWindow(hwnd) / 96.0;
-        AppWindow.Resize(new SizeInt32((int)(900 * scale), (int)(620 * scale)));
+        var work = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary).WorkArea;
+        var width = Math.Min((int)(900 * scale), work.Width);
+        var height = Math.Min((int)(670 * scale), (int)(work.Height * 0.9));
+        AppWindow.MoveAndResize(new RectInt32(
+            work.X + (work.Width - width) / 2, work.Y + (work.Height - height) / 2, width, height));
 
         // Closing hides to the tray instead of quitting; Window.Closed is too
         // late to cancel, so this is on AppWindow.Closing.
