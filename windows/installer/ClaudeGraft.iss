@@ -7,7 +7,7 @@
 #define MyAppPublisher "Claude Graft"
 #define MyAppURL "https://github.com/snowtyler/claude-graft"
 
-; Version is passed in from the build: iscc /DMyAppVersion=1.1.1
+; Version is passed in from the build: iscc /DMyAppVersion=1.1.2
 #ifndef MyAppVersion
   #define MyAppVersion "0.0.0"
 #endif
