@@ -59,6 +59,9 @@ Name: "{userstartup}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: st
 ; Install VC++ runtime silently before launching the app.
 Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; StatusMsg: "Installing Visual C++ Runtime..."; Check: VCRedistNeeded; Flags: waituntilterminated
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
+; An in-app update runs silently, which skips the line above, and brings the
+; app straight back.
+Filename: "{app}\{#MyAppExeName}"; Flags: nowait; Check: IsUpdate
 
 [UninstallRun]
 Filename: "taskkill"; Parameters: "/F /IM ClaudeGraft.exe"; Flags: runhidden; RunOnceId: "KillApp"
@@ -67,6 +70,11 @@ Filename: "taskkill"; Parameters: "/F /IM ClaudeGraft.exe"; Flags: runhidden; Ru
 Type: filesandordirs; Name: "{app}"
 
 [Code]
+function IsUpdate: Boolean;
+begin
+  Result := ExpandConstant('{param:update|0}') = '1';
+end;
+
 function VCRedistNeeded: Boolean;
 var
   Version: String;

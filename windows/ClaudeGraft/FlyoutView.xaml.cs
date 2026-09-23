@@ -31,6 +31,7 @@ public sealed partial class FlyoutView : UserControl
     public FlyoutView()
     {
         InitializeComponent();
+        App.UpdateProgressChanged += ReflectUpdate;
         Setup.RecheckRequested += Reload;
         Setup.Acted += () => DismissRequested?.Invoke();
     }
@@ -69,8 +70,21 @@ public sealed partial class FlyoutView : UserControl
         _update = App.AvailableUpdate;
         CheckButton.IsEnabled = true;
         CheckButton.Content = "Check for Updates…";
-        AvailableButton.Content = _update is null ? null : $"Version {_update.Version} is available";
+        var downloading = App.UpdateDownload;
+        AvailableButton.IsEnabled = downloading is null;
+        AvailableButton.Content = _update is null
+            ? null
+            : downloading is { } f
+                ? $"Downloading version {_update.Version}… {(int)Math.Round(f * 100)}%"
+                : $"Version {_update.Version} is available";
         AvailableButton.Visibility = _update is null ? Visibility.Collapsed : Visibility.Visible;
+        var showBar = downloading is not null && _update is not null;
+        if (showBar) UpdateProgress.Value = downloading!.Value;
+        if ((UpdateProgress.Visibility == Visibility.Visible) != showBar)
+        {
+            UpdateProgress.Visibility = showBar ? Visibility.Visible : Visibility.Collapsed;
+            LayoutChanged?.Invoke();
+        }
     }
 
     private async void Check_Click(object sender, RoutedEventArgs e)
@@ -84,22 +98,12 @@ public sealed partial class FlyoutView : UserControl
         LayoutChanged?.Invoke();
     }
 
+    /// The flyout stays up so the download can be watched; the progress itself
+    /// arrives through ReflectUpdate, and a failure puts the offer back.
     private async void Install_Click(object sender, RoutedEventArgs e)
     {
         if (_update is null) return;
-        AvailableButton.IsEnabled = false;
-        AvailableButton.Content = "Downloading…";
-        try
-        {
-            // On success the app quits inside here and the installer takes over,
-            // so control does not return; only a failure lands below.
-            await App.Instance.InstallUpdateAsync(_update);
-        }
-        catch
-        {
-            AvailableButton.Content = $"Version {_update.Version} is available";
-            AvailableButton.IsEnabled = true;
-        }
+        await App.Instance.InstallUpdateAsync(_update);
     }
 
     /// The dots come in after the window is up, not before it: reading which

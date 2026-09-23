@@ -113,7 +113,7 @@
   </Target>
 
   <Target Name="BundleLauncher" AfterTargets="Build">
-    <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)..\GraftLaunch\GraftLaunch.csproj&quot; -c $(Configuration) -r $(RuntimeIdentifier) -o &quot;$(OutDir)launcher&quot; --nologo -v q" />
+    <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)..\GraftLaunch\GraftLaunch.csproj&quot; -c $(Configuration) -r $(RuntimeIdentifier) -p:GraftVersion=$(GraftVersion) -o &quot;$(OutDir)launcher&quot; --nologo -v q" />
   </Target>
 
   <!-- The publish output is what an install is copied from. The stub goes beside
@@ -121,6 +121,6 @@
        runtime; the two are built from the same SDK and the same packages, so the
        files they share are the same files. -->
   <Target Name="BundleLauncherOnPublish" AfterTargets="Publish">
-    <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)..\GraftLaunch\GraftLaunch.csproj&quot; -c $(Configuration) -r $(RuntimeIdentifier) -o &quot;$(PublishDir).&quot; --nologo -v q" />
+    <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)..\GraftLaunch\GraftLaunch.csproj&quot; -c $(Configuration) -r $(RuntimeIdentifier) -p:GraftVersion=$(GraftVersion) -o &quot;$(PublishDir).&quot; --nologo -v q" />
   </Target>
 </Project>

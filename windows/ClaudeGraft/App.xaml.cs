@@ -33,6 +33,12 @@ public partial class App : Application
     /// flyout can show it the moment it opens rather than waiting on a fresh check.
     public static Updater.Release? AvailableUpdate { get; private set; }
 
+    /// How far the update's download has got, 0 to 1, or null when none is
+    /// running. The flyout draws it; the tray tooltip and the notification are
+    /// kept in step from here.
+    public static double? UpdateDownload { get; private set; }
+    public static event Action? UpdateProgressChanged;
+
     public static void ApplySettings(GraftSettings updated)
     {
         // Pressing Done with nothing touched should be as quiet as Cancel: no
@@ -168,20 +174,6 @@ public partial class App : Application
         catch (Exception e) { Record("notify.register", e); }
     }
 
-    private void ShowUpdateNotification(Updater.Release release)
-    {
-        try
-        {
-            new ToastContentBuilder()
-                .AddText("Claude Graft update available")
-                .AddText($"Version {release.Version} is ready to install.")
-                .AddButton(new ToastButton().SetContent("Install").AddArgument("action", "install"))
-                .AddButton(new ToastButton().SetContent("Dismiss").SetDismissActivation())
-                .Show();
-        }
-        catch (Exception e) { Record("notify.show", e); }
-    }
-
     // Only Install reaches here — Dismiss is handled by the toast itself — and the
     // callback is off a background thread, so it hops to the UI thread to act.
     private void OnToastActivated(ToastNotificationActivatedEventArgsCompat e)
@@ -230,7 +222,7 @@ public partial class App : Application
         {
             _notifiedVersion = version;
             if (_tray is not null) _tray.ToolTipText = $"Claude Graft — update {version} ready";
-            ShowUpdateNotification(release!);
+            UpdateToast.Available(release!);
         }
         else if (release is null && _tray is not null)
         {
@@ -238,20 +230,53 @@ public partial class App : Application
         }
     }
 
+    private Task<bool>? _installing;
+
     /// Fetches the installer and hands off to it, then quits — the installer
     /// cannot replace a running exe, so the process that holds it open has to go.
-    /// The Inno installer brings the app back once it finishes.
-    internal async Task InstallUpdateAsync(Updater.Release release)
+    /// A second press while one is under way joins it rather than starting
+    /// another download. False when the download failed and nothing was handed off.
+    internal Task<bool> InstallUpdateAsync(Updater.Release release) =>
+        _installing ??= DownloadAndInstall(release);
+
+    private async Task<bool> DownloadAndInstall(Updater.Release release)
     {
-        var path = await Updater.DownloadAsync(release);
+        UpdateToast.Downloading(release);
+        SetUpdateDownload(0);
+        // Created here, on the UI thread, so each report lands back on it.
+        var progress = new Progress<double>(fraction =>
+        {
+            SetUpdateDownload(fraction);
+            UpdateToast.Report(fraction);
+        });
+        string path;
+        try { path = await Updater.DownloadAsync(release, progress); }
+        catch (Exception e)
+        {
+            Record("update.download", e);
+            _installing = null;
+            SetUpdateDownload(null);
+            UpdateToast.Failed(release);
+            return false;
+        }
+
+        UpdateToast.Installing();
         Diagnostics.Note("update.install",
             new Dictionary<string, object?> { ["version"] = release.Version.ToString(), ["path"] = path });
         Updater.LaunchInstaller(path);
-        OnUi(() =>
-        {
-            _tray?.Dispose();
-            Exit();
-        });
+        _tray?.Dispose();
+        Exit();
+        return true;
+    }
+
+    private void SetUpdateDownload(double? fraction)
+    {
+        UpdateDownload = fraction;
+        if (_tray is not null)
+            _tray.ToolTipText = fraction is { } f
+                ? $"Claude Graft — downloading update, {(int)Math.Round(f * 100)}%"
+                : AvailableUpdate is { } ready ? $"Claude Graft — update {ready.Version} ready" : "Claude Graft";
+        UpdateProgressChanged?.Invoke();
     }
 
     private async Task SweepWarmProfiles()
