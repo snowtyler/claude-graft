@@ -82,7 +82,7 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+                                    <StackPanel Grid.Column="0" Spacing="6" VerticalAlignment="Center">
                                         <StackPanel Orientation="Horizontal" Spacing="10">
                                             <Ellipse Width="9" Height="9" VerticalAlignment="Center"
                                                      Fill="{x:Bind StatusBrush, Mode=OneWay}"
@@ -90,9 +90,7 @@
                                             <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold"
                                                        Style="{StaticResource BodyStrongTextBlockStyle}" />
                                         </StackPanel>
-                                        <!-- Indented to sit under the title, past the dot and its gap. -->
-                                        <TextBlock Margin="19,0,0,0"
-                                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                        <TextBlock Style="{StaticResource CaptionTextBlockStyle}"
                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}">
                                             <Run Text="Chats:" />
                                             <Run Text="{x:Bind SourceLabel}" />
