@@ -142,4 +142,40 @@ public sealed class DeleteProfileTests : IDisposable
         Graft.DeleteProfile(work, NothingRunning);
         Assert.False(Directory.Exists(work));
     }
+
+    [Fact(DisplayName = "a read-only file Claude left in a profile does not stop it being deleted")]
+    public void DeletesReadOnly()
+    {
+        var work = Make("Claude-Work");
+        var file = Path.Combine(work, "Local State");
+        File.WriteAllText(file, "{}");
+        File.SetAttributes(file, FileAttributes.ReadOnly);
+        Graft.DeleteProfile(work, NothingRunning);
+        Assert.False(Directory.Exists(work));
+    }
+
+    [Fact(DisplayName = "a file still held open is refused as in use rather than thrown")]
+    public void RefusesInUse()
+    {
+        var work = Make("Claude-Work");
+        using (new FileStream(Path.Combine(work, "LOCK"), FileMode.Create, FileAccess.ReadWrite, FileShare.None))
+            Assert.Equal(ProfileError.InUse, Refusal(() => Graft.DeleteProfile(work, NothingRunning)));
+    }
+
+    [Fact(DisplayName = "clearing read-only flags never reaches through a link into the source")]
+    public void LeavesSourceAlone()
+    {
+        var source = Make("Claude");
+        var kept = Path.Combine(source, "config.json");
+        File.WriteAllText(kept, "{}");
+        File.SetAttributes(kept, FileAttributes.ReadOnly);
+        var work = Make("Claude-Work");
+        Junction.Create(Path.Combine(work, "linked"), source);
+        using (new FileStream(Path.Combine(work, "LOCK"), FileMode.Create, FileAccess.ReadWrite, FileShare.None))
+            Refusal(() => Graft.DeleteProfile(work, NothingRunning));
+
+        Assert.True(File.Exists(kept));
+        Assert.True(File.GetAttributes(kept).HasFlag(FileAttributes.ReadOnly));
+        File.SetAttributes(kept, FileAttributes.Normal);
+    }
 }

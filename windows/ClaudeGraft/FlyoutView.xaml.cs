@@ -28,7 +28,12 @@ public sealed partial class FlyoutView : UserControl
 
     private Updater.Release? _update;
 
-    public FlyoutView() => InitializeComponent();
+    public FlyoutView()
+    {
+        InitializeComponent();
+        Setup.RecheckRequested += Reload;
+        Setup.Acted += () => DismissRequested?.Invoke();
+    }
 
     /// Paints the flyout's own surface opaque, for the Solid backdrop where there
     /// is no material behind it, or leaves it transparent so a material shows
@@ -42,7 +47,13 @@ public sealed partial class FlyoutView : UserControl
     public void Reload()
     {
         Rows.Clear();
-        var rows = ProfileRows.Build();
+        App.Store.Load();
+        var state = Onboarding.Check(App.Store);
+        var ready = state == SetupState.Ready;
+        Setup.Show(state);
+        ProfileScroller.Visibility = ready ? Visibility.Visible : Visibility.Collapsed;
+        RefreshButton.Visibility = ready ? Visibility.Visible : Visibility.Collapsed;
+        var rows = ready ? ProfileRows.Build() : new List<ShortcutRow>();
         foreach (var row in rows)
         {
             Rows.Add(row);
@@ -125,10 +136,16 @@ public sealed partial class FlyoutView : UserControl
     {
         if (sender is FrameworkElement { Tag: ShortcutRow row })
         {
-            var config = row.Shortcut is Shortcut s
-                ? App.Store.ConfigFor(s)
-                : new GraftConfig { ProfileDir = row.ProfileDir, SourceDir = null };
-            Task.Run(() => Launcher.Open(config));
+            ProfileRows.Open(row);
+            DismissRequested?.Invoke();
+        }
+    }
+
+    private void SignIn_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: ShortcutRow row })
+        {
+            ProfileRows.Open(row);
             DismissRequested?.Invoke();
         }
     }

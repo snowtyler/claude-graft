@@ -136,6 +136,7 @@ public partial class App : Application
         // Built now, hidden, so the first left click shows it rather than paying
         // to construct a window and its backdrop before anything appears.
         _flyout = new FlyoutWindow(ShowManager, Quit);
+        SessionEnd.Watch(_flyout, Quit);
 
         // A tray app comes up hidden by default — the notification-area icon is
         // the whole of it until asked for more. Turned off, it opens the manager
@@ -302,7 +303,14 @@ public partial class App : Application
         Store.Load();
 
         var items = new List<(string Text, bool Enabled, Action? Invoke)>();
-        if (Store.Shortcuts.Count == 0)
+        var setup = Onboarding.Check(Store);
+        if (setup != SetupState.Ready)
+        {
+            items.Add(setup == SetupState.NotInstalled
+                ? ("Install Claude Desktop…", true, ShowManager)
+                : ("Sign in to Claude…", true, ShowManager));
+        }
+        else if (Store.Shortcuts.Count == 0)
         {
             items.Add(("No profiles yet", false, null));
         }

@@ -6,6 +6,7 @@ public enum ProfileError
     MainProfile,
     OutsideProfilesRoot,
     Running,
+    InUse,
 }
 
 public sealed class ProfileException : Exception
@@ -18,6 +19,8 @@ public sealed class ProfileException : Exception
         ProfileError.MainProfile => "That folder belongs to Claude itself and will not be deleted.",
         ProfileError.OutsideProfilesRoot => "Only folders directly inside the Claude data folder can be deleted.",
         ProfileError.Running => "Claude is still running on this profile. Quit it first.",
+        ProfileError.InUse => "Some of its files are still in use, so not all of it could be deleted. "
+                              + "Close every Claude window, wait a moment and delete it again.",
         _ => "This profile cannot be deleted.",
     };
 }
@@ -62,7 +65,41 @@ public static partial class Graft
         if ((isRunning ?? ClaudeProcesses.IsRunning)(profile))
             throw new ProfileException(ProfileError.Running);
         if (!Fs.IsDirectory(profile)) return;
-        Directory.Delete(profile, recursive: true);
+        try { Directory.Delete(profile, recursive: true); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // Claude marks some of what it writes read-only, and its helpers can
+            // hold a file for a moment after the window closes. Links are skipped
+            // so clearing a flag never reaches through into the source profile.
+            ClearReadOnly(profile);
+            try { Directory.Delete(profile, recursive: true); }
+            catch (Exception again) when (again is IOException or UnauthorizedAccessException)
+            {
+                Diagnostics.Note("profile.deleteFailed", new Dictionary<string, object?>
+                {
+                    ["profile"] = Path.GetFileName(profile), ["error"] = again.GetType().Name + ": " + again.Message,
+                });
+                throw new ProfileException(ProfileError.InUse);
+            }
+        }
         ForgetMirrors(profile);
+    }
+
+    private static void ClearReadOnly(string profile)
+    {
+        var options = new EnumerationOptions
+        {
+            RecurseSubdirectories = true,
+            AttributesToSkip = FileAttributes.ReparsePoint,
+            IgnoreInaccessible = true,
+        };
+        foreach (var file in Directory.EnumerateFiles(profile, "*", options))
+            try
+            {
+                var attributes = File.GetAttributes(file);
+                if (attributes.HasFlag(FileAttributes.ReadOnly))
+                    File.SetAttributes(file, attributes & ~FileAttributes.ReadOnly);
+            }
+            catch { }
     }
 }

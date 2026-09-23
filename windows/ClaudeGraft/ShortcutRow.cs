@@ -32,13 +32,42 @@ public sealed class ShortcutRow : INotifyPropertyChanged
     {
         Shortcut = s, ProfileDir = s.ProfileDir, Name = s.Name,
         SourceLabel = App.Store.Label(s.Source), Folder = s.Folder,
+        _signedIn = Onboarding.IsSignedIn(s.ProfileDir),
     };
 
     public static ShortcutRow Main() => new()
     {
         ProfileDir = GraftPaths.DefaultProfile, Name = "Claude",
         SourceLabel = "Main account", Folder = "Claude",
+        _signedIn = Onboarding.IsSignedIn(GraftPaths.DefaultProfile),
     };
+
+    private bool _signedIn;
+
+    /// A profile with no login has no usage to show and no account to start a
+    /// session on, so its card offers Sign In in place of all of that.
+    public bool SignedIn => _signedIn;
+
+    public void SetSignedIn(bool signedIn)
+    {
+        if (signedIn == _signedIn) return;
+        _signedIn = signedIn;
+        foreach (var name in new[]
+        {
+            nameof(SignedIn), nameof(SignInVisibility), nameof(SignedInVisibility),
+            nameof(BarsVisibility), nameof(NoUsageVisibility),
+        }) Notify(name);
+    }
+
+    public Visibility SignInVisibility => _signedIn ? Visibility.Collapsed : Visibility.Visible;
+    public Visibility SignedInVisibility => _signedIn ? Visibility.Visible : Visibility.Collapsed;
+
+    /// Google sign-in hands the login back through a claude:// link, and Windows
+    /// gives those to the main Claude whichever profile asked, so an extra
+    /// profile has to be signed in by email.
+    public string SignInNote => Shortcut is null
+        ? "Not signed in yet. Sign In opens Claude so you can log in."
+        : "Not signed in yet. Sign in with your email address, not Google: a Google sign-in lands in the main Claude window instead of this profile.";
 
     private bool _running;
 
@@ -139,9 +168,10 @@ public sealed class ShortcutRow : INotifyPropertyChanged
         return text;
     }
 
-    public Visibility BarsVisibility => _usage?.HasUsage == true ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility BarsVisibility =>
+        _signedIn && _usage?.HasUsage == true ? Visibility.Visible : Visibility.Collapsed;
     public Visibility NoUsageVisibility =>
-        _usageKnown && _usage?.HasUsage != true ? Visibility.Visible : Visibility.Collapsed;
+        _signedIn && _usageKnown && _usage?.HasUsage != true ? Visibility.Visible : Visibility.Collapsed;
 
     private bool _starting;
 

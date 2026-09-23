@@ -18,6 +18,14 @@ internal static class ProfileRows
         return rows;
     }
 
+    public static void Open(ShortcutRow row)
+    {
+        var config = row.Shortcut is Shortcut s
+            ? App.Store.ConfigFor(s)
+            : new GraftConfig { ProfileDir = row.ProfileDir, SourceDir = null };
+        Task.Run(() => Launcher.Open(config));
+    }
+
     /// The usage read as a fire-and-forget task wants: a throw here has nowhere
     /// to surface and would vanish — which is exactly how the main account's
     /// missing usage once hid a null dereference — so a failure is written down

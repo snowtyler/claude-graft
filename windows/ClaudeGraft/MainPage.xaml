@@ -34,7 +34,7 @@
                                VerticalAlignment="Center" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <Button Click="Add_Click" Style="{StaticResource AccentButtonStyle}">
+                    <Button x:Name="AddButton" Click="Add_Click" Style="{StaticResource AccentButtonStyle}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE710;" FontSize="14" />
                             <TextBlock Text="Add Profile" />
@@ -60,7 +60,8 @@
 
         <!-- Profile list -->
         <Grid Grid.Row="1">
-            <ListView ItemsSource="{x:Bind Rows}"
+            <local:SetupPrompt x:Name="Setup" Visibility="Collapsed" />
+            <ListView x:Name="ProfileList" ItemsSource="{x:Bind Rows}"
                       SelectionMode="None"
                       ScrollViewer.HorizontalScrollMode="Disabled">
                 <ListView.ItemContainerStyle>
@@ -102,7 +103,11 @@
                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                         <Button Content="Edit" Click="Edit_Click" Tag="{x:Bind}"
                                                 Visibility="{x:Bind EditVisibility}" />
-                                        <Border Background="Transparent" ToolTipService.ToolTip="{x:Bind StartTooltip, Mode=OneWay}">
+                                        <Button Content="Sign In" Click="SignIn_Click" Tag="{x:Bind}"
+                                                Visibility="{x:Bind SignInVisibility, Mode=OneWay}"
+                                                ToolTipService.ToolTip="Opens this profile so you can sign in with your email address" />
+                                        <Border Background="Transparent" ToolTipService.ToolTip="{x:Bind StartTooltip, Mode=OneWay}"
+                                                Visibility="{x:Bind SignedInVisibility, Mode=OneWay}">
                                             <StackPanel Orientation="Horizontal">
                                                 <ProgressRing IsActive="{x:Bind Starting, Mode=OneWay}"
                                                               Visibility="{x:Bind StartingVisibility, Mode=OneWay}"
@@ -135,6 +140,11 @@
                                         <ProgressBar Value="{x:Bind Fable, Mode=OneWay}" Maximum="100" />
                                     </StackPanel>
                                 </StackPanel>
+                                <TextBlock Text="{x:Bind SignInNote}"
+                                           Visibility="{x:Bind SignInVisibility, Mode=OneWay}"
+                                           TextWrapping="Wrap"
+                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                                 <TextBlock Text="No usage reported yet"
                                            Visibility="{x:Bind NoUsageVisibility, Mode=OneWay}"
                                            Style="{StaticResource CaptionTextBlockStyle}"
@@ -176,6 +186,7 @@
                                            Style="{StaticResource CaptionTextBlockStyle}"
                                            Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                                 <CheckBox Content="Keep the 5-hour window open automatically"
+                                          Visibility="{x:Bind SignedInVisibility, Mode=OneWay}"
                                           IsChecked="{x:Bind KeepWarm, Mode=OneWay}"
                                           Checked="KeepWarm_Toggled" Unchecked="KeepWarm_Toggled"
                                           Tag="{x:Bind}"

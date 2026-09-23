@@ -83,12 +83,12 @@ channels a contributor does not have, so the port leaves them alone:
   repository the build was published from and nothing else is contacted.
 - **The manifest identity** is still the scaffold's placeholder name and
   publisher. A real release sets its own.
-- **Signing in a second account** works, with one rough edge: the OAuth callback
-  comes back through the `claude://` handler, which Windows routes to the default
-  profile rather than the grafted instance the person is using. A small handler
-  shim that forwards the callback to the foreground profile would fix it — it
-  modifies a system registration shared with the real Claude, so it is left as a
-  deliberate choice rather than done quietly.
+- **Signing in a second account** has to be done with an email address, not
+  Google. Google sign-in finishes by handing Claude a `claude://` link, and
+  Windows gives that link to the main Claude whichever profile asked for it. A
+  relay that pointed the per-user handler at Graft for the length of a sign-in
+  was tried and does nothing on the packaged install, whose own registration
+  wins over the per-user one, so each extra profile's card says to use email.
 - **Two smaller parity items** remain against the Mac: carrying each shortcut's
   own config the way a bundle carries `graft.json`, so the bundle wins where it
   and the list disagree; and writing the state report the Mac leaves for

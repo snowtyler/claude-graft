@@ -39,8 +39,35 @@ public sealed partial class MainPage : Page
             _processTimer.Stop();
             _usageTimer.Stop();
         };
-        _processTimer.Tick += async (_, _) => await MarkRunning(Rows.ToList());
+        _processTimer.Tick += async (_, _) =>
+        {
+            // Picks up an install or sign-in finished while the prompt was up.
+            if (Onboarding.Check(App.Store) != _setup) { Reload(); return; }
+            foreach (var row in Rows.ToList())
+            {
+                var was = row.SignedIn;
+                row.SetSignedIn(Onboarding.IsSignedIn(row.ProfileDir));
+                if (!was && row.SignedIn) _ = LoadUsage(row, interactive: true);
+            }
+            await MarkRunning(Rows.ToList());
+        };
         _usageTimer.Tick += (_, _) => RefreshUsageQuietly();
+        Setup.RecheckRequested += () => Reload();
+    }
+
+    private SetupState _setup = SetupState.Ready;
+
+    /// Until there is a signed-in Claude there is nothing a card could show, so
+    /// the list and the actions that act on it step aside for the prompt.
+    private bool ShowSetup(SetupState state)
+    {
+        _setup = state;
+        var ready = state == SetupState.Ready;
+        Setup.Show(state);
+        ProfileList.Visibility = ready ? Visibility.Visible : Visibility.Collapsed;
+        AddButton.Visibility = ready ? Visibility.Visible : Visibility.Collapsed;
+        RefreshButton.Visibility = ready ? Visibility.Visible : Visibility.Collapsed;
+        return ready;
     }
 
     /// A background usage read for every current row, off any button and without
@@ -49,6 +76,7 @@ public sealed partial class MainPage : Page
     /// the person asked for, not one a timer took.
     private void RefreshUsageQuietly(bool interactive = false)
     {
+        if (_setup != SetupState.Ready) return;
         foreach (var row in Rows.ToList())
             _ = LoadUsage(row, interactive);
     }
@@ -58,6 +86,7 @@ public sealed partial class MainPage : Page
     /// a figure that failed to load, or has gone stale since, is fetched afresh.
     public void OnShown()
     {
+        if (Onboarding.Check(App.Store) != _setup) { Reload(); return; }
         RefreshUsageQuietly(interactive: true);
         _ = MarkRunning(Rows.ToList());
         _ = MarkChatsElsewhere(Rows.ToList());
@@ -73,6 +102,7 @@ public sealed partial class MainPage : Page
         var generation = ++_reloadGeneration;
         App.Store.Load();
         Rows.Clear();
+        if (!ShowSetup(Onboarding.Check(App.Store))) return;
         // The main Claude leads, the way it does in the Mac dropdown.
         var rows = new List<ShortcutRow> { ShortcutRow.Main() };
         rows.AddRange(App.Store.Shortcuts.Select(ShortcutRow.ForShortcut));
@@ -222,12 +252,11 @@ public sealed partial class MainPage : Page
         OpenRow(row);
     }
 
-    private static void OpenRow(ShortcutRow row)
+    private static void OpenRow(ShortcutRow row) => ProfileRows.Open(row);
+
+    private void SignIn_Click(object sender, RoutedEventArgs e)
     {
-        var config = row.Shortcut is Shortcut s
-            ? App.Store.ConfigFor(s)
-            : new GraftConfig { ProfileDir = row.ProfileDir, SourceDir = null };
-        Task.Run(() => Launcher.Open(config));
+        if (sender is FrameworkElement { Tag: ShortcutRow row }) ProfileRows.Open(row);
     }
 
     /// The offer at the door. Four choices folded into a dialog's three buttons
@@ -450,7 +479,18 @@ public sealed partial class MainPage : Page
         if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
 
         Installer.Uninstall(shortcut);
-        var problem = App.Store.Delete(shortcut.Id, deletingProfile: deleteData.IsChecked == true);
+        string? problem;
+        // Deleting touches a folder Claude may still be letting go of; whatever
+        // goes wrong there is a warning to show, never a reason to crash.
+        try { problem = App.Store.Delete(shortcut.Id, deletingProfile: deleteData.IsChecked == true); }
+        catch (Exception e)
+        {
+            Diagnostics.Note("profile.removeFailed", new Dictionary<string, object?>
+            {
+                ["profile"] = shortcut.Folder, ["error"] = e.GetType().Name + ": " + e.Message,
+            });
+            problem = "Something went wrong removing it: " + e.Message;
+        }
         Reload();
 
         if (problem is not null) await Warn("The profile folder was kept", problem);
