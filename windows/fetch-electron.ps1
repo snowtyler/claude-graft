@@ -42,4 +42,9 @@ if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
 Expand-Archive $zip $dest -Force
 
 if (-not (Test-Path (Join-Path $dest 'electron.exe'))) { throw "electron.exe missing after extract" }
+
+# The helper never shows UI, so other languages and the WebGPU shader compiler
+# are dead weight; Chromium falls back to en-US when a locale pak is missing.
+Get-ChildItem (Join-Path $dest 'locales') -Exclude 'en-US.pak' | Remove-Item -Force
+Remove-Item (Join-Path $dest 'dxcompiler.dll'), (Join-Path $dest 'dxil.dll'), (Join-Path $dest 'resources\default_app.asar') -Force -ErrorAction SilentlyContinue
 Write-Host "Electron $Version staged in $dest"

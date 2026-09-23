@@ -5,8 +5,7 @@ namespace ClaudeGraft;
 /// <summary>
 /// Writes the desktop shortcut a profile is opened from. The Mac builds a small
 /// .app bundle carrying a copy of the launcher; Windows writes a .lnk pointing
-/// at a copy of the launcher stub kept in a stable per-user spot, so the shortcut
-/// goes on working after the tray app updates to a new versioned install path.
+/// at the launcher stub installed beside the app, whose folder never moves.
 ///
 /// Deliberately blind to anything this app did not create: a .lnk is only ever
 /// removed or overwritten when it already points at our own launcher, so an
@@ -18,9 +17,15 @@ public static class Installer
     /// Names that belong to Claude itself and must never be written over.
     public static readonly string[] ReservedNames = { "Claude", "Claude Graft" };
 
-    private static string LauncherDir => Path.Combine(
+    /// The stub beside the app once published, under launcher\ in a plain build,
+    /// or the newest one in the repo's build output while debugging.
+    private static readonly Lazy<string?> launcherExe = new(FindLauncher);
+    private static string? LauncherExe => launcherExe.Value;
+
+    /// Where earlier versions copied the stub, and where their shortcuts point.
+    private static string LegacyLauncherDir => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ClaudeGraft", "launcher");
-    private static string LauncherExe => Path.Combine(LauncherDir, "GraftLaunch.exe");
+    private static string LegacyLauncherExe => Path.Combine(LegacyLauncherDir, "GraftLaunch.exe");
 
     private static string DesktopDir => Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
     private static string LinkPath(string name) => Path.Combine(DesktopDir, name + ".lnk");
@@ -38,7 +43,7 @@ public static class Installer
         if (ReservedNames.Contains(shortcut.Name))
             throw new InstallException(InstallError.ReservedName, $"“{shortcut.Name}” is the name of Claude itself. Pick another.");
 
-        if (!EnsureLauncher())
+        if (LauncherExe is not { } launcher)
             throw new InstallException(InstallError.MissingLauncher, "This copy of Claude Graft is missing its launcher.");
 
         var path = LinkPath(shortcut.Name);
@@ -48,7 +53,7 @@ public static class Installer
 
         try
         {
-            WriteLink(path, LauncherExe, shortcut.Folder, ClaudeIcon(),
+            WriteLink(path, launcher, shortcut.Folder, ClaudeIcon(),
                       $"Open {shortcut.Name} — a Claude Desktop profile");
         }
         catch (Exception e)
@@ -76,59 +81,14 @@ public static class Installer
         return File.Exists(path) && IsOurs(path) ? path : null;
     }
 
-    // MARK: - The stable launcher copy
+    // MARK: - The launcher
 
-    /// Copies the launcher stub into a stable per-user folder, refreshing it when
-    /// the bundled copy is newer — the Windows echo of refreshLaunchers, so a
-    /// shortcut written by an older version picks up the current launcher. Returns
-    /// false when no stub can be found to copy.
-    public static bool EnsureLauncher()
+    private static string? FindLauncher()
     {
-        var source = StubSource();
-        if (source is null) return File.Exists(LauncherExe);   // already copied on an earlier run
-
-        Directory.CreateDirectory(LauncherDir);
-        try
-        {
-            foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
-            {
-                var relative = Path.GetRelativePath(source, file);
-                var dest = Path.Combine(LauncherDir, relative);
-                Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
-                // Copy only what changed, so an open shortcut's launcher is not
-                // needlessly replaced under it.
-                if (!File.Exists(dest) || File.GetLastWriteTimeUtc(file) > File.GetLastWriteTimeUtc(dest))
-                    File.Copy(file, dest, overwrite: true);
-            }
-        }
-        catch { /* fall through to whether the exe is nonetheless present */ }
-        return File.Exists(LauncherExe);
-    }
-
-    /// Stage the sidebar-sync runtime beside the launcher copy. The launcher runs
-    /// from its own stable folder, not the app's, so the Electron bundled with the
-    /// app is not on hand there. Large, so files copy only when actually newer.
-    public static void StageLauncherElectron()
-    {
-        var source = Path.Combine(AppContext.BaseDirectory, "electron");
-        if (!Directory.Exists(source)) return;
-        var dest = Path.Combine(LauncherDir, "electron");
-        foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
-        {
-            var relative = Path.GetRelativePath(source, file);
-            var target = Path.Combine(dest, relative);
-            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-            if (!File.Exists(target) || File.GetLastWriteTimeUtc(file) > File.GetLastWriteTimeUtc(target))
-                File.Copy(file, target, overwrite: true);
-        }
-    }
-
-    /// Where the launcher stub's build output sits — bundled beside the app once
-    /// packaged, or found in the repo's build output during development.
-    private static string? StubSource()
-    {
-        var bundled = Path.Combine(AppContext.BaseDirectory, "launcher", "GraftLaunch.exe");
-        if (File.Exists(bundled)) return Path.GetDirectoryName(bundled);
+        foreach (var exe in new[] {
+            Path.Combine(AppContext.BaseDirectory, "GraftLaunch.exe"),
+            Path.Combine(AppContext.BaseDirectory, "launcher", "GraftLaunch.exe") })
+            if (File.Exists(exe)) return exe;
 
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
         {
@@ -136,9 +96,73 @@ public static class Installer
             if (!Directory.Exists(built)) continue;
             var exe = Directory.EnumerateFiles(built, "GraftLaunch.exe", SearchOption.AllDirectories)
                 .OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault();
-            if (exe is not null) return Path.GetDirectoryName(exe);
+            if (exe is not null) return exe;
         }
         return null;
+    }
+
+    /// Moves shortcuts off the per-user copy of the launcher earlier versions
+    /// kept, then puts a junction onto the current launcher's folder where that
+    /// copy stood, so a .lnk this pass could not find — pinned somewhere else,
+    /// or copied by hand — still opens its profile.
+    public static void MigrateLegacyLauncher()
+    {
+        if (LauncherExe is not { } launcher) return;
+        var current = Path.GetDirectoryName(launcher)!;
+        var legacy = LegacyLauncherDir;
+
+        if (Junction.IsLink(legacy))
+        {
+            // A dev build and an installed one take turns running here.
+            if (!string.Equals(Path.TrimEndingDirectorySeparator(Junction.Target(legacy) ?? ""),
+                               Path.TrimEndingDirectorySeparator(current), StringComparison.OrdinalIgnoreCase))
+            {
+                Junction.Remove(legacy);
+                Junction.Create(legacy, current);
+            }
+            return;
+        }
+        if (!Directory.Exists(legacy)) return;
+
+        foreach (var link in LinksToRetarget())
+        {
+            try
+            {
+                dynamic shell = Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell")!)!;
+                var lnk = shell.CreateShortcut(link);
+                if (!string.Equals((string)lnk.TargetPath, LegacyLauncherExe, StringComparison.OrdinalIgnoreCase)) continue;
+                lnk.TargetPath = launcher;
+                lnk.WorkingDirectory = current;
+                lnk.Save();
+            }
+            catch { }
+        }
+
+        // A launcher or its Electron still running holds files open; the next
+        // start tries again, and the shortcuts already point at the new stub.
+        try { Directory.Delete(legacy, recursive: true); } catch { return; }
+        Junction.Create(legacy, current);
+    }
+
+    /// Everywhere a .lnk to a profile is likely to be: the desktop this app
+    /// writes to, and the Start menu and taskbar a person pins it to.
+    private static IEnumerable<string> LinksToRetarget()
+    {
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        var roots = new[]
+        {
+            (DesktopDir, false),
+            (Path.Combine(appData, @"Microsoft\Windows\Start Menu\Programs"), true),
+            (Path.Combine(appData, @"Microsoft\Internet Explorer\Quick Launch"), true),
+        };
+        foreach (var (root, recurse) in roots)
+        {
+            if (!Directory.Exists(root)) continue;
+            IEnumerable<string> links;
+            try { links = Directory.EnumerateFiles(root, "*.lnk", new EnumerationOptions { RecurseSubdirectories = recurse, IgnoreInaccessible = true }).ToList(); }
+            catch { continue; }
+            foreach (var link in links) yield return link;
+        }
     }
 
     // MARK: - .lnk and icon
@@ -154,7 +178,8 @@ public static class Installer
             dynamic shell = Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell")!)!;
             var link = shell.CreateShortcut(linkPath);
             string target = link.TargetPath;
-            return string.Equals(target, LauncherExe, StringComparison.OrdinalIgnoreCase);
+            return string.Equals(target, LauncherExe, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(target, LegacyLauncherExe, StringComparison.OrdinalIgnoreCase);
         }
         catch { return false; }
     }

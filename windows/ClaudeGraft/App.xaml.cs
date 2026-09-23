@@ -100,14 +100,10 @@ public partial class App : Application
     {
         _ui = DispatcherQueue.GetForCurrentThread();
 
-        // Keep each shortcut's launcher current — the Windows echo of the Mac's
-        // refreshLaunchers at launch. A .lnk points at a copy of the launcher in a
-        // stable per-user folder, so a build shipped after a shortcut was made
-        // reaches it only here. The stub is small and refreshed now; its Electron,
-        // which the sidebar sync needs beside it, is large and staged in the
-        // background.
-        try { Installer.EnsureLauncher(); } catch { }
-        System.Threading.Tasks.Task.Run(() => { try { Installer.StageLauncherElectron(); } catch { } });
+        // Shortcuts made before the launcher moved in beside the app still point
+        // at the old per-user copy; carried over in the background, since the
+        // folder being cleared out holds a whole Electron.
+        System.Threading.Tasks.Task.Run(() => { try { Installer.MigrateLegacyLauncher(); } catch { } });
 
         // No ContextFlyout: the library renders that as a native popup owned by
         // its own message-only window, which can never take the foreground a

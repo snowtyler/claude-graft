@@ -40,6 +40,11 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "startuplaunch"; Description: "Start automatically when I sign in"; GroupDescription: "Startup:"; Flags: checkedonce
 
+[InstallDelete]
+; Earlier versions kept the launcher in a subfolder with its own runtime; it now
+; sits beside the app and shares the app's.
+Type: filesandordirs; Name: "{app}\launcher"
+
 [Files]
 Source: "..\dist\ClaudeGraft\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; The VC++ runtime redistributable, installed silently if needed.
