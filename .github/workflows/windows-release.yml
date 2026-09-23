@@ -49,7 +49,12 @@ jobs:
       # Sidebar sync skips silently without it, so a release missing it looks fine.
       - name: Stage bundled Electron
         shell: pwsh
-        run: ./windows/fetch-electron.ps1
+        run: |
+          ./windows/fetch-electron.ps1
+          # Without it electron.exe exits 1 on the helper's folder, and every sync fails.
+          if (-not (Test-Path windows/dist/ClaudeGraft/electron/resources/default_app.asar)) {
+            throw "Electron was staged without default_app.asar"
+          }
 
       - name: Download VC++ Redistributable
         shell: pwsh

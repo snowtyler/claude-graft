@@ -45,6 +45,8 @@ if (-not (Test-Path (Join-Path $dest 'electron.exe'))) { throw "electron.exe mis
 
 # The helper never shows UI, so other languages and the WebGPU shader compiler
 # are dead weight; Chromium falls back to en-US when a locale pak is missing.
+# default_app.asar stays: it is what loads the helper folder named on the command
+# line, and without it electron.exe exits 1 before running a line.
 Get-ChildItem (Join-Path $dest 'locales') -Exclude 'en-US.pak' | Remove-Item -Force
-Remove-Item (Join-Path $dest 'dxcompiler.dll'), (Join-Path $dest 'dxil.dll'), (Join-Path $dest 'resources\default_app.asar') -Force -ErrorAction SilentlyContinue
+Remove-Item (Join-Path $dest 'dxcompiler.dll'), (Join-Path $dest 'dxil.dll') -Force -ErrorAction SilentlyContinue
 Write-Host "Electron $Version staged in $dest"
