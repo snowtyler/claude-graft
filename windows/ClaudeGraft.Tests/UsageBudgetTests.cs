@@ -89,12 +89,33 @@ public class UsageBudgetTests
         Assert.Equal(20, current.Week);   // still inside the week
     }
 
-    [Fact(DisplayName = "a sample older than a week has its weekly figure spent too")]
-    public void StaleWeekReadsZero()
+    [Fact(DisplayName = "a sample older than a week gives no figure rather than a 0% that looks like a new week")]
+    public void StaleWeekSaysNothing()
     {
         var now = DateTimeOffset.UtcNow;
-        var current = UsageMonitor.AsCurrentFigure(Sample(100, 90, now - TimeSpan.FromDays(8)), now);
-        Assert.Equal(0, current!.FiveHour);
-        Assert.Equal(0, current.Week);
+        Assert.Null(UsageMonitor.AsCurrentFigure(Sample(100, 90, now - TimeSpan.FromDays(8)), now));
+    }
+
+    [Fact(DisplayName = "a 429 saying Retry-After: 0 backs off like any other refusal instead of asking again at once")]
+    public void AZeroRetryAfterFallsBackToBackoff()
+    {
+        Assert.Null(UsageMonitor.ServiceWait(TimeSpan.Zero));
+        Assert.Null(UsageMonitor.ServiceWait(null));
+        Assert.Equal(TimeSpan.FromSeconds(30), UsageMonitor.ServiceWait(TimeSpan.FromSeconds(30)));
+    }
+
+    [Fact(DisplayName = "a live figure saved for the next launch reads back the same")]
+    public void SavedFigureRoundTrips()
+    {
+        var reading = new UsageApi.Reading
+        {
+            FiveHour = 11, Week = 33, Plan = "Pro",
+            FiveHourReset = DateTimeOffset.Parse("2026-09-23T16:28:00Z"),
+            WeekReset = DateTimeOffset.Parse("2026-09-27T16:00:00Z"),
+        };
+        var saved = new UsageMonitor.Saved(reading, DateTimeOffset.Parse("2026-09-23T12:04:12Z"));
+        var back = System.Text.Json.JsonSerializer.Deserialize<UsageMonitor.Saved>(
+            System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(saved));
+        Assert.Equal(saved, back);
     }
 }

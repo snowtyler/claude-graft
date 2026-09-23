@@ -90,6 +90,21 @@
                                     <ProgressBar Value="{x:Bind Fable, Mode=OneWay}" Maximum="100"
                                                  local:BarPulse.Key="{x:Bind Pulse, Mode=OneWay}" />
                                 </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <ProgressRing IsActive="{x:Bind Fetching, Mode=OneWay}"
+                                                  Visibility="{x:Bind FetchingVisibility, Mode=OneWay}"
+                                                  Width="12" Height="12" MinWidth="0" MinHeight="0"
+                                                  VerticalAlignment="Center" />
+                                    <TextBlock Text="{x:Bind UsageStatusText, Mode=OneWay}"
+                                               Visibility="{x:Bind UsageStatusVisibility, Mode=OneWay}"
+                                               Style="{StaticResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                                </StackPanel>
+                                <TextBlock Text="{x:Bind UsageStatusText, Mode=OneWay}"
+                                           Visibility="{x:Bind UsageWarningVisibility, Mode=OneWay}"
+                                           TextWrapping="Wrap"
+                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                           Foreground="{ThemeResource SystemFillColorCautionBrush}" />
                             </StackPanel>
 
                             <!-- Why the last Start Session could not open a window,

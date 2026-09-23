@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace ClaudeGraft.Core;
 
 /// <summary>
@@ -19,6 +21,31 @@ public sealed record UsageEntry
     public bool IsLive { get; init; }
     public string? Plan { get; init; }
     public bool HasUsage => Usage is not null;
+
+    /// When the figure shown was fetched, or sampled off disk. Older than now
+    /// whenever a refresh was refused and the last good figure stands in.
+    public DateTimeOffset? UpdatedAt { get; init; }
+
+    /// Why the last attempt to refresh failed, or null when it succeeded.
+    public UsageRefusal? Refusal { get; init; }
+}
+
+public enum RefusalKind { RateLimited, LoginRefused, Failed, Unreachable, NoLogin }
+
+public sealed record UsageRefusal
+{
+    public required RefusalKind Kind { get; init; }
+    public int? Status { get; init; }
+    /// When the next automatic attempt is allowed, if one is being held off.
+    public DateTimeOffset? RetryAt { get; init; }
+
+    public static RefusalKind KindOf(Exception e) => e switch
+    {
+        UsageApi.Failure { StatusCode: 429 } => RefusalKind.RateLimited,
+        UsageApi.Failure { StatusCode: 401 or 403 } => RefusalKind.LoginRefused,
+        UsageApi.Failure => RefusalKind.Failed,
+        _ => RefusalKind.Unreachable,
+    };
 }
 
 public static class UsageMonitor
@@ -44,7 +71,13 @@ public static class UsageMonitor
         public DateTimeOffset BackoffUntil;
         public int Failures;
         public DateTimeOffset RetryUntil; // a service Retry-After — honoured even for a press
+        public RefusalKind? LastRefusal;
+        public int? LastStatus;
     }
+
+    /// Raised with true as a live read goes out and false when it lands, from
+    /// whichever thread made it, so a window can show a refresh it did not start.
+    public static event Action<string, bool>? FetchingChanged;
 
     /// A disk sample read as a figure that is current now. Claude records the
     /// percentage while it runs but not when a window closes, so a sample that has
@@ -57,12 +90,15 @@ public static class UsageMonitor
     {
         if (disk is null) return null;
         var age = now - disk.Sampled;
+        // Past the week it has nothing left to say. Read as 0% it looked like a
+        // fresh week, which is what a profile Claude stopped recording showed.
+        if (age > TimeSpan.FromDays(7)) return null;
         var fiveHourElapsed = age > TimeSpan.FromHours(5);
         return disk with
         {
             FiveHour = fiveHourElapsed ? 0 : disk.FiveHour,
             FiveHourReset = fiveHourElapsed ? null : disk.FiveHourReset,
-            Week = age > TimeSpan.FromDays(7) ? 0 : disk.Week,
+            Week = disk.Week,
         };
     }
 
@@ -101,12 +137,27 @@ public static class UsageMonitor
     public static async Task<UsageEntry> ReadAsync(string profile, bool interactive = false)
     {
         var reading = await LiveAsync(profile, interactive).ConfigureAwait(false);
+        UsageRefusal? refusal;
+        DateTimeOffset liveAt;
+        lock (Lock)
+        {
+            var state = State(profile);
+            liveAt = state.LiveAt;
+            var retryAt = state.RetryUntil > state.BackoffUntil ? state.RetryUntil : state.BackoffUntil;
+            refusal = state.LastRefusal is RefusalKind kind
+                ? new UsageRefusal
+                {
+                    Kind = kind, Status = state.LastStatus,
+                    RetryAt = retryAt > DateTimeOffset.UtcNow ? retryAt : null,
+                }
+                : null;
+        }
         if (reading is null)
         {
             // The endpoint has never answered for this profile, so there is no
             // live figure to stand on; the on-disk history is all there is.
             var disk = AsCurrentFigure(Graft.UsageOf(profile), DateTimeOffset.UtcNow);
-            return new UsageEntry { Usage = disk, IsLive = false };
+            return new UsageEntry { Usage = disk, IsLive = false, UpdatedAt = disk?.Sampled, Refusal = refusal };
         }
 
         var org = Graft.UsageOf(profile)?.Organization;
@@ -117,7 +168,7 @@ public static class UsageMonitor
                 FiveHour = reading.FiveHour,
                 Week = reading.Week,
                 Organization = org,
-                Sampled = DateTimeOffset.UtcNow,
+                Sampled = liveAt,
                 FiveHourReset = reading.FiveHourReset,
                 WeekReset = reading.WeekReset,
                 Fable = reading.Fable,
@@ -125,6 +176,8 @@ public static class UsageMonitor
             },
             IsLive = true,
             Plan = reading.Plan,
+            UpdatedAt = liveAt,
+            Refusal = refusal,
         };
     }
 
@@ -137,11 +190,51 @@ public static class UsageMonitor
         lock (Lock) State(profile).Invalidated = true;
     }
 
+    /// A Retry-After the service means as a wait, or null to fall back on our own
+    /// backoff. The endpoint answers 429 with Retry-After: 0, which honoured as
+    /// written set no wait and no backoff, so every 30s tick asked again.
+    public static TimeSpan? ServiceWait(TimeSpan? retryAfter) =>
+        retryAfter is { } wait && wait > TimeSpan.Zero ? wait : null;
+
     private static ProfileState State(string profile)
     {
         if (!States.TryGetValue(profile, out var state))
+        {
             States[profile] = state = new ProfileState();
+            if (LoadSaved().TryGetValue(Path.GetFullPath(profile), out var saved))
+            {
+                state.LastLive = saved.Reading;
+                state.LiveAt = saved.At;
+            }
+        }
         return state;
+    }
+
+    // MARK: - The last live figure, kept across restarts
+
+    /// A restart otherwise begins with no live figure, and the first read after
+    /// one is the likeliest to be refused, which fell back to a disk history
+    /// Claude may not have written for weeks.
+    public static string SavedPath => Path.Combine(GraftPaths.OwnData, "usage-cache.json");
+
+    public sealed record Saved(UsageApi.Reading Reading, DateTimeOffset At);
+
+    private static Dictionary<string, Saved> LoadSaved()
+    {
+        try { return JsonSerializer.Deserialize<Dictionary<string, Saved>>(File.ReadAllBytes(SavedPath)) ?? new(); }
+        catch { return new(); }
+    }
+
+    private static void Save(string profile, UsageApi.Reading reading, DateTimeOffset at)
+    {
+        try
+        {
+            var map = LoadSaved();
+            map[Path.GetFullPath(profile)] = new Saved(reading, at);
+            Directory.CreateDirectory(Path.GetDirectoryName(SavedPath)!);
+            AtomicWrite.Bytes(SavedPath, JsonSerializer.SerializeToUtf8Bytes(map));
+        }
+        catch { }
     }
 
     private static async Task<UsageApi.Reading?> LiveAsync(string profile, bool interactive)
@@ -157,17 +250,39 @@ public static class UsageMonitor
                 haveFresh: state.LastLive is not null && now - state.LiveAt < LiveTtl,
                 inBackoff: now < state.BackoffUntil,
                 inRetry: now < state.RetryUntil);
-            if (!fetch) return state.LastLive;
+            if (!fetch)
+            {
+                if (interactive && now < state.RetryUntil)
+                    Diagnostics.Note("usage.pressHeld", new Dictionary<string, object?>
+                    {
+                        ["profile"] = profile,
+                        ["retryUntil"] = state.RetryUntil,
+                        ["showingFigureFrom"] = state.LastLive is null ? null : state.LiveAt,
+                    });
+                return state.LastLive;
+            }
         }
 
         string token;
         try
         {
-            if (ClaudeCredentials.GetToken(profile) is not ClaudeCredentials.Token t) return Cached(profile);
+            if (ClaudeCredentials.GetToken(profile) is not ClaudeCredentials.Token t)
+            {
+                Diagnostics.Note("usage.noToken", new Dictionary<string, object?> { ["profile"] = profile });
+                return Refused(profile, RefusalKind.NoLogin);
+            }
             token = t.Value;
         }
-        catch (ClaudeCredentials.CredentialException) { return Cached(profile); }
+        catch (ClaudeCredentials.CredentialException e)
+        {
+            Diagnostics.Note("usage.noToken", new Dictionary<string, object?>
+            {
+                ["profile"] = profile, ["reason"] = e.Reason.ToString(),
+            });
+            return Refused(profile, RefusalKind.NoLogin);
+        }
 
+        FetchingChanged?.Invoke(profile, true);
         try
         {
             var reading = await UsageApi.FetchAsync(token).ConfigureAwait(false);
@@ -180,15 +295,32 @@ public static class UsageMonitor
                 state.BackoffUntil = default;
                 state.RetryUntil = default;
                 state.Failures = 0;
+                state.LastRefusal = null;
+                state.LastStatus = null;
+                Save(profile, reading, state.LiveAt);
             }
             return reading;
         }
         catch (Exception e)
         {
-            var retryAfter = (e as UsageApi.Failure)?.RetryAfter;
+            var retryAfter = ServiceWait((e as UsageApi.Failure)?.RetryAfter);
             lock (Lock)
             {
                 var state = State(profile);
+                state.LastRefusal = UsageRefusal.KindOf(e);
+                state.LastStatus = (e as UsageApi.Failure)?.StatusCode;
+                // A refused read shows the last figure as though it were current,
+                // so this line is the only thing that says the bar has stopped moving.
+                Diagnostics.Note("usage.fetchFailed", new Dictionary<string, object?>
+                {
+                    ["profile"] = profile,
+                    ["interactive"] = interactive,
+                    ["status"] = (e as UsageApi.Failure)?.StatusCode,
+                    ["error"] = e is UsageApi.Failure ? null : e.GetType().Name + ": " + e.Message,
+                    ["retryAfterSeconds"] = retryAfter?.TotalSeconds,
+                    ["failures"] = state.Failures + (retryAfter is null ? 1 : 0),
+                    ["showingFigureFrom"] = state.LastLive is null ? null : state.LiveAt,
+                });
                 if (retryAfter is TimeSpan ra)
                     // The endpoint named its own wait; honour it exactly, for a
                     // press as much as for a background tick.
@@ -198,16 +330,26 @@ public static class UsageMonitor
                     state.Failures++;
                     state.BackoffUntil = DateTimeOffset.UtcNow
                         + BackoffSteps[Math.Min(state.Failures - 1, BackoffSteps.Length - 1)];
+                    // A 429 is the service saying wait even when it names no wait,
+                    // so a press is held too; six presses in a minute kept it refusing.
+                    if (state.LastRefusal == RefusalKind.RateLimited) state.RetryUntil = state.BackoffUntil;
                 }
                 // A refused refetch leaves the figure marked stale, so the next
                 // read tries again rather than trusting a reading a press dropped.
                 return state.LastLive;
             }
         }
+        finally { FetchingChanged?.Invoke(profile, false); }
     }
 
-    private static UsageApi.Reading? Cached(string profile)
+    private static UsageApi.Reading? Refused(string profile, RefusalKind kind)
     {
-        lock (Lock) return State(profile).LastLive;
+        lock (Lock)
+        {
+            var state = State(profile);
+            state.LastRefusal = kind;
+            state.LastStatus = null;
+            return state.LastLive;
+        }
     }
 }

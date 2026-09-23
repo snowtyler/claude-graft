@@ -34,6 +34,12 @@ public sealed partial class FlyoutView : UserControl
         App.UpdateProgressChanged += ReflectUpdate;
         Setup.RecheckRequested += Reload;
         Setup.Acted += () => DismissRequested?.Invoke();
+        UsageMonitor.FetchingChanged += (profile, fetching) => DispatcherQueue.TryEnqueue(() =>
+        {
+            foreach (var row in Rows.Where(r => Fs.SamePath(r.ProfileDir, profile)))
+                row.SetFetching(fetching);
+            LayoutChanged?.Invoke();
+        });
     }
 
     /// Paints the flyout's own surface opaque, for the Solid backdrop where there
