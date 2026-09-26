@@ -3,6 +3,8 @@ using System.Threading.Tasks;
 using ClaudeGraft.Core;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.Windows.System.Power;
 
 namespace ClaudeGraft;
 
@@ -20,6 +22,7 @@ public sealed partial class MainPage : Page
     // Moves what changes with time alone — the Refresh button's wait, the
     // countdowns, a window closing at its reset — without a read.
     private readonly DispatcherTimer _clock = new() { Interval = TimeSpan.FromSeconds(1) };
+    private readonly DispatcherTimer _redrawAfterWake = new() { Interval = TimeSpan.FromSeconds(2) };
     private int _clockTicks;
     private bool _loading;
 
@@ -66,6 +69,19 @@ public sealed partial class MainPage : Page
         };
         _usageTimer.Tick += (_, _) => RefreshUsageQuietly();
         Setup.RecheckRequested += () => Reload();
+        // Sleep never raised SurfaceContentsLost here; the display coming back on is
+        // the wake that reaches a window left open, and the second pass is for a GPU
+        // still settling when the first one lands.
+        PowerManager.DisplayStatusChanged += (_, _) =>
+        {
+            if (PowerManager.DisplayStatus != DisplayStatus.On) return;
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                RedrawChecks();
+                _redrawAfterWake.Start();
+            });
+        };
+        _redrawAfterWake.Tick += (_, _) => { _redrawAfterWake.Stop(); RedrawChecks(); };
         UsageMonitor.FetchingChanged += (profile, fetching) => DispatcherQueue.TryEnqueue(() =>
         {
             foreach (var row in Rows.Where(r => Fs.SamePath(r.ProfileDir, profile)))
@@ -106,6 +122,7 @@ public sealed partial class MainPage : Page
     public void OnShown()
     {
         if (Onboarding.Check(App.Store) != _setup) { Reload(); return; }
+        RedrawChecks();
         RefreshUsageQuietly(interactive: true);
         _ = MarkRunning(Rows.ToList());
         _ = MarkChatsElsewhere(Rows.ToList());
@@ -266,6 +283,29 @@ public sealed partial class MainPage : Page
         {
             App.Settings.KeepMainWarm = on;
             App.Settings.Save();
+        }
+    }
+
+    // A tick's drawing follows its icon's progress through an expression that sleep
+    // can drop, leaving it on frame zero — the indeterminate dash. Setting the source
+    // again rebuilds that link; the progress itself was never lost.
+    private void RedrawChecks()
+    {
+        foreach (var glyph in Descendants<AnimatedIcon>(ProfileList).Where(g => g.Name == "CheckGlyph"))
+        {
+            var source = glyph.Source;
+            glyph.Source = null;
+            glyph.Source = source;
+        }
+    }
+
+    private static IEnumerable<T> Descendants<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T match) yield return match;
+            foreach (var deeper in Descendants<T>(child)) yield return deeper;
         }
     }
 
