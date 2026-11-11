@@ -9,7 +9,7 @@ public static partial class Graft
     // MARK: - Transcript cache
 
     /// One transcript's parse, remembered against the file it came from.
-    private sealed class CachedTranscript
+    internal sealed class CachedTranscript
     {
         [JsonPropertyName("modified")] public double Modified { get; set; }
         [JsonPropertyName("size")] public long Size { get; set; }
@@ -24,7 +24,7 @@ public static partial class Graft
     private static bool _transcriptCacheLoaded;
     private static bool _transcriptCacheDirty;
 
-    private static string TranscriptCacheFile => Path.Combine(GraftPaths.OwnData, "transcript-cache.json");
+    internal static string TranscriptCacheFile => Path.Combine(GraftPaths.OwnData, "transcript-cache.json");
 
     private static void LoadTranscriptCache()
     {

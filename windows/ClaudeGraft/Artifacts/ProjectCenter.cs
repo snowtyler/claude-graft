@@ -55,6 +55,10 @@ public sealed class ProjectCenter
             _known = ids;
             foreach (var gone in _lists.Keys.Where(k => !ids.Contains(k)).ToList()) _lists.Remove(gone);
             foreach (var gone in ProjectStates.Keys.Where(k => !ids.Contains(k)).ToList()) ProjectStates.Remove(gone);
+            foreach (var gone in SearchStates.Keys.Where(k => !ids.Contains(k)).ToList()) SearchStates.Remove(gone);
+            foreach (var gone in _codeLists.Keys.Where(k => !ids.Contains(k)).ToList()) _codeLists.Remove(gone);
+            Results = Results.Where(h => ids.Contains(h.Account)).ToList();
+            if (Filters.Account is { } chosen && !ids.Contains(chosen)) Filters = Filters with { Account = null };
             Merge();
         }
         // A sign-in from either pane is asked for here too, since a person just
@@ -63,7 +67,10 @@ public sealed class ProjectCenter
         {
             _lastSignIn = signIn;
             ProjectStates.Remove(signIn.Account);
+            _codeLists.Remove(signIn.Account);
             if (_asked) _ = Load(signIn.Account);
+            // A search on screen is run again so it covers the new account too.
+            if (Searched is { } query) Search(query);
         }
         Changed?.Invoke();
     }
@@ -125,6 +132,157 @@ public sealed class ProjectCenter
             Merge();
             Changed?.Invoke();
         }
+    }
+
+    // Search. Everything the last search found, before the filters, and the
+    // query it answers, which is not always what is in the box.
+
+    public List<SearchHit> Results { get; private set; } = [];
+    public Dictionary<Guid, State> SearchStates { get; } = new();
+    public string? Searched { get; private set; }
+    public SearchFilters Filters { get; set; } = new();
+    public bool Searching => SearchStates.Values.Contains(State.Loading);
+
+    private int _searchGeneration;
+    /// Each account's whole Code session list, kept for the searches after the
+    /// one that read it, since several pages of two hundred is a lot to ask again.
+    private readonly Dictionary<Guid, (DateTimeOffset Read, List<RemoteCodeSession> Sessions, bool Complete)> _codeLists = new();
+    public static readonly TimeSpan CodeListLifetime = TimeSpan.FromMinutes(2);
+    /// This PC's transcripts, kept as long as the lists: a cold read of
+    /// hundreds takes seconds, too long to stand in front of every search.
+    private (DateTimeOffset Read, List<LocalCodeSession> Sessions)? _localRead;
+    private Task<(DateTimeOffset Read, List<LocalCodeSession> Sessions)>? _localReading;
+
+    public List<SearchHit> Shown()
+    {
+        var now = DateTimeOffset.UtcNow;
+        return Results.Where(h => Filters.Admits(h, now)).ToList();
+    }
+
+    public List<string> SearchTrouble() => Accounts.Accounts.Select(a => SearchStates.GetValueOrDefault(a.Id) switch
+    {
+        State.SignedOut => $"Sign in to {Accounts.NameOf(a.Id)} again",
+        State.Failed => $"{Accounts.NameOf(a.Id)} didn't answer",
+        _ => null,
+    }).OfType<string>().ToList();
+
+    public string? ProjectName(string? id, Guid account) =>
+        id is null ? null : Projects.FirstOrDefault(p => p.Id == id && p.Account == account)?.Name;
+
+    /// On Return or the button, never as a person types: each search asks every
+    /// account. The filters narrow what came back and ask nothing.
+    public void Search(string text)
+    {
+        var query = text.Trim();
+        var generation = ++_searchGeneration;
+        if (query.Length == 0) { ClearSearch(); return; }
+        Searched = query;
+        Results = [];
+        var ids = Accounts.Accounts.Select(a => a.Id).ToList();
+        foreach (var id in ids) SearchStates[id] = State.Loading;
+        // Only accounts never asked, so a project a chat is in can be named.
+        foreach (var id in ids.Where(i => !ProjectStates.ContainsKey(i)).ToList()) { _asked = true; _ = Load(id); }
+        Changed?.Invoke();
+        var lists = new Dictionary<Guid, List<SearchHit>>();
+        foreach (var id in ids) _ = SearchOne(id, query, generation, lists);
+    }
+
+    private async Task SearchOne(Guid id, string query, int generation, Dictionary<Guid, List<SearchHit>> lists)
+    {
+        List<SearchHit>? found = null;
+        Exception? failure = null;
+        try
+        {
+            var org = await Accounts.OrganizationOf(id);
+            var session = Accounts.Session(id);
+            var (status, body) = await session.Send("POST", SearchAPI.SearchPath(org), SearchAPI.SearchBody(query));
+            if (status != 200 || SearchAPI.Chats(body, id) is not { } chats)
+                throw new ClaudeWebSession.WebFailure(ClaudeWebSession.Failure.Unreadable);
+            var code = await CodeSessions(id, org, session);
+            var local = await LocalSessions(code.Read);
+            found = [.. chats, .. SearchAPI.CodeHits(query, id, Accounts.Account(id)?.AccountUuid, org,
+                code.Sessions, code.Complete, code.Read, local)];
+        }
+        catch (Exception e) when (e is ClaudeWebSession.WebFailure or System.Text.Json.JsonException) { failure = e; }
+        // A newer search owns the list now, and an account signed out while this
+        // ran would bring its hits back with it.
+        if (generation != _searchGeneration || Accounts.Account(id) is null) return;
+        if (found is not null)
+        {
+            lists[id] = found;
+            SearchStates[id] = State.Ready;
+            Accounts.NoteSignIn(id, accepted: true);
+        }
+        else if (failure is ClaudeWebSession.WebFailure { Reason: ClaudeWebSession.Failure.SignedOut })
+        {
+            SearchStates[id] = State.SignedOut;
+            Accounts.NoteSignIn(id, accepted: false);
+        }
+        else
+        {
+            SearchStates[id] = State.Failed;
+            Diagnostics.Note("search failed", new Dictionary<string, object?> { ["reason"] = failure?.Message });
+        }
+        Results = SearchAPI.Interleave(Accounts.Accounts.Where(a => lists.ContainsKey(a.Id)).Select(a => lists[a.Id]));
+        Changed?.Invoke();
+    }
+
+    /// An account whose session list will not answer still has its chats
+    /// searched; only the chats' failure fails it.
+    private async Task<(List<RemoteCodeSession> Sessions, bool Complete, DateTimeOffset Read)> CodeSessions(Guid id, string org, ClaudeWebSession session)
+    {
+        if (_codeLists.TryGetValue(id, out var kept) && DateTimeOffset.UtcNow - kept.Read < CodeListLifetime)
+            return (kept.Sessions, kept.Complete, kept.Read);
+        // From before the walk: a session begun while it ran may be on a page already read.
+        var started = DateTimeOffset.UtcNow;
+        var found = new List<RemoteCodeSession>();
+        string? cursor = null;
+        var complete = false;
+        try
+        {
+            for (var i = 0; i < SearchAPI.MaximumCodePages; i++)
+            {
+                var (status, body) = await session.Send("GET", SearchAPI.CodeSessionsPath(cursor), extraHeaders: ClaudeAPI.CodeHeaders(org));
+                if (status != 200 || SearchAPI.CodeSessions(body) is not { } page)
+                {
+                    Diagnostics.Note("search.code-sessions refused", new Dictionary<string, object?> { ["status"] = status });
+                    return (found, false, started);
+                }
+                found.AddRange(page.Sessions);
+                cursor = page.Next;
+                if (cursor is null) { complete = true; break; }
+            }
+        }
+        catch (ClaudeWebSession.WebFailure) { return (found, false, started); }
+        _codeLists[id] = (started, found, complete);
+        return (found, complete, started);
+    }
+
+    /// This PC's transcripts, read no earlier than the list they stand beside.
+    private async Task<List<LocalCodeSession>> LocalSessions(DateTimeOffset list)
+    {
+        var now = DateTimeOffset.UtcNow;
+        if (_localRead is { } kept && SearchAPI.LocalReadServes(kept.Read, list, now, CodeListLifetime)) return kept.Sessions;
+        if (_localReading is { } reading)
+        {
+            var done = await reading;
+            if (SearchAPI.LocalReadServes(done.Read, list, DateTimeOffset.UtcNow, CodeListLifetime)) return done.Sessions;
+        }
+        var fresh = Task.Run(() => (DateTimeOffset.UtcNow, Graft.LocalCodeSessions()));
+        _localReading = fresh;
+        var result = await fresh;
+        if (_localReading == fresh) _localReading = null;
+        if (_localRead is not { } older || older.Read < result.Item1) _localRead = result;
+        return result.Item2;
+    }
+
+    public void ClearSearch()
+    {
+        _searchGeneration++;
+        Searched = null;
+        Results = [];
+        SearchStates.Clear();
+        Changed?.Invoke();
     }
 
     private void Merge() =>

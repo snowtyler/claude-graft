@@ -70,6 +70,10 @@ public sealed partial class MainWindow : Window
         {
             SectionFrame.Navigate(typeof(ProjectsPage));
         }
+        else if (tag == "search" && SectionFrame.Content is not SearchPage)
+        {
+            SectionFrame.Navigate(typeof(SearchPage));
+        }
     }
 
     /// The Claudes again, for the tray's entries that act on that page.

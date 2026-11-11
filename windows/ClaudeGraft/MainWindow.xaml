@@ -43,6 +43,10 @@
                                     AutomationProperties.AutomationId="sidebar.projects">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE8B7;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItem Content="Search Chats" Tag="search"
+                                    AutomationProperties.AutomationId="sidebar.search">
+                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE721;" /></NavigationViewItem.Icon>
+                </NavigationViewItem>
             </NavigationView.MenuItems>
             <Grid>
                 <Frame x:Name="RootFrame" />
