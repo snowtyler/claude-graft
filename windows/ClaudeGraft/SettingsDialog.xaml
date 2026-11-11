@@ -27,14 +27,14 @@
                 </Grid.RowDefinitions>
 
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Theme" VerticalAlignment="Center" />
-                <ComboBox Grid.Row="0" Grid.Column="1" x:Name="ThemeBox" HorizontalAlignment="Stretch">
+                <ComboBox Grid.Row="0" Grid.Column="1" x:Name="ThemeBox" AutomationProperties.Name="Theme" AutomationProperties.AutomationId="settings.theme" HorizontalAlignment="Stretch">
                     <ComboBoxItem Content="System" />
                     <ComboBoxItem Content="Light" />
                     <ComboBoxItem Content="Dark" />
                 </ComboBox>
 
                 <TextBlock Grid.Row="1" Grid.Column="0" Text="Backdrop" VerticalAlignment="Center" />
-                <ComboBox Grid.Row="1" Grid.Column="1" x:Name="BackdropBox" HorizontalAlignment="Stretch">
+                <ComboBox Grid.Row="1" Grid.Column="1" x:Name="BackdropBox" AutomationProperties.Name="Backdrop" AutomationProperties.AutomationId="settings.backdrop" HorizontalAlignment="Stretch">
                     <ComboBoxItem Content="Mica" />
                     <ComboBoxItem Content="Mica Alt" />
                     <ComboBoxItem Content="Acrylic" />
@@ -44,14 +44,14 @@
         </StackPanel>
 
         <StackPanel Spacing="4">
-            <ToggleSwitch x:Name="AutoStartSwitch" Header="Start with Windows" />
-            <ToggleSwitch x:Name="StartHiddenSwitch" Header="Start hidden in the notification area" />
+            <ToggleSwitch x:Name="AutoStartSwitch" AutomationProperties.AutomationId="settings.startWithWindows" Header="Start with Windows" />
+            <ToggleSwitch x:Name="StartHiddenSwitch" AutomationProperties.AutomationId="settings.startHidden" Header="Start hidden in the notification area" />
         </StackPanel>
 
         <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
         <StackPanel Spacing="8">
-            <ToggleSwitch x:Name="HoldUpdatesSwitch" Header="Hold Graft's updates until I install them"
+            <ToggleSwitch x:Name="HoldUpdatesSwitch" AutomationProperties.AutomationId="settings.holdUpdates" Header="Hold Graft's updates until I install them"
                           ToolTipService.ToolTip="Off, updates install on their own and Graft restarts itself. On, a new version waits for you to press Install." />
             <Grid ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
@@ -61,7 +61,7 @@
                 <TextBlock x:Name="VersionText" Grid.Column="0" VerticalAlignment="Center"
                            Style="{ThemeResource CaptionTextBlockStyle}"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                <Button x:Name="CheckButton" Grid.Column="1" Content="Check for Updates"
+                <Button x:Name="CheckButton" Grid.Column="1" Content="Check for Updates" AutomationProperties.AutomationId="settings.checkUpdates"
                         Click="Check_Click" Padding="12,4" MinHeight="0" />
             </Grid>
             <TextBlock x:Name="UpdateStatus" Style="{ThemeResource CaptionTextBlockStyle}"

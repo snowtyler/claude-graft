@@ -28,25 +28,26 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
-                    <Image x:Name="LogoImage"
+                    <Image x:Name="LogoImage" AutomationProperties.AccessibilityView="Raw"
                            Width="52" Height="52" VerticalAlignment="Center" />
                     <TextBlock Text="Claude Graft" FontSize="36" FontWeight="Bold"
                                VerticalAlignment="Center" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <Button x:Name="AddButton" Click="Add_Click" Style="{StaticResource AccentButtonStyle}">
+                    <Button x:Name="AddButton" Click="Add_Click" AutomationProperties.AutomationId="manager.add" AutomationProperties.Name="Add Profile" Style="{StaticResource AccentButtonStyle}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE710;" FontSize="14" />
                             <TextBlock Text="Add Profile" />
                         </StackPanel>
                     </Button>
-                    <Button x:Name="RefreshButton" Click="Refresh_Click">
+                    <Button x:Name="RefreshButton" Click="Refresh_Click" AutomationProperties.AutomationId="manager.refresh" AutomationProperties.Name="Refresh Usage">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE72C;" FontSize="14" />
                             <TextBlock x:Name="RefreshLabel" Text="Refresh Usage" />
                         </StackPanel>
                     </Button>
                     <Button Click="Settings_Click" ToolTipService.ToolTip="Settings"
+                            AutomationProperties.Name="Settings" AutomationProperties.AutomationId="manager.settings"
                             VerticalAlignment="Stretch">
                         <FontIcon Glyph="&#xE713;" FontSize="14" VerticalAlignment="Center" />
                     </Button>
@@ -86,8 +87,9 @@
                                         <StackPanel Orientation="Horizontal" Spacing="10">
                                             <Ellipse Width="9" Height="9" VerticalAlignment="Center"
                                                      Fill="{x:Bind StatusBrush, Mode=OneWay}"
-                                                     ToolTipService.ToolTip="{x:Bind StatusLabel, Mode=OneWay}" />
-                                            <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold"
+                                                     ToolTipService.ToolTip="{x:Bind StatusLabel, Mode=OneWay}"
+                                                     AutomationProperties.Name="{x:Bind StatusLabel, Mode=OneWay}" />
+                                            <TextBlock Text="{x:Bind Name}" AutomationProperties.Name="{x:Bind SpokenName, Mode=OneWay}" FontWeight="SemiBold"
                                                        Style="{StaticResource BodyStrongTextBlockStyle}" />
                                         </StackPanel>
                                         <TextBlock Style="{StaticResource CaptionTextBlockStyle}"
@@ -100,6 +102,8 @@
                                     </StackPanel>
                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                         <Button Content="Edit" Click="Edit_Click" Tag="{x:Bind}"
+                                                AutomationProperties.Name="{x:Bind local:Spoken.Act('Edit', Name)}"
+                                                AutomationProperties.AutomationId="{x:Bind local:Spoken.Id('manager', Key, 'edit')}"
                                                 Visibility="{x:Bind EditVisibility}" />
                                         <Border Background="Transparent" ToolTipService.ToolTip="{x:Bind StartTooltip, Mode=OneWay}"
                                                 Visibility="{x:Bind SignedInVisibility, Mode=OneWay}">
@@ -108,31 +112,35 @@
                                                               Visibility="{x:Bind StartingVisibility, Mode=OneWay}"
                                                               Width="16" Height="16" VerticalAlignment="Center" />
                                                 <Button Content="Start Session" Click="Start_Click" Tag="{x:Bind}"
+                                                    AutomationProperties.Name="{x:Bind local:Spoken.Act('Start Session in', Name)}"
+                                                    AutomationProperties.AutomationId="{x:Bind local:Spoken.Id('manager', Key, 'start')}"
                                                         Visibility="{x:Bind StartVisibility, Mode=OneWay}"
                                                         IsEnabled="{x:Bind StartEnabled, Mode=OneWay}" />
                                             </StackPanel>
                                         </Border>
                                         <Button Content="{x:Bind OpenLabel, Mode=OneWay}" Click="Open_Click" Tag="{x:Bind}"
+                                            AutomationProperties.Name="{x:Bind local:Spoken.Act(OpenLabel, Name), Mode=OneWay}"
+                                            AutomationProperties.AutomationId="{x:Bind local:Spoken.Id('manager', Key, 'open')}"
                                                 Style="{StaticResource AccentButtonStyle}" />
                                     </StackPanel>
                                 </Grid>
 
                                 <!-- Plan usage -->
                                 <StackPanel Spacing="6" Visibility="{x:Bind BarsVisibility, Mode=OneWay}">
-                                    <TextBlock Text="{x:Bind FiveHourText, Mode=OneWay}"
+                                    <TextBlock AutomationProperties.AccessibilityView="Raw" Text="{x:Bind FiveHourText, Mode=OneWay}"
                                                Style="{StaticResource CaptionTextBlockStyle}"
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    <ProgressBar Value="{x:Bind FiveHour, Mode=OneWay}" Visibility="{x:Bind FiveHourBarVisibility, Mode=OneWay}" Maximum="100" Opacity="{x:Bind BarsOpacity, Mode=OneWay}" />
-                                    <TextBlock Text="{x:Bind WeekText, Mode=OneWay}" Margin="0,4,0,0"
+                                    <ProgressBar AutomationProperties.Name="{x:Bind FiveHourText, Mode=OneWay}" AutomationProperties.AutomationId="{x:Bind local:Spoken.Id('manager', Key, 'fiveHour')}" Value="{x:Bind FiveHour, Mode=OneWay}" Visibility="{x:Bind FiveHourBarVisibility, Mode=OneWay}" Maximum="100" Opacity="{x:Bind BarsOpacity, Mode=OneWay}" />
+                                    <TextBlock AutomationProperties.AccessibilityView="Raw" Text="{x:Bind WeekText, Mode=OneWay}" Margin="0,4,0,0"
                                                Style="{StaticResource CaptionTextBlockStyle}"
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    <ProgressBar Value="{x:Bind Week, Mode=OneWay}" Maximum="100" Opacity="{x:Bind BarsOpacity, Mode=OneWay}" />
+                                    <ProgressBar AutomationProperties.Name="{x:Bind WeekText, Mode=OneWay}" AutomationProperties.AutomationId="{x:Bind local:Spoken.Id('manager', Key, 'week')}" Value="{x:Bind Week, Mode=OneWay}" Maximum="100" Opacity="{x:Bind BarsOpacity, Mode=OneWay}" />
                                     <StackPanel Spacing="6" Margin="0,4,0,0"
                                                 Visibility="{x:Bind FableVisibility, Mode=OneWay}">
-                                        <TextBlock Text="{x:Bind FableText, Mode=OneWay}"
+                                        <TextBlock AutomationProperties.AccessibilityView="Raw" Text="{x:Bind FableText, Mode=OneWay}"
                                                    Style="{StaticResource CaptionTextBlockStyle}"
                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                        <ProgressBar Value="{x:Bind Fable, Mode=OneWay}" Maximum="100" Opacity="{x:Bind BarsOpacity, Mode=OneWay}" />
+                                        <ProgressBar AutomationProperties.Name="{x:Bind FableText, Mode=OneWay}" AutomationProperties.AutomationId="{x:Bind local:Spoken.Id('manager', Key, 'fable')}" Value="{x:Bind Fable, Mode=OneWay}" Maximum="100" Opacity="{x:Bind BarsOpacity, Mode=OneWay}" />
                                     </StackPanel>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Spacing="6">
@@ -182,7 +190,8 @@
                                                    Style="{StaticResource CaptionTextBlockStyle}" />
                                         <Button Grid.Column="1" VerticalAlignment="Center"
                                                 Content="{x:Bind AdoptLabel, Mode=OneWay}"
-                                                Click="Adopt_Click" Tag="{x:Bind}" />
+                                                Click="Adopt_Click" Tag="{x:Bind}"
+                                                AutomationProperties.AutomationId="{x:Bind local:Spoken.Id('manager', Key, 'adopt')}" />
                                     </Grid>
                                 </Border>
                                 <TextBlock Text="{x:Bind CopiedNote, Mode=OneWay}"
@@ -196,6 +205,8 @@
                                            Style="{StaticResource CaptionTextBlockStyle}"
                                            Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                                 <CheckBox Content="Keep the 5-hour window open automatically"
+                                          AutomationProperties.AutomationId="{x:Bind local:Spoken.Id('manager', Key, 'keepWarm')}"
+                                          AutomationProperties.Name="{x:Bind local:Spoken.KeepWarm(Name)}"
                                           Visibility="{x:Bind SignedInVisibility, Mode=OneWay}"
                                           IsChecked="{x:Bind KeepWarm, Mode=OneWay}"
                                           Click="KeepWarm_Click"

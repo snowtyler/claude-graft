@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using ClaudeGraft.Core;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.Windows.System.Power;
@@ -173,6 +174,7 @@ public sealed partial class MainPage : Page
         var state = UsageStatus.RefreshButton(
             _loading || Rows.Any(r => r.Fetching), ProfileRows.HeldUntil(Rows), DateTimeOffset.UtcNow);
         RefreshLabel.Text = state.Text;
+        AutomationProperties.SetName(RefreshButton, state.Text);
         RefreshButton.IsEnabled = state.Enabled;
     }
 

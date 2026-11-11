@@ -38,8 +38,9 @@
                                 </Grid.ColumnDefinitions>
                                 <Ellipse Grid.Column="0" Width="9" Height="9"
                                          VerticalAlignment="Center"
-                                         Fill="{x:Bind StatusBrush, Mode=OneWay}" />
-                                <TextBlock Grid.Column="1" Text="{x:Bind Name}"
+                                         Fill="{x:Bind StatusBrush, Mode=OneWay}"
+                                         AutomationProperties.Name="{x:Bind StatusLabel, Mode=OneWay}" />
+                                <TextBlock Grid.Column="1" Text="{x:Bind Name}" AutomationProperties.Name="{x:Bind SpokenName, Mode=OneWay}"
                                            VerticalAlignment="Center"
                                            Style="{StaticResource BodyStrongTextBlockStyle}" />
                                 <StackPanel Grid.Column="2" Orientation="Horizontal"
@@ -51,12 +52,16 @@
                                                           Visibility="{x:Bind StartingVisibility, Mode=OneWay}"
                                                           Width="16" Height="16" VerticalAlignment="Center" />
                                             <Button Content="Start Session" Click="Start_Click" Tag="{x:Bind}"
+                                                    AutomationProperties.Name="{x:Bind local:Spoken.Act('Start Session in', Name)}"
+                                                    AutomationProperties.AutomationId="{x:Bind local:Spoken.Id('flyout', Key, 'start')}"
                                                     Visibility="{x:Bind StartVisibility, Mode=OneWay}"
                                                     IsEnabled="{x:Bind StartEnabled, Mode=OneWay}"
                                                     Padding="10,4" MinHeight="0" />
                                         </StackPanel>
                                     </Border>
                                     <Button Content="{x:Bind OpenLabel, Mode=OneWay}" Click="Open_Click" Tag="{x:Bind}"
+                                            AutomationProperties.Name="{x:Bind local:Spoken.Act(OpenLabel, Name), Mode=OneWay}"
+                                            AutomationProperties.AutomationId="{x:Bind local:Spoken.Id('flyout', Key, 'open')}"
                                             Style="{StaticResource AccentButtonStyle}"
                                             Padding="16,4" MinHeight="0" />
                                 </StackPanel>
@@ -72,22 +77,22 @@
                                        Style="{StaticResource CaptionTextBlockStyle}"
                                        Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                             <StackPanel Spacing="4" Visibility="{x:Bind SignedInVisibility, Mode=OneWay}">
-                                <TextBlock Text="{x:Bind FiveHourText, Mode=OneWay}"
+                                <TextBlock AutomationProperties.AccessibilityView="Raw" Text="{x:Bind FiveHourText, Mode=OneWay}"
                                            Style="{StaticResource CaptionTextBlockStyle}"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <ProgressBar Value="{x:Bind FiveHour, Mode=OneWay}" Visibility="{x:Bind FiveHourBarVisibility, Mode=OneWay}" Maximum="100" Opacity="{x:Bind BarsOpacity, Mode=OneWay}"
+                                <ProgressBar AutomationProperties.Name="{x:Bind FiveHourText, Mode=OneWay}" AutomationProperties.AutomationId="{x:Bind local:Spoken.Id('flyout', Key, 'fiveHour')}" Value="{x:Bind FiveHour, Mode=OneWay}" Visibility="{x:Bind FiveHourBarVisibility, Mode=OneWay}" Maximum="100" Opacity="{x:Bind BarsOpacity, Mode=OneWay}"
                                              local:BarPulse.Key="{x:Bind Pulse, Mode=OneWay}" />
-                                <TextBlock Text="{x:Bind WeekText, Mode=OneWay}" Margin="0,4,0,0"
+                                <TextBlock AutomationProperties.AccessibilityView="Raw" Text="{x:Bind WeekText, Mode=OneWay}" Margin="0,4,0,0"
                                            Style="{StaticResource CaptionTextBlockStyle}"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <ProgressBar Value="{x:Bind Week, Mode=OneWay}" Maximum="100" Opacity="{x:Bind BarsOpacity, Mode=OneWay}"
+                                <ProgressBar AutomationProperties.Name="{x:Bind WeekText, Mode=OneWay}" AutomationProperties.AutomationId="{x:Bind local:Spoken.Id('flyout', Key, 'week')}" Value="{x:Bind Week, Mode=OneWay}" Maximum="100" Opacity="{x:Bind BarsOpacity, Mode=OneWay}"
                                              local:BarPulse.Key="{x:Bind Pulse, Mode=OneWay}" />
                                 <StackPanel Spacing="4" Margin="0,4,0,0"
                                             Visibility="{x:Bind FableVisibility, Mode=OneWay}">
-                                    <TextBlock Text="{x:Bind FableText, Mode=OneWay}"
+                                    <TextBlock AutomationProperties.AccessibilityView="Raw" Text="{x:Bind FableText, Mode=OneWay}"
                                                Style="{StaticResource CaptionTextBlockStyle}"
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    <ProgressBar Value="{x:Bind Fable, Mode=OneWay}" Maximum="100" Opacity="{x:Bind BarsOpacity, Mode=OneWay}"
+                                    <ProgressBar AutomationProperties.Name="{x:Bind FableText, Mode=OneWay}" AutomationProperties.AutomationId="{x:Bind local:Spoken.Id('flyout', Key, 'fable')}" Value="{x:Bind Fable, Mode=OneWay}" Maximum="100" Opacity="{x:Bind BarsOpacity, Mode=OneWay}"
                                                  local:BarPulse.Key="{x:Bind Pulse, Mode=OneWay}" />
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Spacing="6">
@@ -122,27 +127,28 @@
 
             <!-- The "Version X is available" line; hidden until a check finds one,
                  its content set in code. -->
-            <Button x:Name="AvailableButton" Click="Install_Click" Visibility="Collapsed"
+            <Button x:Name="AvailableButton" Click="Install_Click" AutomationProperties.AutomationId="flyout.install" Visibility="Collapsed"
                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                     Background="Transparent" BorderThickness="0" Padding="22,4,12,4"
                     Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
             <ProgressBar x:Name="UpdateProgress" Visibility="Collapsed" Maximum="1"
+                         AutomationProperties.Name="Downloading the update" AutomationProperties.AutomationId="flyout.updateProgress"
                          Margin="22,0,22,6" />
 
             <!-- Actions, ordered to match the Mac dropdown. -->
             <Border Height="1" Margin="12,4"
                     Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
             <StackPanel Padding="12,6,12,10">
-                <Button x:Name="RefreshButton" Click="Refresh_Click" HorizontalAlignment="Stretch"
+                <Button x:Name="RefreshButton" Click="Refresh_Click" AutomationProperties.AutomationId="flyout.refresh" HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Left" Background="Transparent"
                         BorderThickness="0" Content="Refresh Usage" Padding="12,9" />
-                <Button x:Name="CheckButton" Click="Check_Click" HorizontalAlignment="Stretch"
+                <Button x:Name="CheckButton" Click="Check_Click" AutomationProperties.AutomationId="flyout.checkUpdates" HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Left" Background="Transparent"
                         BorderThickness="0" Content="Check for Updates…" Padding="12,9" />
-                <Button Click="Manager_Click" HorizontalAlignment="Stretch"
+                <Button Click="Manager_Click" AutomationProperties.AutomationId="flyout.openManager" HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Left" Background="Transparent"
                         BorderThickness="0" Content="Open Claude Graft" Padding="12,9" />
-                <Button Click="Quit_Click" HorizontalAlignment="Stretch"
+                <Button Click="Quit_Click" AutomationProperties.AutomationId="flyout.quit" HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Left" Background="Transparent"
                         BorderThickness="0" Content="Quit Claude Graft" Padding="12,9" />
             </StackPanel>

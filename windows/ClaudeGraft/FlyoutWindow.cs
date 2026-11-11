@@ -34,6 +34,8 @@ public sealed class FlyoutWindow : Window
     public FlyoutWindow(Action openManager, Action quit)
     {
         Content = _view;
+        // What a screen reader announces it as; WinUI's own placeholder otherwise.
+        Title = "Claude Graft";
         _view.OpenManagerRequested += openManager;
         _view.QuitRequested += quit;
         _view.DismissRequested += Hide;

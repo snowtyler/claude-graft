@@ -15,6 +15,8 @@ public sealed class ShortcutRow : INotifyPropertyChanged
     public Shortcut? Shortcut { get; set; }
     public string ProfileDir { get; set; } = "";
     public string Name { get; set; } = "";
+    /// The profile as automation finds it: its folder, or main for Claude's own.
+    public string Key => Shortcut?.Folder ?? "main";
     public string SourceLabel { get; set; } = "";
     public string Folder { get; set; } = "";
 
@@ -81,7 +83,12 @@ public sealed class ShortcutRow : INotifyPropertyChanged
         _running = running;
         Notify(nameof(StatusBrush));
         Notify(nameof(StatusLabel));
+        Notify(nameof(SpokenName));
     }
+
+    /// The status dot is a shape, which a screen reader never reaches, so the
+    /// row's name carries what it shows.
+    public string SpokenName => $"{Name}, {(_running ? "open" : "not open")}";
 
     public string StatusLabel => _running ? "A Claude is open on this profile" : "No Claude is open on this profile";
 

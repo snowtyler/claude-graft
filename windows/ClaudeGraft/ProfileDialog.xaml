@@ -34,14 +34,14 @@
                 </Grid.ColumnDefinitions>
                 <!-- Twelve icons laid out in the dialog took more room than the
                      rest of it, so the one in use opens the others. -->
-                <Button x:Name="IconButton" Width="40" Height="32" Padding="2"
+                <Button x:Name="IconButton" AutomationProperties.AutomationId="profile.icon" Width="40" Height="32" Padding="2"
                         ToolTipService.ToolTip="Shortcut icon"
                         AutomationProperties.Name="Shortcut icon">
                     <Image x:Name="IconImage" Width="24" Height="24" />
                     <Button.Flyout>
                         <Flyout x:Name="IconFlyout" Placement="BottomEdgeAlignedLeft">
                             <StackPanel Spacing="8" Width="324">
-                                <GridView x:Name="IconGrid" SelectionMode="Single" IsItemClickEnabled="True"
+                                <GridView x:Name="IconGrid" AutomationProperties.AutomationId="profile.iconGrid" SelectionMode="Single" IsItemClickEnabled="True"
                                           ItemClick="IconGrid_ItemClick"
                                           AutomationProperties.Name="Shortcut icon">
                                     <GridView.ItemsPanel>
@@ -64,14 +64,14 @@
                         </Flyout>
                     </Button.Flyout>
                 </Button>
-                <TextBox x:Name="NameBox" Grid.Column="1" PlaceholderText="Work Account"
+                <TextBox x:Name="NameBox" Grid.Column="1" AutomationProperties.Name="Name" AutomationProperties.AutomationId="profile.name" PlaceholderText="Work Account"
                          Text="{x:Bind Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
             </Grid>
         </StackPanel>
 
         <StackPanel Spacing="6">
             <TextBlock Text="Profile folder" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-            <TextBox x:Name="FolderBox" FontFamily="Consolas"
+            <TextBox x:Name="FolderBox" FontFamily="Consolas" AutomationProperties.Name="Profile folder" AutomationProperties.AutomationId="profile.folder"
                      Text="{x:Bind Folder, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
             <TextBlock Text="Where this account's login, chats and settings are kept."
                        Style="{ThemeResource CaptionTextBlockStyle}"
@@ -80,7 +80,7 @@
 
         <StackPanel Spacing="6">
             <TextBlock Text="Reads chats from" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-            <ComboBox x:Name="SourceBox" HorizontalAlignment="Stretch"
+            <ComboBox x:Name="SourceBox" HorizontalAlignment="Stretch" AutomationProperties.Name="Reads chats from" AutomationProperties.AutomationId="profile.source"
                       DisplayMemberPath="Label"
                       SelectionChanged="SourceBox_SelectionChanged" />
         </StackPanel>
