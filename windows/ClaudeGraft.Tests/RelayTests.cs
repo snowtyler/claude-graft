@@ -260,7 +260,7 @@ public sealed class RelayLoopbackTests : IDisposable
         var s = Up();
         Assert.Equal(RelayKeeper.Digest(RelayExe()), s.Binary);
         Assert.False(s.Configured);
-        var after = Ask(new RelayRequest { Configure = new RelayConfiguration(true) })!;
+        var after = Ask(new RelayRequest { Configure = new PoolConfiguration { Enabled = true } })!;
         Assert.True(after.Configured && after.Enabled);
     }
 }

@@ -33,11 +33,15 @@ public sealed class Relay
     private FileStream? _lock;
     private TcpListener? _front;
     private X509Certificate2? _identity;
-    private RelayConfiguration? _configuration;
-    private int _inFlight;
+    private readonly PoolState _state = new();
+    private Upstream _upstream = null!;
     private int _quitting;
 
-    public Relay(Options options) => _options = options;
+    public Relay(Options options)
+    {
+        _options = options;
+        _upstream = new Upstream(options.UpstreamLoopbackPort);
+    }
 
     public async Task<int> RunAsync()
     {
@@ -128,7 +132,7 @@ public sealed class Relay
             var line = await reader.ReadLineAsync(timeout.Token);
             if (line is null) return;
             var command = JsonSerializer.Deserialize<RelayRequest>(line, RelayWire.Json) ?? new RelayRequest();
-            if (command.Configure is { } configuration) _configuration = configuration;
+            if (command.Configure is { } configuration) _state.Configure(configuration);
             if (command.Quit == true) await StepAside();
             var reply = JsonSerializer.Serialize(Status(), RelayWire.Json) + "\n";
             await pipe.WriteAsync(Encoding.UTF8.GetBytes(reply), timeout.Token);
@@ -137,15 +141,7 @@ public sealed class Relay
         catch (Exception e) when (e is IOException or JsonException or OperationCanceledException) { }
     }
 
-    private RelayStatus Status() => new()
-    {
-        Binary = _binary,
-        Pid = Environment.ProcessId,
-        Started = _started,
-        Enabled = _configuration?.Enabled ?? false,
-        Configured = _configuration is not null,
-        OpenExchanges = Volatile.Read(ref _inFlight),
-    };
+    private RelayStatus Status() => _state.Status(_binary, Environment.ProcessId, _started);
 
     /// Stops listening and lets go of the lock before answering, so the relay
     /// replacing this one can start the moment Graft hears back.
@@ -167,7 +163,7 @@ public sealed class Relay
     {
         var deadline = DateTime.UtcNow.AddMinutes(15);
         await Task.Delay(500);
-        while (Volatile.Read(ref _inFlight) > 0 && DateTime.UtcNow < deadline) await Task.Delay(1000);
+        while (_state.InFlight > 0 && DateTime.UtcNow < deadline) await Task.Delay(1000);
     }
 
     // MARK: - The front door
@@ -222,48 +218,19 @@ public sealed class Relay
         await Splice(inbound, outbound);
     }
 
-    /// The service's TLS is taken apart here and spoken again on the far side.
-    /// What goes across is unchanged for now; this is where an exchange will
-    /// choose the account that answers.
+    /// The service's TLS is taken apart here, and each request in it is
+    /// spoken again to the service under whichever account answers it.
     private async Task Open(NetworkStream inbound)
     {
-        using var far = new TcpClient();
-        var upstreamPort = _options.UpstreamLoopbackPort;
-        try
-        {
-            await (upstreamPort is int p ? far.ConnectAsync(IPAddress.Loopback, p) : far.ConnectAsync(UsagePool.Host, 443))
-                .WaitAsync(TimeSpan.FromSeconds(20));
-        }
-        catch (Exception)
-        {
-            await Refuse(inbound, 502, "Bad Gateway", $"The relay could not reach {UsagePool.Host}.");
-            return;
-        }
         await inbound.WriteAsync("HTTP/1.1 200 Connection Established\r\n\r\n"u8.ToArray());
-
-        await using var client = new SslStream(inbound, leaveInnerStreamOpen: false);
-        await client.AuthenticateAsServerAsync(new SslServerAuthenticationOptions
+        var tls = new SslStream(inbound, leaveInnerStreamOpen: false);
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        await tls.AuthenticateAsServerAsync(new SslServerAuthenticationOptions
         {
             ServerCertificate = _identity,
             ApplicationProtocols = [SslApplicationProtocol.Http11],
-        });
-        Stream service = far.GetStream();
-        if (upstreamPort is null)
-        {
-            var tls = new SslStream(service, leaveInnerStreamOpen: false);
-            await tls.AuthenticateAsClientAsync(new SslClientAuthenticationOptions
-            {
-                TargetHost = UsagePool.Host,
-                ApplicationProtocols = [SslApplicationProtocol.Http11],
-            });
-            service = tls;
-        }
-        await using (service)
-        {
-            Interlocked.Increment(ref _inFlight);
-            try { await Splice(client, service); }
-            finally { Interlocked.Decrement(ref _inFlight); }
-        }
+        }, timeout.Token);
+        await new Exchange(new Wire(tls), _state, _upstream).Run();
     }
 
     private static async Task Splice(Stream a, Stream b)

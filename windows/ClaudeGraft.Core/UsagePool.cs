@@ -38,11 +38,9 @@ public static class UsagePool
         "ClaudeGraft.Relay." + (OperatingSystem.IsWindows() ? WindowsIdentity.GetCurrent().User?.Value : Environment.UserName);
 }
 
-public sealed record RelayConfiguration(bool Enabled);
-
 public sealed record RelayRequest
 {
-    public RelayConfiguration? Configure { get; init; }
+    public PoolConfiguration? Configure { get; init; }
     /// Asks a relay built from a different binary to step aside: it stops
     /// listening at once and leaves when its last exchange finishes.
     public bool? Quit { get; init; }
@@ -57,6 +55,10 @@ public sealed record RelayStatus
     public DateTimeOffset Started { get; init; }
     public bool Enabled { get; init; }
     public bool Configured { get; init; }
+    public IReadOnlyList<PoolMemberStatus> Members { get; init; } = [];
+    public IReadOnlyList<PoolRouting> Recent { get; init; } = [];
+    /// Most recent first, and only the last day's.
+    public IReadOnlyList<PoolSession> Sessions { get; init; } = [];
     public int OpenExchanges { get; init; }
 }
 
