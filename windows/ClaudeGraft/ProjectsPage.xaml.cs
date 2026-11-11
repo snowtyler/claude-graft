@@ -23,6 +23,7 @@ public sealed partial class ProjectsPage : Page
     public ProjectsPage()
     {
         InitializeComponent();
+        NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Required;
         NoteText.Text = Note;
         SignInHint.Text = ArtifactsPage.SignInHintText;
         Loaded += (_, _) =>
@@ -57,8 +58,7 @@ public sealed partial class ProjectsPage : Page
         RefreshRing.IsActive = _center.Loading;
         RefreshButton.IsEnabled = signedIn && !_center.Loading;
 
-        AccountChips.Children.Clear();
-        foreach (var account in accounts.Accounts) AccountChips.Children.Add(ArtifactsPage.AccountChip(accounts, account, "projects"));
+        ArtifactsPage.ShowChips(AccountChips, accounts, "projects");
 
         var trouble = _center.Trouble();
         TroubleText.Text = string.Join(" · ", trouble);

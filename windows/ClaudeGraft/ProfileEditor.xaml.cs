@@ -44,7 +44,9 @@ public sealed partial class ProfileEditor : UserControl
     public ProfileEditor()
     {
         InitializeComponent();
-        Loaded += async (_, _) => await ShowIcons();
+        // Once: the page around it is moved into a new host on each switch, which loads it again.
+        var shown = false;
+        Loaded += async (_, _) => { if (shown) return; shown = true; await ShowIcons(); };
     }
 
     /// An existing Claude, or a new draft when null.
@@ -65,7 +67,10 @@ public sealed partial class ProfileEditor : UserControl
         FolderBox.Text = _shortcut.Folder;
         var options = App.Store.AvailableSources(_shortcut)
             .Select(s => new SourceOption { Label = App.Store.Label(s), Source = s }).ToList();
-        SourceBox.ItemsSource = options;
+        // The same choices keep the same list, so the box changes its selection rather than emptying and refilling.
+        if (SourceBox.ItemsSource is List<SourceOption> shown && shown.Select(o => (o.Label, o.Source)).SequenceEqual(options.Select(o => (o.Label, o.Source))))
+            options = shown;
+        else SourceBox.ItemsSource = options;
         SourceBox.SelectedItem = options.FirstOrDefault(o => o.Source.Equals(_shortcut.Source)) ?? options.FirstOrDefault();
         ShowSource();
         Problem.IsOpen = false;

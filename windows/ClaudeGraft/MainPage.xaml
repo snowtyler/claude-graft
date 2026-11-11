@@ -51,7 +51,20 @@
         </Grid>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollMode="Disabled">
-            <StackPanel Spacing="12" Padding="24,16,24,24">
+            <!-- Each Claude arrives through a Frame, so it plays the very transition the other sections' pages do. -->
+            <Frame x:Name="ClaudeFrame">
+                <!-- Named here, not left to the Frame's default: a Frame whose first content came from
+                     markup rather than a navigation never took on the page transition. -->
+                <Frame.ContentTransitions>
+                    <TransitionCollection>
+                        <NavigationThemeTransition>
+                            <NavigationThemeTransition.DefaultNavigationTransitionInfo>
+                                <EntranceNavigationTransitionInfo />
+                            </NavigationThemeTransition.DefaultNavigationTransitionInfo>
+                        </NavigationThemeTransition>
+                    </TransitionCollection>
+                </Frame.ContentTransitions>
+            <StackPanel x:Name="PageContent" Spacing="12" Padding="24,16,24,24">
                 <local:SetupPrompt x:Name="Setup" Visibility="Collapsed" />
 
                 <!-- Claude itself, which Graft did not make and never changes. -->
@@ -92,10 +105,12 @@
 
                 <local:ProfileEditor x:Name="Editor" Visibility="Collapsed" />
 
-                <ItemsControl x:Name="ProfileList" ItemsSource="{x:Bind Shown}">
+                <!-- Every Claude's page stays built and only the focused one shows: rebuilding on each
+                     switch made its menus and buttons redraw from blank, a visible flicker. -->
+                <ItemsControl x:Name="ProfileList" ItemsSource="{x:Bind Rows}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="local:ShortcutRow">
-                            <StackPanel Spacing="12">
+                            <StackPanel Spacing="12" Visibility="{x:Bind ShownVisibility, Mode=OneWay}">
                                 <!-- Chats an account switch left in another profile: an offer to
                                      bring them over, standing for as long as any are still missing. -->
                                 <Border Visibility="{x:Bind ElsewhereVisibility, Mode=OneWay}" Style="{StaticResource Card}">
@@ -311,6 +326,7 @@
                            Margin="16,8,16,0" Style="{StaticResource CaptionTextBlockStyle}"
                            Foreground="{ThemeResource TextFillColorTertiaryBrush}" HorizontalAlignment="Center" />
             </StackPanel>
+            </Frame>
         </ScrollViewer>
 
         <!-- Delete on the left, what the Claude is for on the right, as on the Mac. -->

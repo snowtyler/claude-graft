@@ -26,6 +26,46 @@ public sealed partial class MainPage : Page
     public string Focused => Shown.FirstOrDefault()?.Key ?? _focus;
     public bool SetupReady => _setup == SetupState.Ready;
 
+    private bool _slidePending;
+
+    // The page content moves into a fresh page the Frame navigates to, which plays its own transition.
+    // It leaves the old page a tick before: moved straight across, it kept its place on screen and the
+    // new page's entrance had nothing new to animate. Quick switches share one move, since content
+    // still held by a page cannot be handed to another.
+    private void SlideIn()
+    {
+        Release();
+        if (_slidePending) return;
+        _slidePending = true;
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+        {
+            _slidePending = false;
+            Release();
+            bool navigated;
+            try { navigated = ClaudeFrame.Navigate(typeof(ClaudeHostPage), PageContent, new Microsoft.UI.Xaml.Media.Animation.EntranceNavigationTransitionInfo()); }
+            catch (Exception e)
+            {
+                navigated = false;
+                Diagnostics.Note("claude-switch.navigate-failed", new Dictionary<string, object?> { ["type"] = e.GetType().Name, ["error"] = e.Message });
+            }
+            ClaudeFrame.BackStack.Clear();
+            if (!navigated)
+            {
+                Release();
+                ClaudeFrame.Content = PageContent;
+            }
+        });
+    }
+
+    private void Release()
+    {
+        if (ClaudeFrame.Content is Page held && held.Content == PageContent) held.Content = null;
+        else if (ClaudeFrame.Content == PageContent) ClaudeFrame.Content = null;
+    }
+
+    /// Coming back from another section opens the page as that section's pages open.
+    public void Replay() => SlideIn();
+
     /// Choosing a Claude puts away a draft not yet created, as leaving it does on the Mac.
     public void Focus(string key)
     {
@@ -34,14 +74,20 @@ public sealed partial class MainPage : Page
         SyncShown();
     }
 
+    private string? _shownKey;
+
     private void SyncShown()
     {
         var row = Drafting ? null : Rows.FirstOrDefault(r => r.Key == _focus) ?? Rows.FirstOrDefault();
+        var key = Drafting ? "draft" : row?.Key;
+        if (_shownKey is not null && key != _shownKey) SlideIn();
+        _shownKey = key;
         if (Shown.Count != (row is null ? 0 : 1) || (row is not null && Shown[0] != row))
         {
             Shown.Clear();
             if (row is not null) Shown.Add(row);
         }
+        foreach (var each in Rows) each.IsShown = each == row;
         if (Drafting)
         {
             ClaudeTitle.Text = "New Claude";

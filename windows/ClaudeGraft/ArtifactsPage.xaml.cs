@@ -28,6 +28,7 @@ public sealed partial class ArtifactsPage : Page
     public ArtifactsPage()
     {
         InitializeComponent();
+        NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Required;
         NoteText.Text = Note;
         SignInHint.Text = SignInHintText;
         Loaded += (_, _) =>
@@ -73,8 +74,7 @@ public sealed partial class ArtifactsPage : Page
         GroupsText.Text = $"Groups ({_center.Groups.Count})";
         AutomationProperties.SetName(GroupsButton, $"Groups, {_center.Groups.Count}");
 
-        AccountChips.Children.Clear();
-        foreach (var account in _center.Accounts) AccountChips.Children.Add(AccountChip(_center, account, "artifacts"));
+        ArtifactsPage.ShowChips(AccountChips, _center, "artifacts");
 
         FilterBar.Visibility = signedIn ? Visibility.Visible : Visibility.Collapsed;
         SignedOutPanel.Visibility = signedIn ? Visibility.Collapsed : Visibility.Visible;
@@ -95,6 +95,36 @@ public sealed partial class ArtifactsPage : Page
         foreach (var artifact in shown) ArtifactList.Items.Add(new ArtifactRow(_center, artifact, XamlRoot).Element);
     }
 
+    /// The account chips, rebuilt only when the accounts themselves change; a refresh moves
+    /// each through loading and back, and a rebuilt chip drew its fill from blank, a blink.
+    public static void ShowChips(Panel chips, ArtifactCenter center, string scope)
+    {
+        var signature = string.Join("\n", center.Accounts.Select(a => $"{a.Id}|{center.NameOf(a.Id)}|{a.Email}"));
+        if (chips.Tag as string != signature)
+        {
+            chips.Tag = signature;
+            chips.Children.Clear();
+            foreach (var account in center.Accounts) chips.Children.Add(AccountChip(center, account, scope));
+            return;
+        }
+        foreach (var (chip, account) in chips.Children.OfType<DropDownButton>().Zip(center.Accounts))
+        {
+            var (color, help) = Look(center.StateOf(account.Id));
+            if (chip.Content is Panel { Children: [Microsoft.UI.Xaml.Shapes.Ellipse dot, ..] }) dot.Fill = new SolidColorBrush(color);
+            ToolTipService.SetToolTip(chip, help);
+            AutomationProperties.SetName(chip, $"{center.NameOf(account.Id)}, {help}");
+        }
+    }
+
+    private static (Windows.UI.Color, string) Look(ArtifactCenter.AccountState state) => state switch
+    {
+        ArtifactCenter.AccountState.Ready => (Microsoft.UI.Colors.SeaGreen, "Signed in"),
+        ArtifactCenter.AccountState.SignedOut => (Microsoft.UI.Colors.DarkOrange, "Signed out · sign in again"),
+        ArtifactCenter.AccountState.Failed => (Microsoft.UI.Colors.DarkOrange, "claude.ai didn't answer"),
+        ArtifactCenter.AccountState.Loading => (Microsoft.UI.Colors.Gray, "Asking claude.ai…"),
+        _ => (Microsoft.UI.Colors.Gray, "Not asked yet"),
+    };
+
     /// One signed-in account, with its way to sign in again or out. The same chip
     /// heads Artifacts, Projects and Search Chats, since the sign-in behind it is
     /// one sign-in for all three.
@@ -102,14 +132,7 @@ public sealed partial class ArtifactsPage : Page
     {
         var state = center.StateOf(account.Id);
         var name = center.NameOf(account.Id);
-        var (color, help) = state switch
-        {
-            ArtifactCenter.AccountState.Ready => (Microsoft.UI.Colors.SeaGreen, "Signed in"),
-            ArtifactCenter.AccountState.SignedOut => (Microsoft.UI.Colors.DarkOrange, "Signed out · sign in again"),
-            ArtifactCenter.AccountState.Failed => (Microsoft.UI.Colors.DarkOrange, "claude.ai didn't answer"),
-            ArtifactCenter.AccountState.Loading => (Microsoft.UI.Colors.Gray, "Asking claude.ai…"),
-            _ => (Microsoft.UI.Colors.Gray, "Not asked yet"),
-        };
+        var (color, help) = Look(state);
         var menu = new MenuFlyout();
         if (account.Email is { } email && email != name) menu.Items.Add(new MenuFlyoutItem { Text = email, IsEnabled = false });
         var again = new MenuFlyoutItem { Text = "Sign In Again…" };

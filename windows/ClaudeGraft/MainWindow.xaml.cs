@@ -54,6 +54,8 @@ public sealed partial class MainWindow : Window
         // late to cancel, so this is on AppWindow.Closing.
         AppWindow.Closing += (sender, args) => { args.Cancel = true; sender.Hide(); };
 
+        foreach (var frame in new[] { RootFrame, SectionFrame })
+            frame.Navigated += (_, e) => { if (e.Content is FrameworkElement page) page.Loaded += (_, _) => NoFades.Strip(page); };
         RootFrame.Navigate(typeof(MainPage));
         if (RootFrame.Content is MainPage page) page.ClaudesChanged += RebuildClaudes;
         RebuildClaudes();
@@ -188,20 +190,27 @@ public sealed partial class MainWindow : Window
         if (claudes && !_rebuilding && tag is not null && RootFrame.Content is MainPage page) page.Focus(tag["claude:".Length..]);
         RootFrame.Visibility = claudes ? Visibility.Visible : Visibility.Collapsed;
         SectionFrame.Visibility = claudes ? Visibility.Collapsed : Visibility.Visible;
-        if (tag == "artifacts")
+        NoFades.Strip((claudes ? RootFrame : SectionFrame).Content as DependencyObject);
+        // Navigated every time, to pages the Frame keeps, so each visit plays the opening
+        // transition and a page comes back as it was left; loading again refreshes it.
+        var section = tag switch { "artifacts" => typeof(ArtifactsPage), "projects" => typeof(ProjectsPage), "search" => typeof(SearchPage), _ => null };
+        if (section is not null)
         {
-            if (SectionFrame.Content is ArtifactsPage shown) shown.OnShown();
-            else SectionFrame.Navigate(typeof(ArtifactsPage));
+            SectionFrame.Navigate(section, null, new Microsoft.UI.Xaml.Media.Animation.EntranceNavigationTransitionInfo());
+            SectionFrame.BackStack.Clear();
         }
-        else if (tag == "projects" && SectionFrame.Content is not ProjectsPage)
+        else if (claudes && !_rebuilding && _leftClaudes && RootFrame.Content is MainPage back)
         {
-            SectionFrame.Navigate(typeof(ProjectsPage));
+            back.Replay();
+            // A blank page stands in the hidden frame, so returning to the section it held is a real
+            // navigation: opening the page already shown plays no transition.
+            SectionFrame.Navigate(typeof(ClaudeHostPage), null, new Microsoft.UI.Xaml.Media.Animation.SuppressNavigationTransitionInfo());
+            SectionFrame.BackStack.Clear();
         }
-        else if (tag == "search" && SectionFrame.Content is not SearchPage)
-        {
-            SectionFrame.Navigate(typeof(SearchPage));
-        }
+        _leftClaudes = !claudes;
     }
+
+    private bool _leftClaudes;
 
     /// A Claude's page again, for the tray's entries that act on that page; the
     /// one already chosen stays chosen.

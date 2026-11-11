@@ -113,7 +113,18 @@
             </NavigationView.PaneFooter>
             <Grid>
                 <Frame x:Name="RootFrame" />
-                <Frame x:Name="SectionFrame" Visibility="Collapsed" />
+                <!-- The same transition the Claudes' frame names, so every page opens alike. -->
+                <Frame x:Name="SectionFrame" Visibility="Collapsed">
+                    <Frame.ContentTransitions>
+                        <TransitionCollection>
+                            <NavigationThemeTransition>
+                                <NavigationThemeTransition.DefaultNavigationTransitionInfo>
+                                    <EntranceNavigationTransitionInfo />
+                                </NavigationThemeTransition.DefaultNavigationTransitionInfo>
+                            </NavigationThemeTransition>
+                        </TransitionCollection>
+                    </Frame.ContentTransitions>
+                </Frame>
             </Grid>
         </NavigationView>
     </Grid>

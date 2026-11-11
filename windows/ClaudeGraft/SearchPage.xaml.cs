@@ -29,6 +29,7 @@ public sealed partial class SearchPage : Page
     public SearchPage()
     {
         InitializeComponent();
+        NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Required;
         NoteText.Text = Note;
         SignInHint.Text = ArtifactsPage.SignInHintText;
         Loaded += (_, _) =>
@@ -64,8 +65,7 @@ public sealed partial class SearchPage : Page
         var signedIn = accounts.Accounts.Count > 0;
         AddAccountText.Text = signedIn ? "Add Account…" : "Sign In…";
         AutomationProperties.SetName(AddAccountButton, signedIn ? "Add Account" : "Sign In");
-        AccountChips.Children.Clear();
-        foreach (var account in accounts.Accounts) AccountChips.Children.Add(ArtifactsPage.AccountChip(accounts, account, "search"));
+        ArtifactsPage.ShowChips(AccountChips, accounts, "search");
 
         SearchText.Visibility = _center.Searching ? Visibility.Collapsed : Visibility.Visible;
         SearchRing.Visibility = _center.Searching ? Visibility.Visible : Visibility.Collapsed;

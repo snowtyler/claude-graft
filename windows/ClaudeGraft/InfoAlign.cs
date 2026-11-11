@@ -17,9 +17,12 @@ public static class InfoAlign
     private static void OnChanged(DependencyObject o, DependencyPropertyChangedEventArgs e)
     {
         if (o is not FrameworkElement button || e.NewValue is not true) return;
+        var placed = false;
         button.Loaded += (_, _) =>
         {
-            if (Label(button) is not { } label) return;
+            // Once: a page moved between hosts loads again, and each load would add a handler.
+            if (placed || Label(button) is not { } label) return;
+            placed = true;
             // Every layout pass, not just size changes: the baseline is only known once text has rendered.
             button.LayoutUpdated += (_, _) => Place(button, label);
         };
