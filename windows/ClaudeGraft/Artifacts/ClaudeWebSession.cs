@@ -84,13 +84,15 @@ public sealed class ClaudeWebSession
             ? Directory.GetDirectories(StoresRoot).Select(d => Guid.TryParse(Path.GetFileName(d), out var g) ? g : Guid.Empty).Where(g => g != Guid.Empty).ToList()
             : [];
 
-    public async Task<(int Status, string Body)> Send(string method, string path, string? body = null)
+    public async Task<(int Status, string Body)> Send(string method, string path, string? body = null,
+        IReadOnlyDictionary<string, string>? extraHeaders = null)
     {
         var controller = await Ready();
         // The artifact service answers 404 without its own headers; the rest of
         // claude.ai is asked as its pages ask it, without them.
         var headers = new Dictionary<string, string>(path.StartsWith("/api/frame/", StringComparison.Ordinal) ? ArtifactAPI.Headers : new Dictionary<string, string>());
         if (body is not null) headers["Content-Type"] = "application/json";
+        foreach (var (name, value) in extraHeaders ?? new Dictionary<string, string>()) headers[name] = value;
         var args = JsonSerializer.Serialize(new { path, method, headers, body = body ?? "" });
         const string script = """
             async (a) => {
@@ -108,6 +110,47 @@ public sealed class ClaudeWebSession
         if (ArtifactAPI.MeansSignedOut(status, path)) throw new WebFailure(Failure.SignedOut);
         if (ArtifactAPI.NeedsAccountCheck(status, path)) await Send("GET", ArtifactAPI.AccountPath);
         return (status, text);
+    }
+
+    /// A file from the artifact's file host, which takes its token in the address
+    /// and no cookie. `limit` is held to in the page as the file streams in: one
+    /// read whole and measured after can take the page's process down with it.
+    public async Task<(int Status, byte[] Data)> Download(string url, long limit)
+    {
+        var controller = await Ready();
+        const string script = """
+            async (a) => {
+              const response = await fetch(a.url, {credentials: "omit", cache: "no-store", referrerPolicy: "no-referrer"});
+              if (!response.ok) return {status: response.status, body: ""};
+              if (Number(response.headers.get("Content-Length") || 0) > a.limit) return {status: response.status, body: "", tooLarge: true};
+              const reader = response.body.getReader();
+              const chunks = [];
+              let size = 0;
+              for (;;) {
+                const {done, value} = await reader.read();
+                if (done) break;
+                size += value.length;
+                if (size > a.limit) { await reader.cancel(); return {status: response.status, body: "", tooLarge: true}; }
+                chunks.push(value);
+              }
+              const bytes = new Uint8Array(size);
+              let offset = 0;
+              for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
+              let binary = "";
+              for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+              return {status: response.status, body: btoa(binary)};
+            }
+            """;
+        JsonObject answer;
+        _inFlight++;
+        try { answer = await Evaluate(controller.CoreWebView2, script, JsonSerializer.Serialize(new { url, limit = Math.Max(0, limit) })); }
+        finally { RequestEnded(); }
+        if (answer["tooLarge"] is JsonValue large && large.TryGetValue<bool>(out var tooLarge) && tooLarge)
+            throw new ArtifactExporter.ExportFailure(ArtifactExporter.Problem.TooLarge);
+        if (answer["status"] is not JsonValue s || !s.TryGetValue<int>(out var status) || answer["body"] is not JsonValue b || !b.TryGetValue<string>(out var text))
+            throw new WebFailure(Failure.Unreadable);
+        try { return (status, Convert.FromBase64String(text)); }
+        catch (FormatException) { throw new WebFailure(Failure.Unreadable); }
     }
 
     public async Task<ArtifactAPI.Identity> Identity()
@@ -220,7 +263,7 @@ public sealed class ClaudeWebSession
     }
 
     /// A window never shown, for the hidden pages to belong to.
-    private static class HiddenParent
+    internal static class HiddenParent
     {
         [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         private static extern nint CreateWindowExW(int exStyle, string className, string? windowName, int style,

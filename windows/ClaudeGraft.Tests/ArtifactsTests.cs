@@ -300,3 +300,28 @@ public sealed class ArtifactFilesTests : IDisposable
         Assert.Equal(accounts, ArtifactFiles.Read<List<ArtifactAccount>>(ArtifactFiles.Accounts).Value);
     }
 }
+
+public class WordDocumentTests
+{
+    [Fact(DisplayName = "a Word export carries the page as a part Word converts, and says how it is encoded")]
+    public void CarriesThePage()
+    {
+        var bytes = WordDocument.FromHtml("<html><head><title>T</title></head><body><p>“Quoted”</p></body></html>");
+        using var zip = new System.IO.Compression.ZipArchive(new MemoryStream(bytes));
+        string Read(string name) => new StreamReader(zip.GetEntry(name)!.Open()).ReadToEnd();
+        Assert.Contains("altChunk r:id=\"page\"", Read("word/document.xml"));
+        Assert.Contains("Target=\"page.html\"", Read("word/_rels/document.xml.rels"));
+        Assert.Contains("PartName=\"/word/page.html\"", Read("[Content_Types].xml"));
+        var page = Read("word/page.html");
+        Assert.Contains("<meta charset=\"utf-8\">", page);
+        Assert.Contains("“Quoted”", page);
+    }
+
+    [Fact(DisplayName = "a page that already names its encoding is carried as it is")]
+    public void KeepsItsOwnCharset()
+    {
+        const string html = "<html><head><meta charset=\"utf-8\"></head><body></body></html>";
+        using var zip = new System.IO.Compression.ZipArchive(new MemoryStream(WordDocument.FromHtml(html)));
+        Assert.Equal(html, new StreamReader(zip.GetEntry("word/page.html")!.Open()).ReadToEnd());
+    }
+}
