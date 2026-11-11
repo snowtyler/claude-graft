@@ -217,7 +217,14 @@ public sealed class FlyoutWindow : Window
 
         void Tick(object? sender, object e)
         {
-            var t = Math.Min(1.0, clock.Elapsed.TotalMilliseconds / ms);
+            // The window can be closed under a running slide; the tick outlives it.
+            if (AppWindow is null)
+            {
+                Microsoft.UI.Xaml.Media.CompositionTarget.Rendering -= Tick;
+                _animating = false;
+                return;
+            }
+            var t =Math.Min(1.0, clock.Elapsed.TotalMilliseconds / ms);
             // Power-5 in or out, to match EverythingToolbar's feel.
             var eased = easeIn ? Math.Pow(t, 5) : 1 - Math.Pow(1 - t, 5);
             var dx = (int)Math.Round(from.X + (to.X - from.X) * eased);
