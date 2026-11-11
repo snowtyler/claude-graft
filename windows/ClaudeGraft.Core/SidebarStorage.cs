@@ -197,7 +197,9 @@ function replaceShared(existing, shared, wanted) {
 
 function decode(raw) {
     const frame = parse(raw.local[FRAME]);
-    const pin = parse(raw.pin);
+    // No record is how Claude stores an empty pin set; it writes one only once
+    // something has been pinned.
+    const pin = raw.pin === null ? {version: 0, state: {starredIds: []}} : parse(raw.pin);
     requireShape(object(frame) && frame.version === 1 && object(frame.state)
         && strings(frame.state.pinnedOrder)
         && object(frame.state.sortByByMode)
@@ -307,19 +309,21 @@ async function storageOperation(action, raw) {
                 request.onerror = () => reject(Error('unreadable-storage'));
             });
             // dframe-store is Claude's marker that this profile's sidebar exists;
-            // the code-pin key is absent until a code session is first pinned, so
-            // a freshly grafted profile that is to receive pins reads as an empty
-            // set rather than uninitialised.
+            // the code-pin key is absent until a code session is first pinned.
             if (localStorage.getItem('dframe-store') === null) throw Error('not-initialized');
-            const pinState = typeof pin === 'string' ? pin : JSON.stringify({state: {starredIds: []}, version: 0});
-            return {pin: pinState, local: Object.fromEntries(['dframe-store',
+            // Anything but a string or nothing is a shape this does not know, and
+            // writing back over it would lose whatever it holds.
+            if (pin !== undefined && typeof pin !== 'string') throw Error('unsupported-storage');
+            return {pin: pin ?? null, local: Object.fromEntries(['dframe-store',
                 'LSS-persisted.starred-local-code-sessions', 'LSS-persisted.dframe-local-slice',
                 'ccd-sync-owner', 'ccd-sync-active', 'ccd-sync-quarantine', 'ccd-sync-pending:ccd/dframe-store']
                 .map(key => [key, localStorage.getItem(key)]))};
         }
         await new Promise((resolve, reject) => {
             const transaction = db.transaction('keyval', 'readwrite', {durability: 'strict'});
-            transaction.objectStore('keyval').put(raw.pin, 'store:pin-state:dframe-starred-code');
+            // Restoring a profile that had no record puts it back without one.
+            if (raw.pin === null) transaction.objectStore('keyval').delete('store:pin-state:dframe-starred-code');
+            else transaction.objectStore('keyval').put(raw.pin, 'store:pin-state:dframe-starred-code');
             transaction.oncomplete = resolve;
             transaction.onerror = transaction.onabort = () => reject(Error('write-failed'));
         });
