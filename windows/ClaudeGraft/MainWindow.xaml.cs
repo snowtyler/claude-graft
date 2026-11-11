@@ -61,7 +61,11 @@ public sealed partial class MainWindow : Window
         var claudes = tag is null or "claudes";
         RootFrame.Visibility = claudes ? Visibility.Visible : Visibility.Collapsed;
         SectionFrame.Visibility = claudes ? Visibility.Collapsed : Visibility.Visible;
-        if (tag == "artifacts" && SectionFrame.Content is not ArtifactsPage) SectionFrame.Navigate(typeof(ArtifactsPage));
+        if (tag == "artifacts")
+        {
+            if (SectionFrame.Content is ArtifactsPage shown) shown.OnShown();
+            else SectionFrame.Navigate(typeof(ArtifactsPage));
+        }
     }
 
     /// The Claudes again, for the tray's entries that act on that page.
