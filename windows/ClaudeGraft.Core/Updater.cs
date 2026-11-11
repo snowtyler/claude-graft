@@ -32,7 +32,7 @@ public static class Updater
         public string? Notes { get; init; }
     }
 
-    /// The running build's version, stamped from VERSION by Directory.Build.props.
+    /// The running build's version, stamped from windows/VERSION by Directory.Build.props.
     /// An unstamped build reads 0.0.0 and so treats every real release as newer,
     /// which fails safe: it offers an update rather than hiding one.
     public static Version Current =>
