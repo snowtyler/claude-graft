@@ -347,6 +347,27 @@ public sealed class ShortcutRow : INotifyPropertyChanged
     public Visibility ProblemVisibility =>
         string.IsNullOrEmpty(_problem) ? Visibility.Collapsed : Visibility.Visible;
 
+    /// How shared usage knows this Claude: "main", or its shortcut's id.
+    public string SharingKey => Shortcut?.Id.ToString() ?? UsageSharing.MainKey;
+
+    private string _sharingLabel = "Shared usage: off";
+    private (string Text, bool Attention)? _sharingNote;
+
+    public string SharingLabel => _sharingLabel;
+    public string SharingNote => _sharingNote?.Text ?? "";
+    public Visibility SharingNoteVisibility => _sharingNote is null ? Visibility.Collapsed : Visibility.Visible;
+    public Brush SharingNoteBrush => (Brush)Application.Current.Resources[_sharingNote?.Attention == true
+        ? "SystemFillColorCautionBrush" : "TextFillColorTertiaryBrush"];
+
+    public void SetSharing(string label, (string Text, bool Attention)? note)
+    {
+        if (label == _sharingLabel && note == _sharingNote) return;
+        _sharingLabel = label;
+        _sharingNote = note;
+        foreach (var name in new[] { nameof(SharingLabel), nameof(SharingNote), nameof(SharingNoteVisibility), nameof(SharingNoteBrush) })
+            Notify(name);
+    }
+
     private void Notify(string name) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 

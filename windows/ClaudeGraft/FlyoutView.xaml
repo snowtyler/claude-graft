@@ -126,6 +126,16 @@
             </ItemsControl>
             </ScrollViewer>
 
+            <!-- Conversations from a Claude that draws on other accounts, each
+                 with the account answering it; filled in code. -->
+            <StackPanel x:Name="Conversations" Visibility="Collapsed" Padding="22,6,16,6" Spacing="6">
+                <TextBlock Text="Claude Code" Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           AutomationProperties.HeadingLevel="Level2"
+                           AutomationProperties.AutomationId="flyout.conversations" />
+                <StackPanel x:Name="ChatList" Spacing="6" />
+            </StackPanel>
+
             <!-- The "Version X is available" line; hidden until a check finds one,
                  its content set in code. -->
             <Button x:Name="AvailableButton" Click="Install_Click" AutomationProperties.AutomationId="flyout.install" Visibility="Collapsed"

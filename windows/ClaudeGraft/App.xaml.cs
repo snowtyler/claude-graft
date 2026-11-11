@@ -152,6 +152,7 @@ public partial class App : Application
 
         FrontClaude.Changed += ShowTray;
         ChatOnScreen.Changed += ShowTray;
+        SharingChanged += ShowTray;
         ChatOnScreen.Start(_ui);
         FrontClaude.Activated += profile => _ = RefreshFront(profile);
         FrontClaude.Start(_ui);
@@ -196,6 +197,10 @@ public partial class App : Application
     private Timer? _sharingTimer;
     public static readonly SharedUsage Sharing = new();
     public static SharedUsage.Result? SharingResult { get; private set; }
+    /// Raised on the UI thread after each pass.
+    public static event Action? SharingChanged;
+
+    internal void SyncSharingSoon() => Task.Run(SyncSharing);
     private int _sharingBusy;
     private string? _lastSharingProblem;
 
@@ -208,7 +213,15 @@ public partial class App : Application
         try
         {
             if (UsageSharing.Load().Lenders.All(l => l.Value.Count == 0) && PoolEnvironment.ReadJournal().Profiles.Count == 0
-                && RelayKeeper.Send(new RelayRequest(), timeoutMs: 500) is null) return;
+                && RelayKeeper.Send(new RelayRequest(), timeoutMs: 500) is null)
+            {
+                if (SharingResult is not null)
+                {
+                    SharingResult = null;
+                    _ui?.TryEnqueue(() => SharingChanged?.Invoke());
+                }
+                return;
+            }
             var claudes = new List<(string, string, string)> { (UsageSharing.MainKey, "Claude", GraftPaths.DefaultProfile) };
             claudes.AddRange(Store.Shortcuts.ToList().Select(s => (s.Id.ToString(), s.Name, s.ProfileDir)));
             SharingResult = Sharing.Pass(claudes, profile => UsageMonitor.Peek(profile) is { Usage: { } u, UpdatedAt: { } at }
@@ -217,6 +230,7 @@ public partial class App : Application
             if (SharingResult.Problem is string problem && problem != _lastSharingProblem)
                 Diagnostics.Note("pool.problem", new Dictionary<string, object?> { ["problem"] = problem });
             _lastSharingProblem = SharingResult.Problem;
+            _ui?.TryEnqueue(() => SharingChanged?.Invoke());
         }
         catch (Exception e) { Record("pool.sync", e); }
         finally { Volatile.Write(ref _sharingBusy, 0); }
@@ -352,6 +366,18 @@ public partial class App : Application
         UpdateProgressChanged?.Invoke();
     }
 
+    /// Another account answering the conversation on screen, by name; null
+    /// when it is this Claude's own or nothing says.
+    private static string? AnsweredBy(string front, Shortcut? shortcut)
+    {
+        var key = shortcut?.Id.ToString() ?? UsageSharing.MainKey;
+        var cli = ChatOnScreen.OnScreenSession(front);
+        if (cli is null || SharingResult?.Status?.Sessions.FirstOrDefault(s => s.Id == cli) is not { } session) return null;
+        var chat = SharedChats.Build(SharingResult.Status, UsageSharing.Load(), _ => null, key, cli).FirstOrDefault(c => c.Id == cli);
+        if (chat is null || SharedChats.AnsweringKey(chat) is not string by || by == key) return null;
+        return by == UsageSharing.MainKey ? "Claude" : Store.Shortcuts.FirstOrDefault(s => s.Id.ToString() == by)?.Name;
+    }
+
     /// The tray says which Claude is in front and what its account has spent,
     /// wearing that shortcut's icon; with none in front it is Graft's own.
     private void ShowTray()
@@ -364,7 +390,7 @@ public partial class App : Application
         else if (front is not null)
             _tray.ToolTipText = FrontLabel.Tooltip(shortcut?.Name ?? "Claude",
                 _frontUsage.GetValueOrDefault(front) is { } u ? UsageStatus.Rolled(u, DateTimeOffset.UtcNow) : null,
-                ChatOnScreen.TitleFor(front));
+                ChatOnScreen.TitleFor(front), AnsweredBy(front, shortcut));
         else
             _tray.ToolTipText = AvailableUpdate is { } ready ? $"Claude Graft — update {ready.Version} ready" : "Claude Graft";
 

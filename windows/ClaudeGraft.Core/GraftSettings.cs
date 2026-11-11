@@ -37,6 +37,9 @@ public sealed class GraftSettings
     /// installing on its own as before.
     [JsonPropertyName("holdUpdates")] public bool HoldUpdates { get; set; }
 
+    /// Shared usage was explained, and agreed to, before the first account was added.
+    [JsonPropertyName("sharingExplained")] public bool SharingExplained { get; set; }
+
     private static string SettingsFile => Path.Combine(GraftPaths.OwnData, "settings.json");
 
     private static readonly JsonSerializerOptions Options = new()

@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using ClaudeGraft.Core;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 
 namespace ClaudeGraft;
@@ -67,6 +68,8 @@ public sealed partial class FlyoutView : UserControl
             UpdateRefreshButton();
         };
         _clock.Start();
+        App.SharingChanged += () => { ShowChats(); LayoutChanged?.Invoke(); };
+        ChatOnScreen.Changed += ShowChats;
     }
 
     /// Paints the flyout's own surface opaque, for the Solid backdrop where there
@@ -102,8 +105,115 @@ public sealed partial class FlyoutView : UserControl
             _ = LoadUsage(row);
         }
         ReflectUpdate();
+        ShowChats();
         LayoutChanged?.Invoke();
         _ = MarkRunning(rows);
+    }
+
+    // MARK: - Conversations
+
+    private bool _othersShown;
+
+    private static string KeyOf(string? profile)
+    {
+        if (profile is null) return "";
+        if (Fs.SamePath(profile, GraftPaths.DefaultProfile)) return UsageSharing.MainKey;
+        return App.Store.Shortcuts.FirstOrDefault(s => Fs.SamePath(s.ProfileDir, profile))?.Id.ToString() ?? "";
+    }
+
+    private static string NameOf(string key) => key == UsageSharing.MainKey ? "Claude"
+        : App.Store.Shortcuts.FirstOrDefault(s => s.Id.ToString() == key)?.Name ?? key;
+
+    /// The conversation on screen in the Claude in front comes first and alone;
+    /// the rest wait behind a line saying how many, so they never push the
+    /// figures off a short screen.
+    private void ShowChats()
+    {
+        var front = FrontClaude.Profile;
+        var frontKey = KeyOf(front);
+        var chats = SharedChats.Build(App.SharingResult?.Status, UsageSharing.Load(), ChatOnScreen.RecordFor,
+            frontKey, front is null ? null : ChatOnScreen.OnScreenSession(front));
+        ChatList.Children.Clear();
+        Conversations.Visibility = chats.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        if (chats.Count == 0) return;
+        var inFront = chats[0].Claude == frontKey ? chats[0] : null;
+        var others = chats.Where(c => c != inFront).Take(8).ToList();
+        var showClaude = chats.Select(c => c.Claude).Distinct().Count() > 1;
+        if (inFront is not null)
+        {
+            ChatList.Children.Add(ChatRow(inFront, showClaude: false, emphasised: true));
+            if (others.Count > 0)
+            {
+                var toggle = new HyperlinkButton
+                {
+                    Content = $"{(_othersShown ? "Hide" : "Show")} other conversations · {others.Count}",
+                    Padding = new Thickness(0),
+                    FontSize = 12,
+                };
+                AutomationProperties.SetAutomationId(toggle, "flyout.conversations.others");
+                toggle.Click += (_, _) =>
+                {
+                    _othersShown = !_othersShown;
+                    ShowChats();
+                    LayoutChanged?.Invoke();
+                };
+                ChatList.Children.Add(toggle);
+            }
+        }
+        if (inFront is null || _othersShown)
+            foreach (var chat in others) ChatList.Children.Add(ChatRow(chat, showClaude, emphasised: false));
+    }
+
+    private UIElement ChatRow(SharedChats.Chat chat, bool showClaude, bool emphasised)
+    {
+        var title = string.IsNullOrWhiteSpace(chat.Title) ? "Untitled conversation" : chat.Title!;
+        var grid = new Grid { ColumnSpacing = 8 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        text.Children.Add(new TextBlock
+        {
+            Text = title, TextTrimming = TextTrimming.CharacterEllipsis,
+            FontWeight = emphasised ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal,
+        });
+        string? detail = chat.PassedOver && chat.Assigned is string a ? $"{NameOf(a)} had no room"
+            : showClaude ? $"in {NameOf(chat.Claude)}" : null;
+        if (detail is not null)
+            text.Children.Add(new TextBlock
+            {
+                Text = detail, Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+                Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources[chat.PassedOver ? "SystemFillColorCautionBrush" : "TextFillColorSecondaryBrush"],
+            });
+        grid.Children.Add(text);
+
+        var answering = SharedChats.AnsweringKey(chat);
+        var label = answering is null ? "Automatic" : chat.Assigned is null ? $"Auto · {NameOf(answering)}" : NameOf(answering);
+        var menu = new MenuFlyout { Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.BottomEdgeAlignedRight };
+        void Add(string text, string? to)
+        {
+            var item = new RadioMenuFlyoutItem { Text = text, GroupName = "account." + chat.Id, IsChecked = chat.Assigned == to };
+            item.Click += (_, _) => Assign(chat.Id, to);
+            menu.Items.Add(item);
+        }
+        Add(chat.ServedBy is string served && chat.Assigned is null ? $"Automatic · now {NameOf(served)}" : "Automatic", null);
+        foreach (var choice in chat.Choices) Add(NameOf(choice), choice);
+        var button = new DropDownButton { Content = label, Flyout = menu, FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
+        // Several reading "Claude 2" would not say which conversation each moves.
+        AutomationProperties.SetName(button, $"Account answering “{title}”");
+        AutomationProperties.SetAutomationId(button, $"flyout.conversation.{chat.Id}.account");
+        ToolTipService.SetToolTip(button, "Which account answers this conversation");
+        Grid.SetColumn(button, 1);
+        grid.Children.Add(button);
+        return grid;
+    }
+
+    private void Assign(string session, string? to)
+    {
+        try { SharedChats.Assign(UsageSharing.Load(), session, to, DateTimeOffset.UtcNow).Save(); }
+        catch (IOException) { return; }
+        ShowChats();
+        App.Instance.SyncSharingSoon();
     }
 
     private void ReflectUpdate()

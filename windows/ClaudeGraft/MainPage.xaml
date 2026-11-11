@@ -206,6 +206,21 @@
                                            TextWrapping="Wrap"
                                            Style="{StaticResource CaptionTextBlockStyle}"
                                            Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                                <StackPanel Spacing="4">
+                                    <DropDownButton Content="{x:Bind SharingLabel, Mode=OneWay}" Tag="{x:Bind}"
+                                                    AutomationProperties.Name="{x:Bind local:Spoken.Act('Shared usage for', Name)}"
+                                                    AutomationProperties.AutomationId="{x:Bind local:Spoken.Id('manager', Key, 'sharing')}"
+                                                    ToolTipService.ToolTip="Which other Claudes can answer this Claude's Code tab">
+                                        <DropDownButton.Flyout>
+                                            <MenuFlyout Placement="BottomEdgeAlignedLeft" Opening="SharingMenu_Opening" />
+                                        </DropDownButton.Flyout>
+                                    </DropDownButton>
+                                    <TextBlock Text="{x:Bind SharingNote, Mode=OneWay}"
+                                               Visibility="{x:Bind SharingNoteVisibility, Mode=OneWay}"
+                                               Foreground="{x:Bind SharingNoteBrush, Mode=OneWay}"
+                                               TextWrapping="Wrap"
+                                               Style="{StaticResource CaptionTextBlockStyle}" />
+                                </StackPanel>
                                 <CheckBox Content="Keep the 5-hour window open automatically"
                                           AutomationProperties.AutomationId="{x:Bind local:Spoken.Id('manager', Key, 'keepWarm')}"
                                           AutomationProperties.Name="{x:Bind local:Spoken.KeepWarm(Name)}"

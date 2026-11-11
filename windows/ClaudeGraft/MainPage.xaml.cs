@@ -37,6 +37,7 @@ public sealed partial class MainPage : Page
         var logo = System.IO.Path.Combine(System.AppContext.BaseDirectory, "Assets", "Logo.png");
         if (System.IO.File.Exists(logo))
             LogoImage.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(logo));
+        App.SharingChanged += ShowSharing;
         Loaded += (_, _) =>
         {
             Reload();
@@ -161,6 +162,7 @@ public sealed partial class MainPage : Page
         }
         _ = MarkRunning(rows);
         _ = MarkChatsElsewhere(rows);
+        ShowSharing();
         try { await Task.WhenAll(loads); }
         finally
         {
@@ -257,6 +259,95 @@ public sealed partial class MainPage : Page
                 ClaudeUpdateCenter.Redraw();
             }
         }
+    }
+
+    // MARK: - Shared usage
+
+    /// Every Claude Graft knows, by sharing key, with its name.
+    private static List<(string Key, string Name)> SharingClaudes() =>
+        App.Store.Shortcuts.ToList().Select(s => (s.Id.ToString(), s.Name)).Prepend((UsageSharing.MainKey, "Claude")).ToList();
+
+    private static string NameOf(string key) =>
+        SharingClaudes().FirstOrDefault(c => c.Key == key).Name ?? key;
+
+    /// Each card's line, from the settings and what the last pass found.
+    private void ShowSharing()
+    {
+        var sharing = UsageSharing.Load();
+        var result = App.SharingResult;
+        foreach (var row in Rows.ToList())
+        {
+            var lenders = sharing.Lenders.GetValueOrDefault(row.SharingKey) ?? [];
+            row.SetSharing(SharingText.Label(lenders, NameOf),
+                SharingText.Note(lenders, result?.Environment.GetValueOrDefault(row.SharingKey), result?.Problem));
+        }
+    }
+
+    /// Built as it opens, so it lists the Claudes and how each stands now.
+    private void SharingMenu_Opening(object sender, object e)
+    {
+        if (sender is not MenuFlyout menu || menu.Target is not FrameworkElement { Tag: ShortcutRow row }) return;
+        menu.Items.Clear();
+        var sharing = UsageSharing.Load();
+        var lenders = sharing.Lenders.GetValueOrDefault(row.SharingKey) ?? [];
+        var own = Graft.Account(row.ProfileDir);
+        foreach (var (key, name) in SharingClaudes().Where(c => c.Key != row.SharingKey))
+        {
+            var profile = key == UsageSharing.MainKey ? GraftPaths.DefaultProfile
+                : App.Store.Shortcuts.FirstOrDefault(s => s.Id.ToString() == key)?.ProfileDir;
+            var same = own is not null && profile is not null && Graft.Account(profile) == own;
+            var condition = lenders.Contains(key) || same
+                ? SharingText.Condition(key, App.SharingResult, same, DateTimeOffset.UtcNow) : "";
+            var item = new ToggleMenuFlyoutItem
+            {
+                Text = condition.Length == 0 ? name : $"{name} · {condition}",
+                IsChecked = lenders.Contains(key),
+                Tag = (row, key),
+            };
+            AutomationProperties.SetAutomationId(item, Spoken.Id("manager", row.Key, "sharing.lender"));
+            AutomationProperties.SetName(item, $"Draw on {name}");
+            item.Click += SharingLender_Click;
+            menu.Items.Add(item);
+        }
+        if (menu.Items.Count == 0)
+            menu.Items.Add(new MenuFlyoutItem { Text = "Add another profile to share its usage", IsEnabled = false });
+        menu.Items.Add(new MenuFlyoutSeparator());
+        var about = new MenuFlyoutItem { Text = "About shared usage…" };
+        AutomationProperties.SetAutomationId(about, Spoken.Id("manager", row.Key, "sharing.about"));
+        about.Click += async (_, _) => await ExplainSharing(agree: false);
+        menu.Items.Add(about);
+    }
+
+    private async void SharingLender_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not ToggleMenuFlyoutItem { Tag: (ShortcutRow row, string lender) } item) return;
+        var on = item.IsChecked;
+        if (on && !App.Settings.SharingExplained)
+        {
+            if (!await ExplainSharing(agree: true)) return;
+            App.Settings.SharingExplained = true;
+            App.Settings.Save();
+        }
+        try { SharedChats.SetLender(UsageSharing.Load(), row.SharingKey, lender, on).Save(); }
+        catch (IOException ex) { await Warn("Shared usage was left as it was", ex.Message); return; }
+        ShowSharing();
+        App.Instance.SyncSharingSoon();
+    }
+
+    /// Said once, before the first account is added, since what it does to a
+    /// conversation and what the plans' terms say are for the person to weigh.
+    private async Task<bool> ExplainSharing(bool agree)
+    {
+        var dialog = new ContentDialog
+        {
+            Title = "Shared usage",
+            Content = new TextBlock { Text = SharingText.Explanation, TextWrapping = TextWrapping.Wrap },
+            PrimaryButtonText = agree ? "Turn On" : "",
+            CloseButtonText = agree ? "Cancel" : "OK",
+            DefaultButton = agree ? ContentDialogButton.Close : ContentDialogButton.None,
+        };
+        PrepareDialog(dialog);
+        return await dialog.ShowAsync() == ContentDialogResult.Primary;
     }
 
     private async void ClaudeRestart_Requested() => await ConfirmRestartClaudesAsync();

@@ -15,6 +15,8 @@ public static class ChatOnScreen
     private static readonly object Gate = new();
     private static readonly Dictionary<string, (DateTime Written, ChatFocus.Record? Record)> Parsed = new(StringComparer.OrdinalIgnoreCase);
     private static readonly Dictionary<string, string?> Titles = new(StringComparer.OrdinalIgnoreCase);
+    private static Dictionary<string, SharedChats.Record> _byCli = new();
+    private static readonly Dictionary<string, string?> OnScreenCli = new(StringComparer.OrdinalIgnoreCase);
     private static readonly List<FileSystemWatcher> Watchers = new();
     private static Timer? _debounce;
 
@@ -61,6 +63,18 @@ public static class ChatOnScreen
         lock (Gate) return Titles.GetValueOrDefault(Path.GetFullPath(profile));
     }
 
+    /// A conversation's record by the Claude Code session the relay sees.
+    public static SharedChats.Record? RecordFor(string cliSession)
+    {
+        lock (Gate) return _byCli.GetValueOrDefault(cliSession);
+    }
+
+    /// The Claude Code session of the conversation on screen in a profile.
+    public static string? OnScreenSession(string profile)
+    {
+        lock (Gate) return OnScreenCli.GetValueOrDefault(Path.GetFullPath(profile));
+    }
+
     private static Dictionary<string, string> Stores()
     {
         var profiles = new List<string> { GraftPaths.DefaultProfile };
@@ -79,9 +93,18 @@ public static class ChatOnScreen
                 var stores = Stores().ToDictionary(s => s.Key, s => Read(s.Value), StringComparer.OrdinalIgnoreCase);
                 Focus.Look(stores.ToDictionary(s => s.Key, s => (IReadOnlyList<ChatFocus.Record>)s.Value));
                 changed = false;
+                var byCli = new Dictionary<string, SharedChats.Record>();
+                // Under two accounts a session has two records; the newest focus speaks for it.
+                foreach (var r in stores.Values.SelectMany(r => r).Where(r => r.Cli is not null).OrderBy(r => r.FocusedAt ?? 0))
+                    byCli[r.Cli!] = new SharedChats.Record(r.Title, r.Archived);
+                if (byCli.Count != _byCli.Count || byCli.Any(b => _byCli.GetValueOrDefault(b.Key) != b.Value)) changed = true;
+                _byCli = byCli;
                 foreach (var (profile, records) in stores)
                 {
                     var title = Focus.OnScreen(profile, records);
+                    var shown = Focus.ShownSession(profile);
+                    var cli = records.FirstOrDefault(r => r.Session == shown)?.Cli;
+                    if (OnScreenCli.GetValueOrDefault(profile) != cli) { OnScreenCli[profile] = cli; changed = true; }
                     if (Titles.GetValueOrDefault(profile) == title) continue;
                     Titles[profile] = title;
                     changed = true;

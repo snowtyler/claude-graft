@@ -14,7 +14,7 @@ namespace ClaudeGraft.Core;
 /// </summary>
 public sealed class ChatFocus
 {
-    public sealed record Record(string Session, string? Title, long? FocusedAt, bool Archived, DateTime Written);
+    public sealed record Record(string Session, string? Title, long? FocusedAt, bool Archived, DateTime Written, string? Cli = null);
 
     public static Record? Parse(ReadOnlySpan<byte> json, DateTime written)
     {
@@ -29,7 +29,8 @@ public sealed class ChatFocus
                 root.TryGetProperty("title", out var t) && t.ValueKind == JsonValueKind.String ? t.GetString() : null,
                 root.TryGetProperty("lastFocusedAt", out var f) && f.ValueKind == JsonValueKind.Number && f.TryGetInt64(out var at) ? at : null,
                 root.TryGetProperty("isArchived", out var a) && a.ValueKind == JsonValueKind.True,
-                written);
+                written,
+                root.TryGetProperty("cliSessionId", out var c) && c.ValueKind == JsonValueKind.String ? c.GetString() : null);
         }
         catch (JsonException) { return null; }
     }
@@ -68,6 +69,9 @@ public sealed class ChatFocus
         }
         foreach (var store in stores.Keys) _looked.Add(store);
     }
+
+    /// The record id last named on screen in a store, whatever OnScreen returned.
+    public string? ShownSession(string store) => _shown.TryGetValue(store, out var s) ? s.Session : null;
 
     /// The title of the conversation on screen in one store, or null for none.
     public string? OnScreen(string store, IReadOnlyList<Record> records)

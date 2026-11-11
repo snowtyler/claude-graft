@@ -107,6 +107,7 @@ public sealed partial class SettingsDialog : ContentDialog
         HoldUpdates = HoldUpdatesSwitch.IsOn,
         // Set from the main card rather than here, but a save must not drop it.
         KeepMainWarm = _current.KeepMainWarm,
+        SharingExplained = _current.SharingExplained,
     };
 
     /// Manual Claude updates as chosen, or null where the switch was not offered.

@@ -11,8 +11,11 @@ public static class FrontLabel
 
     /// The conversation on screen goes on a line of its own, and is what gets
     /// cut when the whole will not fit.
-    public static string Tooltip(string name, Usage? usage, string? chat = null)
+    public static string Tooltip(string name, Usage? usage, string? chat = null, string? answeredBy = null)
     {
+        // Answered by another account, the conversation says so, since the
+        // figures above are this Claude's own and are not what it is spending.
+        if (!string.IsNullOrWhiteSpace(chat) && answeredBy is not null) chat = $"{chat.Trim()} · answered by {answeredBy}";
         var text = usage is null
             ? name
             : name + " — " + (usage.FiveHour is int five ? $"5h {five}%" : "5h no limit") + $" · week {usage.Week}%";
