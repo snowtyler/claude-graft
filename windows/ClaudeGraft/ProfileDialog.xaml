@@ -3,6 +3,7 @@
     x:Class="ClaudeGraft.ProfileDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:ClaudeGraft"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
@@ -26,8 +27,46 @@
     <StackPanel Spacing="14" Width="380">
         <StackPanel Spacing="6">
             <TextBlock Text="Name" Style="{ThemeResource BodyStrongTextBlockStyle}" />
-            <TextBox x:Name="NameBox" PlaceholderText="Work Account"
-                     Text="{x:Bind Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <!-- Twelve icons laid out in the dialog took more room than the
+                     rest of it, so the one in use opens the others. -->
+                <Button x:Name="IconButton" Width="40" Height="32" Padding="2"
+                        ToolTipService.ToolTip="Shortcut icon"
+                        AutomationProperties.Name="Shortcut icon">
+                    <Image x:Name="IconImage" Width="24" Height="24" />
+                    <Button.Flyout>
+                        <Flyout x:Name="IconFlyout" Placement="BottomEdgeAlignedLeft">
+                            <StackPanel Spacing="8" Width="324">
+                                <GridView x:Name="IconGrid" SelectionMode="Single" IsItemClickEnabled="True"
+                                          ItemClick="IconGrid_ItemClick"
+                                          AutomationProperties.Name="Shortcut icon">
+                                    <GridView.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <ItemsWrapGrid Orientation="Horizontal" MaximumRowsOrColumns="6" />
+                                        </ItemsPanelTemplate>
+                                    </GridView.ItemsPanel>
+                                    <GridView.ItemTemplate>
+                                        <DataTemplate x:DataType="local:IconChoice">
+                                            <Image Source="{x:Bind Preview}" Width="38" Height="38" Margin="2"
+                                                   ToolTipService.ToolTip="{x:Bind Title}" />
+                                        </DataTemplate>
+                                    </GridView.ItemTemplate>
+                                </GridView>
+                                <TextBlock Text="Used for the desktop shortcut and for this Claude's own button on the taskbar."
+                                           TextWrapping="Wrap"
+                                           Style="{ThemeResource CaptionTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </Flyout>
+                    </Button.Flyout>
+                </Button>
+                <TextBox x:Name="NameBox" Grid.Column="1" PlaceholderText="Work Account"
+                         Text="{x:Bind Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+            </Grid>
         </StackPanel>
 
         <StackPanel Spacing="6">

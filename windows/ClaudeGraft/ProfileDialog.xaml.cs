@@ -1,9 +1,20 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using ClaudeGraft.Core;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace ClaudeGraft;
+
+/// One icon in the picker, named as a screen reader reads it.
+public sealed class IconChoice(string preset, string? previewFile)
+{
+    public string Preset { get; } = preset;
+    public string Title { get; } = IconPreset.Title(preset);
+    public BitmapImage? Preview { get; } = previewFile is null ? null : new BitmapImage(new Uri(previewFile));
+    public override string ToString() => Title;
+}
 
 /// One selectable source, with the label a person reads.
 public sealed class SourceOption
@@ -30,13 +41,8 @@ public sealed partial class ProfileDialog : ContentDialog, INotifyPropertyChange
         _store = store;
         _isNew = existing is null;
         // Edit a copy, so Cancel leaves the stored one untouched.
-        _shortcut = existing is null
-            ? Shortcut.New(store.UniqueName())
-            : new Shortcut
-            {
-                Id = existing.Id, Name = existing.Name, Folder = existing.Folder,
-                Source = existing.Source, InstalledName = existing.InstalledName,
-            };
+        _shortcut = existing?.Copy() ?? Shortcut.New(store.UniqueName());
+        if (_isNew) _shortcut.IconPreset = store.NextIconPreset();
         _folderEdited = !_isNew;
 
         InitializeComponent();
@@ -52,6 +58,35 @@ public sealed partial class ProfileDialog : ContentDialog, INotifyPropertyChange
         SourceBox.SelectedItem = options.FirstOrDefault(o => o.Source.Equals(_shortcut.Source)) ?? options[0];
 
         PrimaryButtonClick += OnSave;
+        Loaded += async (_, _) => await ShowIcons();
+    }
+
+    // MARK: - Icon
+
+    private static IReadOnlyDictionary<string, string?>? _previews;
+
+    private async Task ShowIcons()
+    {
+        _previews ??= await Task.Run(ShortcutIcons.Previews);
+        var choices = IconPreset.All.Select(p => new IconChoice(p, _previews.GetValueOrDefault(p))).ToList();
+        IconGrid.ItemsSource = choices;
+        ShowIcon(choices);
+    }
+
+    private void ShowIcon(IReadOnlyList<IconChoice> choices)
+    {
+        var current = choices.FirstOrDefault(c => c.Preset == IconPreset.Normalize(_shortcut.IconPreset));
+        IconGrid.SelectedItem = current;
+        IconImage.Source = current?.Preview;
+        AutomationProperties.SetItemStatus(IconButton, current?.Title ?? "");
+    }
+
+    private void IconGrid_ItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is not IconChoice choice) return;
+        _shortcut.IconPreset = choice.Preset;
+        ShowIcon((IReadOnlyList<IconChoice>)IconGrid.ItemsSource);
+        IconFlyout.Hide();
     }
 
     // MARK: - Bound fields

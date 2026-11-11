@@ -110,6 +110,10 @@ public partial class App : Application
         // at the old per-user copy; carried over in the background, since the
         // folder being cleared out holds a whole Electron.
         System.Threading.Tasks.Task.Run(() => { try { Installer.MigrateLegacyLauncher(); } catch { } });
+        // Links keep pointing at the same icon files; a Claude update redraws them.
+        var shortcuts = Store.Shortcuts.ToList();
+        System.Threading.Tasks.Task.Run(() => ShortcutIcons.Refresh(shortcuts));
+        WindowIdentity.Start(_ui);
 
         // No ContextFlyout: the library renders that as a native popup owned by
         // its own message-only window, which can never take the foreground a
@@ -265,6 +269,7 @@ public partial class App : Application
             new Dictionary<string, object?> { ["version"] = release.Version.ToString(), ["path"] = path });
         Updater.LaunchInstaller(path);
         _tray?.Dispose();
+        WindowIdentity.Stop();
         Exit();
         return true;
     }
@@ -373,6 +378,7 @@ public partial class App : Application
     private void Quit() => OnUi(() =>
     {
         _tray?.Dispose();
+        WindowIdentity.Stop();
         Exit();
     });
 

@@ -17,6 +17,17 @@ public class ProcessDetectionTests
             ? $"\"{App}\" --type=renderer"
             : $"\"{App}\" --type=renderer --user-data-dir={dataDir} --other";
 
+    [Fact(DisplayName = "a window is a shortcut's only when its browser process carries that profile")]
+    public void ShortcutOfWindow()
+    {
+        var two = new Shortcut { Name = "Claude 2", Folder = "Claude-2" };
+        var shortcuts = new[] { two };
+        Assert.Same(two, ClaudeProcesses.ShortcutOf(Browser(two.ProfileDir), shortcuts));
+        Assert.Null(ClaudeProcesses.ShortcutOf(Helper(two.ProfileDir), shortcuts));
+        Assert.Null(ClaudeProcesses.ShortcutOf(Browser(), shortcuts));
+        Assert.Null(ClaudeProcesses.ShortcutOf(Browser(GraftPaths.Profile("Claude-20")), shortcuts));
+    }
+
     [Fact(DisplayName = "a helper is told from the browser process by its type flag")]
     public void HelperVsBrowser()
     {

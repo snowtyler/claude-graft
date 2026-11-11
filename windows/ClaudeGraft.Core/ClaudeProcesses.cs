@@ -97,6 +97,14 @@ public static class ClaudeProcesses
     public static bool AnyDesktopRunning(IReadOnlyList<(int pid, string command)> processes) =>
         processes.Any(p => IsClaudeDesktop(p.command) && !IsHelper(p.command));
 
+    /// The shortcut whose Claude a process is: the window-owning process alone,
+    /// since only it has a taskbar button. Null for the main Claude and anything
+    /// else.
+    public static Shortcut? ShortcutOf(string command, IEnumerable<Shortcut> shortcuts) =>
+        IsClaudeDesktop(command) && !IsHelper(command)
+            ? shortcuts.FirstOrDefault(s => CarriesDataDir(command, s.ProfileDir))
+            : null;
+
     public static int? ProcessIdentifier(string profile) => ProcessIdentifier(profile, Enumerate());
 
     /// The pid of the Claude holding this profile, if one holds it — the browser

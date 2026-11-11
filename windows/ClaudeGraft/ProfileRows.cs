@@ -22,7 +22,16 @@ internal static class ProfileRows
     /// do. A rebuilt row is a new ProgressBar and a new CheckBox, and each plays its
     /// entrance — the bar sliding in, the tick drawing, sometimes frozen half-drawn —
     /// so a view keeps the rows it has whenever nothing about them changed.
-    public static bool SameAs(IReadOnlyList<ShortcutRow> shown, IReadOnlyList<ShortcutRow> built) =>
+    /// Rows kept still take the shortcut just read: what a row does not draw,
+    /// its icon among them, is what the editor opens with.
+    public static bool KeepShown(IReadOnlyList<ShortcutRow> shown, IReadOnlyList<ShortcutRow> built)
+    {
+        if (!SameAs(shown, built)) return false;
+        foreach (var (kept, fresh) in shown.Zip(built)) kept.Shortcut = fresh.Shortcut;
+        return true;
+    }
+
+    private static bool SameAs(IReadOnlyList<ShortcutRow> shown, IReadOnlyList<ShortcutRow> built) =>
         shown.Count == built.Count
         && shown.Zip(built).All(p => Fs.SamePath(p.First.ProfileDir, p.Second.ProfileDir)
             && p.First.Name == p.Second.Name && p.First.SourceLabel == p.Second.SourceLabel

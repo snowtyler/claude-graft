@@ -20,7 +20,7 @@ public static class Installer
     /// The stub beside the app once published, under launcher\ in a plain build,
     /// or the newest one in the repo's build output while debugging.
     private static readonly Lazy<string?> launcherExe = new(FindLauncher);
-    private static string? LauncherExe => launcherExe.Value;
+    internal static string? LauncherExe => launcherExe.Value;
 
     /// Where earlier versions copied the stub, and where their shortcuts point.
     private static string LegacyLauncherDir => Path.Combine(
@@ -53,8 +53,9 @@ public static class Installer
 
         try
         {
-            WriteLink(path, launcher, shortcut.Folder, ClaudeIcon(),
+            WriteLink(path, launcher, shortcut.Folder, ShortcutIcons.LinkIcon(shortcut),
                       $"Open {shortcut.Name} — a Claude Desktop profile");
+            RefreshPinnedCopies(shortcut, launcher);
         }
         catch (Exception e)
         {
@@ -145,6 +146,36 @@ public static class Installer
         Junction.Create(legacy, current);
     }
 
+    /// A copy of the link pinned to the taskbar or Start menu is a separate
+    /// file, and keeps the launcher and icon it was pinned with unless told.
+    private static void RefreshPinnedCopies(Shortcut shortcut, string launcher)
+    {
+        var (file, index) = ShortcutIcons.LinkIcon(shortcut);
+        var desktop = LinkPath(shortcut.Name);
+        var rewritten = false;
+        foreach (var path in LinksToRetarget())
+        {
+            if (string.Equals(path, desktop, StringComparison.OrdinalIgnoreCase)) continue;
+            try
+            {
+                dynamic shell = Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell")!)!;
+                var link = shell.CreateShortcut(path);
+                if (!IsLauncher((string)link.TargetPath)
+                    || !string.Equals(((string)link.Arguments).Trim().Trim('"'), shortcut.Folder, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                link.TargetPath = launcher;
+                link.WorkingDirectory = Path.GetDirectoryName(launcher);
+                if (file.Length > 0) link.IconLocation = file + "," + index;
+                link.Save();
+                rewritten = true;
+            }
+            catch { }
+        }
+        // A taskbar pin is drawn from Explorer's icon cache, keyed by the pin
+        // rather than the file, and only a system-wide notice redraws it.
+        if (rewritten) SHChangeNotify(0x08000000, 0, IntPtr.Zero, IntPtr.Zero);
+    }
+
     /// Everywhere a .lnk to a profile is likely to be: the desktop this app
     /// writes to, and the Start menu and taskbar a person pins it to.
     private static IEnumerable<string> LinksToRetarget()
@@ -160,7 +191,13 @@ public static class Installer
         {
             if (!Directory.Exists(root)) continue;
             IEnumerable<string> links;
-            try { links = Directory.EnumerateFiles(root, "*.lnk", new EnumerationOptions { RecurseSubdirectories = recurse, IgnoreInaccessible = true }).ToList(); }
+            try { links = Directory.EnumerateFiles(root, "*.lnk", new EnumerationOptions
+                {
+                    RecurseSubdirectories = recurse,
+                    IgnoreInaccessible = true,
+                    // The taskbar keeps its pins under a hidden User Pinned folder.
+                    AttributesToSkip = FileAttributes.None,
+                }).ToList(); }
             catch { continue; }
             foreach (var link in links) yield return link;
         }
@@ -168,9 +205,13 @@ public static class Installer
 
     // MARK: - .lnk and icon
 
-    /// Claude's own executable, so the shortcut wears Claude's icon in the Dock's
-    /// Windows equivalent — the taskbar and Start menu.
-    private static string ClaudeIcon() => Launcher.ClaudeExe() ?? "";
+    [System.Runtime.InteropServices.DllImport("shell32.dll")]
+    private static extern void SHChangeNotify(int eventId, uint flags, IntPtr item1, IntPtr item2);
+
+    // Any copy of the launcher, not only this one: a link made by a development
+    // build, or by an install since moved, is still Graft's to replace.
+    private static bool IsLauncher(string target) =>
+        string.Equals(Path.GetFileName(target), "GraftLaunch.exe", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsOurs(string linkPath)
     {
@@ -178,21 +219,19 @@ public static class Installer
         {
             dynamic shell = Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell")!)!;
             var link = shell.CreateShortcut(linkPath);
-            string target = link.TargetPath;
-            return string.Equals(target, LauncherExe, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(target, LegacyLauncherExe, StringComparison.OrdinalIgnoreCase);
+            return IsLauncher((string)link.TargetPath);
         }
         catch { return false; }
     }
 
-    private static void WriteLink(string path, string target, string arguments, string icon, string description)
+    private static void WriteLink(string path, string target, string arguments, (string File, int Index) icon, string description)
     {
         dynamic shell = Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell")!)!;
         var link = shell.CreateShortcut(path);
         link.TargetPath = target;
         link.Arguments = arguments;
         link.WorkingDirectory = Path.GetDirectoryName(target);
-        if (icon.Length > 0) link.IconLocation = icon + ",0";
+        if (icon.File.Length > 0) link.IconLocation = icon.File + "," + icon.Index;
         link.Description = description;
         link.Save();
     }

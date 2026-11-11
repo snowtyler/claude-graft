@@ -30,6 +30,9 @@ public sealed class Shortcut
     [JsonPropertyName("name")] public string Name { get; set; } = "";
     [JsonPropertyName("folder")] public string Folder { get; set; } = "";
     [JsonPropertyName("source")] public ShortcutSource Source { get; set; } = ShortcutSource.Main;
+    /// Absent from an older list reads as Claude's own, so no saved shortcut
+    /// changes colour; only a new one is handed a colour.
+    [JsonPropertyName("iconPreset")] public string IconPreset { get; set; } = Core.IconPreset.Original;
     /// Name the bundle was last installed under, so a rename can clean up.
     [JsonPropertyName("installedName")] public string? InstalledName { get; set; }
 
@@ -45,6 +48,10 @@ public sealed class Shortcut
     [JsonPropertyName("stopAskingChatsFor")] public string? StopAskingChatsFor { get; set; }
 
     [JsonIgnore] public string ProfileDir => GraftPaths.Profile(Folder);
+
+    /// Everything, so an edit that is cancelled or saved loses nothing it did
+    /// not show.
+    public Shortcut Copy() => (Shortcut)MemberwiseClone();
 
     public static Shortcut New(string name, string? folder = null, ShortcutSource? source = null) => new()
     {

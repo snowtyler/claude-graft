@@ -45,6 +45,8 @@
   -->
   <ItemGroup>
     <PackageReference Include="H.NotifyIcon.WinUI" Version="2.4.1" />
+    <!-- Draws the recoloured shortcut icons. -->
+    <PackageReference Include="System.Drawing.Common" Version="10.0.0" />
     <!-- The classic toast API for update notifications. WinUI's own
          AppNotificationManager needs a resource DLL the self-contained runtime
          does not ship, and throws at registration; this path drives the same OS

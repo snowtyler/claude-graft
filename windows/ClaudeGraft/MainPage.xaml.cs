@@ -139,7 +139,7 @@ public sealed partial class MainPage : Page
         App.Store.Load();
         if (!ShowSetup(Onboarding.Check(App.Store))) { Rows.Clear(); return; }
         var built = ProfileRows.Build();
-        var keep = ProfileRows.SameAs(Rows, built);
+        var keep = ProfileRows.KeepShown(Rows, built);
         var rows = keep ? Rows.ToList() : built;
         if (!keep) Rows.Clear();
         // The hint sits below the main card while there are no shortcuts yet.
@@ -527,6 +527,8 @@ public sealed partial class MainPage : Page
                     Installer.RemoveLink(previousName);
                 shortcut.InstalledName = shortcut.Name;
                 App.Store.Update(shortcut);
+                WindowIdentity.IconsChanged();
+                WindowIdentity.Refresh();
             }
             catch (Installer.InstallException ex)
             {

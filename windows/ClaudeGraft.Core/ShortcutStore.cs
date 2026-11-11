@@ -106,6 +106,9 @@ public sealed class ShortcutStore
         return candidate;
     }
 
+    /// The colour a shortcut added now is handed: one no other shortcut wears.
+    public string NextIconPreset() => IconPreset.Next(Shortcuts.Select(s => s.IconPreset));
+
     /// The GraftConfig a shortcut launches with — profile plus resolved source.
     public GraftConfig ConfigFor(Shortcut shortcut) => new()
     {

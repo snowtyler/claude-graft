@@ -88,7 +88,7 @@ public sealed partial class FlyoutView : UserControl
         ProfileScroller.Visibility = ready ? Visibility.Visible : Visibility.Collapsed;
         RefreshButton.Visibility = ready ? Visibility.Visible : Visibility.Collapsed;
         var built = ready ? ProfileRows.Build() : new List<ShortcutRow>();
-        var keep = ProfileRows.SameAs(Rows, built);
+        var keep = ProfileRows.KeepShown(Rows, built);
         if (!keep) Rows.Clear();
         var rows = keep ? Rows.ToList() : built;
         foreach (var row in rows)
