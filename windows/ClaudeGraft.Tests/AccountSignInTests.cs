@@ -102,6 +102,29 @@ public sealed class PoolAccountsTests : IDisposable
         Assert.Equal("new", PoolAccounts.Unseal(Assert.Single(PoolAccounts.Load()).Sealed));
     }
 
+    [Fact(DisplayName = "each account is given a colour once, in the order added, never one a Claude already wears")]
+    public void Colours()
+    {
+        var older = new PoolAccount { Id = "account:1", Sealed = "", Added = DateTimeOffset.UnixEpoch.AddDays(1) };
+        var newer = new PoolAccount { Id = "account:2", Sealed = "", Added = DateTimeOffset.UnixEpoch.AddDays(2) };
+        var mirrored = new PoolAccount { Id = "account:3", Sealed = "", Added = DateTimeOffset.UnixEpoch };
+        var accounts = new List<PoolAccount> { newer, older, mirrored };
+        Assert.True(PoolAccounts.Colour(accounts, ["blue"], a => a.Id == "account:3" ? "blue" : null));
+        Assert.Equal("blue", accounts[2].IconPreset);
+        Assert.Equal("violet", accounts[1].IconPreset);
+        Assert.Equal("green", accounts[0].IconPreset);
+        Assert.False(PoolAccounts.Colour(accounts, ["violet"], _ => null));
+        Assert.Equal("violet", accounts[1].IconPreset);
+    }
+
+    [Fact(DisplayName = "signing in again keeps the colour an account was given")]
+    public void KeepsColour()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        PoolAccounts.Save([A("account:1", "u1", "old") with { IconPreset = "teal" }]);
+        Assert.Equal("teal", PoolAccounts.Add(A("account:new", "u1", "new")).IconPreset);
+    }
+
     [Fact(DisplayName = "an account nobody draws on any more is forgotten with its login")]
     public void Forgets()
     {

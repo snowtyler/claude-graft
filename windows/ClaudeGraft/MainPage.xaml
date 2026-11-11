@@ -293,6 +293,8 @@
                                                         </Grid.ColumnDefinitions>
                                                         <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center"
                                                                     AutomationProperties.Name="{x:Bind Spoken}" AutomationProperties.AutomationId="{x:Bind Id}">
+                                                            <Image Source="{x:Bind Icon}" Visibility="{x:Bind IconVisibility}" Width="16" Height="16"
+                                                                   VerticalAlignment="Center" AutomationProperties.AccessibilityView="Raw" />
                                                             <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" />
                                                         </StackPanel>
                                                         <TextBlock Grid.Column="1" Text="{x:Bind State}" Foreground="{x:Bind StateBrush}" Margin="10,0,0,0"

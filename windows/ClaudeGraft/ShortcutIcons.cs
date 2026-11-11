@@ -51,6 +51,13 @@ public static class ShortcutIcons
         return result;
     }
 
+    /// One preset's small PNG, or null where none could be drawn.
+    public static string? Preview(string preset)
+    {
+        try { return Ensure(IconPreset.Normalize(preset), preview: true); }
+        catch { return null; }
+    }
+
     /// Redraws, in place, the icons in use once Claude's own has changed, so
     /// links already made follow it.
     public static void Refresh(IEnumerable<Shortcut> shortcuts)

@@ -422,6 +422,13 @@ public sealed partial class MainPage : Page
     private void ShowSharing()
     {
         var sharing = UsageSharing.Load();
+        var accounts = PoolAccounts.Load();
+        try
+        {
+            if (PoolAccounts.Colour(accounts, App.Store.Shortcuts.Select(s => s.IconPreset).ToList(), a => ClaudeColour(a.AccountUuid)))
+                PoolAccounts.Save(accounts);
+        }
+        catch (IOException) { }
         var result = App.SharingResult;
         foreach (var row in Rows.ToList())
         {
@@ -440,6 +447,7 @@ public sealed partial class MainPage : Page
                     Claude = row, Key = key, Name = NameOf(key),
                     State = state.Length == 0 ? "Checking its login…" : char.ToUpper(state[0]) + state[1..],
                     Attention = same || state.Contains("refused") || state.Contains("expired") || state.Contains("not signed in") || state.Contains("unreadable"),
+                    Icon = PresetIcon(PresetOf(key, accounts)),
                     Figures = profile is not null && UsageMonitor.Peek(profile)?.Usage is { } usage
                         ? (usage.FiveHour is int five ? $"5h {five}% · " : "") + $"Week {usage.Week}%"
                         : "",
@@ -447,6 +455,30 @@ public sealed partial class MainPage : Page
             }).ToList());
         }
     }
+
+    // A Claude wears its own colour, Claude's own being the original; an account wears the
+    // colour of a Claude signed in to it, or the one it was given, and graphite before that.
+    private static string PresetOf(string key, IReadOnlyList<PoolAccount> accounts)
+    {
+        if (key == UsageSharing.MainKey) return IconPreset.Original;
+        if (App.Store.Shortcuts.FirstOrDefault(s => s.Id.ToString() == key) is { } shortcut) return shortcut.IconPreset;
+        var account = accounts.FirstOrDefault(a => a.Id == key);
+        return ClaudeColour(account?.AccountUuid) ?? account?.IconPreset ?? "graphite";
+    }
+
+    private static string? ClaudeColour(string? accountUuid)
+    {
+        if (accountUuid is null) return null;
+        if (Graft.Account(GraftPaths.DefaultProfile) == accountUuid) return IconPreset.Original;
+        return App.Store.Shortcuts.FirstOrDefault(s => Graft.Account(s.ProfileDir) == accountUuid)?.IconPreset;
+    }
+
+    private static readonly Dictionary<string, Microsoft.UI.Xaml.Media.ImageSource?> PresetIcons = [];
+
+    private static Microsoft.UI.Xaml.Media.ImageSource? PresetIcon(string preset) =>
+        PresetIcons.TryGetValue(preset, out var known) ? known
+            : PresetIcons[preset] = ShortcutIcons.Preview(preset) is { } file
+                ? new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(file)) : null;
 
     private static string? ProfileOf(string key) => key == UsageSharing.MainKey ? GraftPaths.DefaultProfile
         : App.Store.Shortcuts.FirstOrDefault(s => s.Id.ToString() == key)?.ProfileDir;

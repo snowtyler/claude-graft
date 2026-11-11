@@ -22,6 +22,8 @@ public sealed record PoolAccount
     public DateTimeOffset Expires { get; init; }
     public DateTimeOffset Added { get; init; }
     public required string Sealed { get; init; }
+    /// The colour it wears beside its name, handed out once; null until given one.
+    public string? IconPreset { get; init; }
 
     public string Name => Email ?? OrganizationName ?? "Signed-in account";
     public static bool IsAccount(string key) => key.StartsWith(Prefix, StringComparison.Ordinal);
@@ -47,12 +49,28 @@ public static class PoolAccounts
         System.IO.File.Move(temp, File, overwrite: true);
     }
 
+    /// Gives each account without a colour one, once and in the order they were added:
+    /// the colour of the Claude signed in to the same account, or the first nobody wears.
+    /// Answers whether anything changed, so the caller saves only then.
+    public static bool Colour(List<PoolAccount> accounts, IReadOnlyCollection<string> claudeColours, Func<PoolAccount, string?> sameAccountClaude)
+    {
+        if (accounts.All(a => a.IconPreset is not null)) return false;
+        foreach (var index in Enumerable.Range(0, accounts.Count).OrderBy(i => accounts[i].Added))
+        {
+            if (accounts[index].IconPreset is not null) continue;
+            var inUse = claudeColours.Prepend(Core.IconPreset.Original)
+                .Concat(accounts.Where(a => sameAccountClaude(a) is null && a.IconPreset is not null).Select(a => a.IconPreset!));
+            accounts[index] = accounts[index] with { IconPreset = sameAccountClaude(accounts[index]) ?? Core.IconPreset.Next(inUse) };
+        }
+        return true;
+    }
+
     /// A second sign-in to an account already here replaces its login and keeps its id.
     public static PoolAccount Add(PoolAccount account)
     {
         var accounts = Load();
         var index = account.AccountUuid is null ? -1 : accounts.FindIndex(a => a.AccountUuid == account.AccountUuid);
-        var stored = index >= 0 ? account with { Id = accounts[index].Id } : account;
+        var stored = index >= 0 ? account with { Id = accounts[index].Id, IconPreset = accounts[index].IconPreset ?? account.IconPreset } : account;
         if (index >= 0) accounts[index] = stored;
         else accounts.Add(stored);
         Save(accounts);

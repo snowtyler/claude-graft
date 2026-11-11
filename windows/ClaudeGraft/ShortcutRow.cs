@@ -419,6 +419,9 @@ public sealed class LenderLine
     public string State { get; init; } = "";
     public bool Attention { get; init; }
     public string Figures { get; init; } = "";
+    /// The account's colour, as its Claude's icon wears it, so a row reads as the same account the sidebar shows.
+    public Microsoft.UI.Xaml.Media.ImageSource? Icon { get; init; }
+    public Visibility IconVisibility => Icon is null ? Visibility.Collapsed : Visibility.Visible;
     public string Spoken => State.Length == 0 ? Name : $"{Name}, {State}";
     public string RemoveName => $"Stop drawing on {Name}";
     public string RemoveId => Id + ".remove";

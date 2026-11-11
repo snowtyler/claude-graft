@@ -32,15 +32,15 @@
         <TitleBar x:Name="AppTitleBar" Height="52" IsPaneToggleButtonVisible="True" PaneToggleRequested="AppTitleBar_PaneToggleRequested">
             <!-- Left, not the centred Content slot: the heading starts at the page's edge, as on the Mac. -->
             <!-- Left, not the centred Content slot: the heading starts at the page's edge, as on the Mac.
-                 The + sits at the sidebar's right edge, across from the toggle, where the sidebar's own actions are. -->
+                 Settings sits at the sidebar's right edge, across from the toggle; New Shortcut is in the list itself. -->
             <TitleBar.LeftHeader>
                 <StackPanel Orientation="Horizontal">
                     <Grid x:Name="SidebarSpacer" Width="192">
-                        <Button x:Name="NewShortcutButton" Click="NewShortcut_Click" Width="34" Height="30" CornerRadius="6" Padding="0"
+                        <Button x:Name="SettingsButton" Click="Settings_Click" Width="34" Height="30" CornerRadius="6" Padding="0"
                                 HorizontalAlignment="Right" Margin="0,0,6,0" Background="Transparent" BorderThickness="0"
-                                ToolTipService.ToolTip="New Shortcut" AutomationProperties.Name="New Shortcut"
-                                AutomationProperties.AutomationId="manager.add">
-                            <FontIcon Glyph="&#xE710;" FontSize="14" />
+                                ToolTipService.ToolTip="Settings" AutomationProperties.Name="Settings"
+                                AutomationProperties.AutomationId="sidebar.settings">
+                            <FontIcon Glyph="&#xE713;" FontSize="14" />
                         </Button>
                     </Grid>
                     <StackPanel VerticalAlignment="Center" Margin="26,0,0,0">
@@ -96,12 +96,6 @@
                                     ToolTipService.ToolTip="Another Claude, with its own login and chats">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE710;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>            </NavigationView.MenuItems>
-            <NavigationView.FooterMenuItems>
-                <NavigationViewItem Content="Settings" Tag="settings" SelectsOnInvoked="False"
-                                    AutomationProperties.AutomationId="sidebar.settings">
-                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE713;" /></NavigationViewItem.Icon>
-                </NavigationViewItem>
-            </NavigationView.FooterMenuItems>
             <NavigationView.PaneFooter>
                 <!-- Claude's own version, here rather than across the top of a
                      page, where one line took the full width above every Claude. -->
@@ -109,6 +103,26 @@
                     <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="12,0" />
                     <local:ClaudeUpdateLine x:Name="UpdateLine" Stacked="True" Margin="16,10,12,8"
                                             RestartRequested="ClaudeRestart_Requested" />
+                    <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="12,0" />
+                    <!-- Who made it and where it comes from, at the foot of the sidebar as on the Mac. -->
+                    <Grid Margin="8,4,8,4">
+                        <HyperlinkButton Click="Support_Click" Padding="8,4" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                         ToolTipService.ToolTip="Claude Graft is free. A tip on Ko-fi is what keeps it worked on."
+                                         AutomationProperties.Name="Support" AutomationProperties.AutomationId="support">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xEB51;" FontSize="12" />
+                                <TextBlock Text="Support" Style="{StaticResource CaptionTextBlockStyle}" />
+                            </StackPanel>
+                        </HyperlinkButton>
+                        <HyperlinkButton x:Name="SourceLink" Click="Source_Click" HorizontalAlignment="Right" Padding="8,4"
+                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                         AutomationProperties.Name="Source" AutomationProperties.AutomationId="source">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE943;" FontSize="12" />
+                                <TextBlock Text="Source" Style="{StaticResource CaptionTextBlockStyle}" />
+                            </StackPanel>
+                        </HyperlinkButton>
+                    </Grid>
                 </StackPanel>
             </NavigationView.PaneFooter>
             <Grid>

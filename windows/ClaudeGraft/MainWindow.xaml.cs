@@ -22,6 +22,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        ToolTipService.SetToolTip(SourceLink, Links.Source);
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
@@ -85,14 +86,12 @@ public sealed partial class MainWindow : Window
         var open = Sections.IsPaneVisible;
         SidebarColumn.Width = new GridLength(open ? Sections.OpenPaneLength : 0);
         SidebarSpacer.Width = open ? Sections.OpenPaneLength - 48 : 0;
-        NewShortcutButton.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        SettingsButton.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    private async void NewShortcut_Click(object sender, RoutedEventArgs e)
+    private async void Settings_Click(object sender, RoutedEventArgs e)
     {
-        if (RootFrame.Content is not MainPage page) return;
-        ShowClaudes();
-        await page.AddAsync();
+        if (RootFrame.Content is MainPage page) await page.OpenSettingsAsync();
     }
 
     private bool _rebuilding;
@@ -174,7 +173,6 @@ public sealed partial class MainWindow : Window
             ShowClaudes();
             await page.AddAsync();
         }
-        else if (tag == "settings") await page.OpenSettingsAsync();
     }
 
     private async void ClaudeRestart_Requested()
@@ -211,6 +209,11 @@ public sealed partial class MainWindow : Window
     }
 
     private bool _leftClaudes;
+
+    private void Support_Click(object sender, RoutedEventArgs e) => OpenLink(Links.Support);
+    private void Source_Click(object sender, RoutedEventArgs e) => OpenLink(Links.Source);
+
+    private static void OpenLink(string url) => _ = Windows.System.Launcher.LaunchUriAsync(new Uri(url));
 
     /// A Claude's page again, for the tray's entries that act on that page; the
     /// one already chosen stays chosen.
