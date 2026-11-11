@@ -7,12 +7,14 @@ public class RowTemplateAuditTests
 {
     // A reused row's x:Bind sets IsChecked before Tag, so a Checked or Unchecked
     // handler in the template writes the new row's value into the old row's setting.
-    [Fact(DisplayName = "a checkbox in the profile list saves only on a click, never on a binding's change")]
+    [Fact(DisplayName = "keep-warm saves only on a person's toggle, never on a binding's change")]
     public void KeepWarmSavesOnClickOnly()
     {
         var xaml = File.ReadAllText(Path.Combine(WindowsRoot(), "ClaudeGraft", "MainPage.xaml"));
         Assert.DoesNotMatch(@"\s(Un)?Checked=""", xaml);
-        Assert.Contains("Click=\"KeepWarm_Click\"", xaml);
+        Assert.Contains("Toggled=\"KeepWarm_Toggled\"", xaml);
+        var code = File.ReadAllText(Path.Combine(WindowsRoot(), "ClaudeGraft", "MainPage.xaml.cs"));
+        Assert.Contains("box.FocusState == FocusState.Unfocused) return;", code);
     }
 
     private static string WindowsRoot([CallerFilePath] string here = "") =>

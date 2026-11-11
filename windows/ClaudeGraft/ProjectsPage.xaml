@@ -23,7 +23,7 @@
             </Grid.ColumnDefinitions>
             <FontIcon Glyph="&#xE8B7;" FontSize="16" Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.AccessibilityView="Raw" />
             <TextBlock Grid.Column="1" Text="Projects" Style="{StaticResource BodyStrongTextBlockStyle}" VerticalAlignment="Center" />
-            <Button Grid.Column="2" Padding="4" Background="Transparent" BorderThickness="0"
+            <Button Style="{StaticResource InfoGlyphButton}" Grid.Column="2"
                     AutomationProperties.Name="About Projects" AutomationProperties.AutomationId="projects.info"
                     ToolTipService.ToolTip="About Projects">
                 <FontIcon Glyph="&#xE946;" FontSize="14" />

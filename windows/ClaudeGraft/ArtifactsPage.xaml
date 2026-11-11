@@ -23,7 +23,7 @@
             </Grid.ColumnDefinitions>
             <FontIcon Glyph="&#xE8A9;" FontSize="16" Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.AccessibilityView="Raw" />
             <TextBlock Grid.Column="1" Text="Artifacts" Style="{StaticResource BodyStrongTextBlockStyle}" VerticalAlignment="Center" />
-            <Button Grid.Column="2" x:Name="InfoButton" Padding="4" Background="Transparent" BorderThickness="0"
+            <Button Style="{StaticResource InfoGlyphButton}" Grid.Column="2" x:Name="InfoButton"
                     AutomationProperties.Name="About Artifacts" AutomationProperties.AutomationId="artifacts.info"
                     ToolTipService.ToolTip="About Artifacts">
                 <FontIcon Glyph="&#xE946;" FontSize="14" />

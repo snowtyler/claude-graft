@@ -59,6 +59,40 @@ public sealed partial class MainWindow : Window
         RebuildClaudes();
     }
 
+    /// The chosen Claude's name and state, or the section's name, as the Mac's
+    /// window title and subtitle.
+    private void ShowHeading()
+    {
+        var tag = (Sections.SelectedItem as NavigationViewItem)?.Tag as string;
+        (string Title, string Subtitle) heading = tag switch
+        {
+            "artifacts" => ("Artifacts", "Every account"),
+            "projects" => ("Projects", "Every account"),
+            "search" => ("Search Chats", "Every account"),
+            _ => RootFrame.Content is MainPage page ? page.Heading : ("Claude", ""),
+        };
+        HeadingTitle.Text = heading.Title;
+        HeadingSubtitle.Text = heading.Subtitle;
+        Title = heading.Title == "Claude Graft" ? heading.Title : $"{heading.Title} · Claude Graft";
+    }
+
+    // Hidden outright, as the Mac's is: folded to WinUI's icon rail, the two-line items stretched it into a scroll.
+    private void AppTitleBar_PaneToggleRequested(TitleBar sender, object args)
+    {
+        Sections.IsPaneVisible = !Sections.IsPaneVisible;
+        var open = Sections.IsPaneVisible;
+        SidebarColumn.Width = new GridLength(open ? Sections.OpenPaneLength : 0);
+        SidebarSpacer.Width = open ? Sections.OpenPaneLength - 48 : 0;
+        NewShortcutButton.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private async void NewShortcut_Click(object sender, RoutedEventArgs e)
+    {
+        if (RootFrame.Content is not MainPage page) return;
+        ShowClaudes();
+        await page.AddAsync();
+    }
+
     private bool _rebuilding;
     private string _builtSignature = "";
 
@@ -78,39 +112,44 @@ public sealed partial class MainWindow : Window
         else if (!page.Drafting && Sections.SelectedItem is null) SelectFocused(page);
         // Entries made afresh have no indicator to slide from, so a choice that
         // changed no Claude leaves them where they are.
-        var signature = string.Join("\n", page.Rows.Select(r => $"{r.Key}|{r.Name}|{r.SourceLabel}|{r.Shortcut?.Source.Kind}"));
+        var signature = string.Join("\n", page.Rows.Select(r => $"{r.Key}|{r.Name}|{r.SourceLabel}|{r.Shortcut?.Source.Kind}|{r.Shortcut?.InstalledName}"));
         if (signature == _builtSignature) return;
         _builtSignature = signature;
         _rebuilding = true;
         try
         {
             var items = Sections.MenuItems;
-            var start = items.IndexOf(ClaudesHeader) + 1;
-            while (items[start] != NewClaudeItem) items.RemoveAt(start);
+            foreach (var old in items.OfType<NavigationViewItem>().Where(i => ((string?)i.Tag)?.StartsWith("claude:") == true).ToList())
+                items.Remove(old);
             var showingClaude = Sections.SelectedItem is not NavigationViewItem { Tag: string t } || t.StartsWith("claude:");
+            // Claude heads the first section, as on the Mac; the shortcuts have their own.
+            var mainAt = items.IndexOf(ClaudesHeader) + 1;
+            var shortcutAt = items.IndexOf(ShortcutsHeader) + 1;
             foreach (var row in page.Rows.ToList())
             {
+                var line = row.Shortcut is null ? "Installed normally"
+                    : row.Shortcut.InstalledName is null ? "Not created yet" : row.SourceLabel;
                 var words = new StackPanel { Spacing = 1 };
                 words.Children.Add(new TextBlock { Text = row.Name, TextTrimming = TextTrimming.CharacterEllipsis });
-                var line = row.Shortcut is null ? "Installed normally" : row.SourceLabel;
                 words.Children.Add(new TextBlock
                 {
                     Text = line, TextTrimming = TextTrimming.CharacterEllipsis,
                     Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
                     Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
                 });
-                var item = new NavigationViewItem
-                {
-                    Content = words, Tag = "claude:" + row.Key,
-                    Icon = new FontIcon { Glyph = row.Shortcut is null ? "" : row.Shortcut.Source.Kind == SourceKind.Own ? "" : "" },
-                };
+                var glyph = row.Shortcut is null ? "\uE80F" : row.Shortcut.Source.Kind == SourceKind.Own ? "\uEA3A" : "\uE71B";
+                var item = new NavigationViewItem { Content = words, Tag = "claude:" + row.Key, Icon = new FontIcon { Glyph = glyph } };
                 AutomationProperties.SetName(item, $"{row.Name}, {line}");
                 AutomationProperties.SetAutomationId(item, "sidebar." + row.Key);
-                items.Insert(start++, item);
+                if (row.Shortcut is null)
+                {
+                    items.Insert(mainAt, item);
+                    shortcutAt++;
+                }
+                else items.Insert(shortcutAt++, item);
                 if (showingClaude && row.Key == page.Focused) Sections.SelectedItem = item;
             }
-        }
-        finally { _rebuilding = false; }
+        }        finally { _rebuilding = false; }
     }
 
     private void SelectFocused(MainPage page)
@@ -145,6 +184,7 @@ public sealed partial class MainWindow : Window
     {
         var tag = (args.SelectedItem as Microsoft.UI.Xaml.Controls.NavigationViewItem)?.Tag as string;
         var claudes = tag is null || tag.StartsWith("claude:");
+        DispatcherQueue.TryEnqueue(ShowHeading);
         if (claudes && !_rebuilding && tag is not null && RootFrame.Content is MainPage page) page.Focus(tag["claude:".Length..]);
         RootFrame.Visibility = claudes ? Visibility.Visible : Visibility.Collapsed;
         SectionFrame.Visibility = claudes ? Visibility.Collapsed : Visibility.Visible;
@@ -218,9 +258,6 @@ public sealed partial class MainWindow : Window
         {
             var backdrop = Appearance.ToBackdrop(settings.Backdrop);
             SystemBackdrop = backdrop;
-            RootGrid.Background = backdrop is null
-                ? (Brush)Application.Current.Resources["ApplicationPageBackgroundThemeBrush"]
-                : null;
             _appliedBackdrop = settings.Backdrop;
         }
 

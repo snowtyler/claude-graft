@@ -83,6 +83,7 @@ public sealed class ShortcutRow : INotifyPropertyChanged
         _running = running;
         Notify(nameof(StatusBrush));
         Notify(nameof(StatusLabel));
+        Notify(nameof(StateLine));
         Notify(nameof(SpokenName));
     }
 
@@ -112,7 +113,7 @@ public sealed class ShortcutRow : INotifyPropertyChanged
         foreach (var name in new[]
         {
             nameof(FiveHour), nameof(FiveHourBarVisibility), nameof(Week), nameof(FiveHourText), nameof(WeekText),
-            nameof(Fable), nameof(FableText), nameof(FableVisibility),
+            nameof(Fable), nameof(FableText), nameof(FableVisibility), nameof(FiveHourPercent), nameof(FiveHourLeft), nameof(WeekPercent), nameof(WeekLeft), nameof(FablePercent), nameof(FableLeft), nameof(FiveHourNoLimitVisibility),
             nameof(BarsVisibility), nameof(NoUsageVisibility), nameof(BarsOpacity),
         }) Notify(name);
         NotifyStatus();
@@ -135,7 +136,7 @@ public sealed class ShortcutRow : INotifyPropertyChanged
         foreach (var name in new[]
         {
             nameof(FiveHour), nameof(FiveHourBarVisibility), nameof(Week), nameof(Fable), nameof(FiveHourText), nameof(WeekText),
-            nameof(FableText), nameof(BarsOpacity), nameof(StartEnabled), nameof(StartTooltip),
+            nameof(FableText), nameof(BarsOpacity), nameof(StartEnabled), nameof(StartTooltip), nameof(FiveHourLeft), nameof(WeekLeft), nameof(FableLeft),
         }) Notify(name);
         NotifyStatus();
     }
@@ -200,6 +201,20 @@ public sealed class ShortcutRow : INotifyPropertyChanged
     public int Fable => Current?.Fable ?? 0;
     public string FableText => Line("Fable", Fable, Current?.FableReset);
     public Visibility FableVisibility => _usage?.Usage?.Fable is not null ? Visibility.Visible : Visibility.Collapsed;
+
+    // The Mac's rows: the label, the bar, the figure and the time left, each in a column of its own.
+    public string FiveHourPercent => $"{FiveHour}%";
+    public string FiveHourLeft => Left(Current?.FiveHourReset);
+    public Visibility FiveHourNoLimitVisibility => Current is { FiveHour: null } ? Visibility.Visible : Visibility.Collapsed;
+    public string WeekPercent => $"{Week}%";
+    public string WeekLeft => Left(Current?.WeekReset);
+    public string FablePercent => $"{Fable}%";
+    public string FableLeft => Left(Current?.FableReset);
+    private static string Left(DateTimeOffset? reset) => reset is DateTimeOffset r && Graft.Countdown(r) is string left ? left : "";
+
+    /// Created or not, and running or not, under the page's title, as the Mac's subtitle.
+    public string StateLine => (Shortcut is null ? "" : (Shortcut.InstalledName is null ? "Not created yet" : "Created") + " · ")
+        + (_running ? "Running" : "Not running");
 
     private static string Line(string label, int percent, DateTimeOffset? reset)
     {
@@ -371,5 +386,34 @@ public sealed class ShortcutRow : INotifyPropertyChanged
     private void Notify(string name) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
+    /// The accounts this Claude draws on, one row each, as the Mac lists them.
+    public IReadOnlyList<LenderLine> Lenders { get; private set; } = [];
+    public Visibility NoLendersVisibility => Lenders.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    public string AddLenderLabel => Lenders.Count == 0 ? "Add an Account" : "Add Another Account";
+
+    public void SetLenders(IReadOnlyList<LenderLine> lenders)
+    {
+        Lenders = lenders;
+        Notify(nameof(Lenders));
+        Notify(nameof(NoLendersVisibility));
+        Notify(nameof(AddLenderLabel));
+    }
+
     public event PropertyChangedEventHandler? PropertyChanged;
+}
+
+/// One account a Claude draws on: its name, how it stands, and its figures.
+public sealed class LenderLine
+{
+    public required ShortcutRow Claude { get; init; }
+    public required string Key { get; init; }
+    public required string Name { get; init; }
+    public string State { get; init; } = "";
+    public bool Attention { get; init; }
+    public string Figures { get; init; } = "";
+    public string Spoken => State.Length == 0 ? Name : $"{Name}, {State}";
+    public string RemoveName => $"Stop drawing on {Name}";
+    public string RemoveId => Id + ".remove";
+    public string Id => Spoken.Length == 0 ? "" : ClaudeGraft.Spoken.Id("manager", Claude.Key, "lender." + Key[^Math.Min(8, Key.Length)..]);
+    public Brush StateBrush => (Brush)Application.Current.Resources[Attention ? "SystemFillColorCautionBrush" : "TextFillColorSecondaryBrush"];
 }

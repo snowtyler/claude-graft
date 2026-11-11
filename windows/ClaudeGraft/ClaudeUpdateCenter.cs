@@ -105,14 +105,25 @@ public static class ClaudeUpdateCenter
     /// The Failed line's button retries whichever of the two failed.
     public static Task RetryAsync() => _installFailed ? UpdateAsync() : CheckAsync();
 
-    public static async Task CheckAsync()
+    /// A press of the sidebar's button: the line says it is checking for long
+    /// enough to be seen, since an unchanged answer otherwise looks like nothing.
+    public static Task CheckNowAsync()
+    {
+        if (Volatile.Read(ref _busy) != 0) return Task.CompletedTask;
+        Set(Phase.Checking);
+        return CheckAsync(Task.Delay(800));
+    }
+
+    public static async Task CheckAsync() => await CheckAsync(null);
+
+    private static async Task CheckAsync(Task? shown)
     {
         if (Interlocked.CompareExchange(ref _busy, 1, 0) != 0) return;
         try
         {
             if (!ClaudeDesktopUpdates.IsSquirrel) { ReadLocalOnly(); return; }
             Installed = ClaudeDesktopUpdates.InstalledVersion();
-            if (Installed is null) return;
+            if (Installed is null) { ReadLocal(); return; }
             try
             {
                 Latest = await ClaudeDesktopUpdates.LatestAsync(Installed);
@@ -124,6 +135,7 @@ public static class ClaudeUpdateCenter
                 _checkFailed = true;
                 Diagnostics.Note("claude-update.check-failed", new Dictionary<string, object?> { ["error"] = e.Message });
             }
+            if (shown is not null) await shown;
             Interlocked.Exchange(ref _busy, 0);
             ReadLocal();
         }

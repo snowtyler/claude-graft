@@ -67,52 +67,52 @@ public sealed partial class ProfileEditor : UserControl
             .Select(s => new SourceOption { Label = App.Store.Label(s), Source = s }).ToList();
         SourceBox.ItemsSource = options;
         SourceBox.SelectedItem = options.FirstOrDefault(o => o.Source.Equals(_shortcut.Source)) ?? options.FirstOrDefault();
-        MergeNote.IsOpen = _shortcut.Source.Kind != SourceKind.Own;
+        ShowSource();
         Problem.IsOpen = false;
         _filling = false;
-        DeleteButton.Visibility = _isNew ? Visibility.Collapsed : Visibility.Visible;
-        SaveText.Text = _isNew ? "Create" : "Save";
-        RevertButton.Content = _isNew ? "Discard" : "Revert";
-        AutomationProperties.SetName(SaveButton, _isNew ? "Create Claude" : "Save Changes");
-        AutomationProperties.SetName(RevertButton, _isNew ? "Discard New Claude" : "Revert Changes");
         if (IconGrid.ItemsSource is IReadOnlyList<IconChoice> choices) ShowIcon(choices);
         Changed();
     }
 
+    private void ShowSource()
+    {
+        var own = _shortcut.Source.Kind == SourceKind.Own;
+        var label = App.Store.Label(_shortcut.Source);
+        MergeNote.Visibility = own ? Visibility.Collapsed : Visibility.Visible;
+        MergeText.Text = $"Shared both ways with {label}";
+        SourceInfoText.Text = own
+            ? "This profile keeps its own Claude Code history, connectors and preferences. Nothing is shared."
+            : $"Merges this profile's Claude Code chats with {label}'s, and shares extensions and window state. "
+              + "Missing local MCP servers are copied; existing server settings are kept. Logins and permission choices stay separate.";
+    }
+
+    /// Raised whenever what the page's buttons may do has changed.
+    public event Action? StateChanged;
+    public bool IsNew => _isNew;
+    public bool IsDirty { get; private set; }
+
     private bool _busy;
 
-    /// While a save moves files and makes the shortcut, which can take seconds:
-    /// the button spins, and nothing here can start a second one.
+    /// While a save moves files and makes the shortcut, which can take seconds;
+    /// the fields hold still, since what is being written was read from them.
     public bool Busy
     {
         get => _busy;
         set
         {
             _busy = value;
-            SaveText.Opacity = value ? 0 : 1;
-            SaveRing.IsActive = value;
-            SaveRing.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
-            DeleteButton.IsEnabled = !value;
+            NameBox.IsEnabled = FolderBox.IsEnabled = SourceBox.IsEnabled = IconButton.IsEnabled = !value;
             Changed();
         }
     }
 
-    /// Save and Revert wait for something to save or revert; a draft can always
-    /// be created or discarded.
     private void Changed()
     {
-        if (_busy)
-        {
-            SaveButton.IsEnabled = RevertButton.IsEnabled = false;
-            return;
-        }
-        var dirty = _isNew || _original is null
+        IsDirty = _isNew || _original is null
             || NameBox.Text.Trim() != _original.Name || FolderBox.Text.Trim() != _original.Folder
             || !_shortcut.Source.Equals(_original.Source) || _shortcut.IconPreset != _original.IconPreset;
-        SaveButton.IsEnabled = dirty;
-        RevertButton.IsEnabled = dirty;
+        StateChanged?.Invoke();
     }
-
     private static IReadOnlyDictionary<string, string?>? _previews;
 
     private async Task ShowIcons()
@@ -164,11 +164,18 @@ public sealed partial class ProfileEditor : UserControl
     {
         if (SourceBox.SelectedItem is not SourceOption option) return;
         _shortcut.Source = option.Source;
-        MergeNote.IsOpen = option.Source.Kind != SourceKind.Own;
+        ShowSource();
         if (!_filling) Changed();
     }
 
-    private void Save_Click(object sender, RoutedEventArgs e)
+    private void ShowFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var folder = GraftPaths.Profile(_original?.Folder ?? FolderBox.Text.Trim());
+        if (Directory.Exists(folder))
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"\"{folder}\"") { UseShellExecute = false })?.Dispose();
+    }
+
+    public void Save()
     {
         if (_busy) return;
         var name = NameBox.Text.Trim();
@@ -182,17 +189,17 @@ public sealed partial class ProfileEditor : UserControl
         Saved?.Invoke(_original ?? result, result, _isNew);
     }
 
-    private void Revert_Click(object sender, RoutedEventArgs e)
+    /// A draft goes; an existing Claude's fields go back to what is saved.
+    public void Revert()
     {
         if (_isNew) Discarded?.Invoke();
         else Edit(_original);
     }
 
-    private void Delete_Click(object sender, RoutedEventArgs e)
+    public void RequestDelete()
     {
         if (_original is not null) DeleteRequested?.Invoke(_original);
     }
-
     private void Reject(string message)
     {
         Problem.Message = message;

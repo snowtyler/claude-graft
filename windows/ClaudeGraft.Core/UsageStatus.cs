@@ -36,8 +36,8 @@ public static class UsageStatus
 
         if (entry.UpdatedAt is not { } updated) return null;
         return entry.IsLive
-            ? new Line($"Usage updated {Ago(updated, now)}", false)
-            : new Line($"From Claude's own record, {Ago(updated, now)}", false);
+            ? new Line($"Updated {Ago(updated, now)} from Anthropic", false)
+            : new Line($"Updated {Ago(updated, now)} from this profile's own record", false);
     }
 
     public static string Ago(DateTimeOffset then, DateTimeOffset now) =>

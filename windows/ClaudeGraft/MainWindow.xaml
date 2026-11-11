@@ -8,7 +8,8 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     Title="Claude Graft"
     mc:Ignorable="d">
-    <Grid x:Name="RootGrid">
+    <!-- Painted whatever the backdrop: the Mac's window is solid, and a material showing through tinted the sidebar and title bar cool. -->
+    <Grid x:Name="RootGrid" Background="{ThemeResource GraftSidebarBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -16,7 +17,41 @@
 
         <!-- The logo and wordmark live in the page header, so the title bar is
              just a drag region: no icon, no title text, only the caption buttons. -->
-        <TitleBar x:Name="AppTitleBar" />
+        <!-- The strip over the page wears the page header's colour and the part
+             over the sidebar the sidebar's, so the two read as one piece each. -->
+        <Grid IsHitTestVisible="False">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="SidebarColumn" Width="240" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Border Grid.Column="1" x:Name="TitleOverPage" Background="{ThemeResource GraftHeaderBrush}"
+                    BorderThickness="1,0,0,0" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" />
+        </Grid>
+        <!-- The page's title and state sit in the title bar, as the Mac's do, rather
+             than in a header of their own under an empty one. -->
+        <TitleBar x:Name="AppTitleBar" Height="52" IsPaneToggleButtonVisible="True" PaneToggleRequested="AppTitleBar_PaneToggleRequested">
+            <!-- Left, not the centred Content slot: the heading starts at the page's edge, as on the Mac. -->
+            <!-- Left, not the centred Content slot: the heading starts at the page's edge, as on the Mac.
+                 The + sits at the sidebar's right edge, across from the toggle, where the sidebar's own actions are. -->
+            <TitleBar.LeftHeader>
+                <StackPanel Orientation="Horizontal">
+                    <Grid x:Name="SidebarSpacer" Width="192">
+                        <Button x:Name="NewShortcutButton" Click="NewShortcut_Click" Width="34" Height="30" CornerRadius="6" Padding="0"
+                                HorizontalAlignment="Right" Margin="0,0,6,0" Background="Transparent" BorderThickness="0"
+                                ToolTipService.ToolTip="New Shortcut" AutomationProperties.Name="New Shortcut"
+                                AutomationProperties.AutomationId="manager.add">
+                            <FontIcon Glyph="&#xE710;" FontSize="14" />
+                        </Button>
+                    </Grid>
+                    <StackPanel VerticalAlignment="Center" Margin="26,0,0,0">
+                        <TextBlock x:Name="HeadingTitle" Text="Claude" Style="{StaticResource BodyStrongTextBlockStyle}" FontSize="15"
+                                   TextTrimming="CharacterEllipsis" AutomationProperties.HeadingLevel="Level1" />
+                        <TextBlock x:Name="HeadingSubtitle" Style="{StaticResource CaptionTextBlockStyle}" TextTrimming="CharacterEllipsis"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="manager.state" />
+                    </StackPanel>
+                </StackPanel>
+            </TitleBar.LeftHeader>
+        </TitleBar>
 
         <!--
             The Frame hosts pages for your application content. Add your UI to
@@ -30,26 +65,37 @@
                         IsPaneToggleButtonVisible="False" OpenPaneLength="240"
                         SelectionChanged="Sections_SelectionChanged" ItemInvoked="Sections_ItemInvoked">
             <NavigationView.MenuItems>
-                <NavigationViewItemHeader x:Name="ClaudesHeader" Content="Claudes" />
-                <NavigationViewItem x:Name="NewClaudeItem" Content="New Claude…" Tag="new" SelectsOnInvoked="False"
-                                    AutomationProperties.AutomationId="sidebar.newClaude"
-                                    ToolTipService.ToolTip="Another Claude, with its own login and chats">
-                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE710;" /></NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItemHeader Content="Every account" />
-                <NavigationViewItem Content="Artifacts" Tag="artifacts"
+                <NavigationViewItemHeader x:Name="ClaudesHeader" Content="Claude" />
+                <NavigationViewItem Tag="artifacts" AutomationProperties.Name="Artifacts, every account"
                                     AutomationProperties.AutomationId="sidebar.artifacts">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xF0E2;" /></NavigationViewItem.Icon>
+                    <StackPanel Spacing="1">
+                        <TextBlock Text="Artifacts" />
+                        <TextBlock Text="Every account" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
                 </NavigationViewItem>
-                <NavigationViewItem Content="Projects" Tag="projects"
+                <NavigationViewItem Tag="projects" AutomationProperties.Name="Projects, every account"
                                     AutomationProperties.AutomationId="sidebar.projects">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE8B7;" /></NavigationViewItem.Icon>
+                    <StackPanel Spacing="1">
+                        <TextBlock Text="Projects" />
+                        <TextBlock Text="Every account" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
                 </NavigationViewItem>
-                <NavigationViewItem Content="Search Chats" Tag="search"
+                <NavigationViewItem Tag="search" AutomationProperties.Name="Search Chats, every account"
                                     AutomationProperties.AutomationId="sidebar.search">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE721;" /></NavigationViewItem.Icon>
+                    <StackPanel Spacing="1">
+                        <TextBlock Text="Search Chats" />
+                        <TextBlock Text="Every account" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
                 </NavigationViewItem>
-            </NavigationView.MenuItems>
+                <NavigationViewItemHeader x:Name="ShortcutsHeader" Content="Shortcuts" />
+                <NavigationViewItem x:Name="NewClaudeItem" Content="New Shortcut" Tag="new" SelectsOnInvoked="False"
+                                    AutomationProperties.AutomationId="sidebar.newShortcut"
+                                    ToolTipService.ToolTip="Another Claude, with its own login and chats">
+                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE710;" /></NavigationViewItem.Icon>
+                </NavigationViewItem>            </NavigationView.MenuItems>
             <NavigationView.FooterMenuItems>
                 <NavigationViewItem Content="Settings" Tag="settings" SelectsOnInvoked="False"
                                     AutomationProperties.AutomationId="sidebar.settings">
@@ -59,8 +105,11 @@
             <NavigationView.PaneFooter>
                 <!-- Claude's own version, here rather than across the top of a
                      page, where one line took the full width above every Claude. -->
-                <local:ClaudeUpdateLine x:Name="UpdateLine" Stacked="True" Margin="16,8,12,8"
-                                        RestartRequested="ClaudeRestart_Requested" />
+                <StackPanel>
+                    <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="12,0" />
+                    <local:ClaudeUpdateLine x:Name="UpdateLine" Stacked="True" Margin="16,10,12,8"
+                                            RestartRequested="ClaudeRestart_Requested" />
+                </StackPanel>
             </NavigationView.PaneFooter>
             <Grid>
                 <Frame x:Name="RootFrame" />

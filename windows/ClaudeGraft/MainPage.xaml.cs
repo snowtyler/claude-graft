@@ -20,6 +20,8 @@ public sealed partial class MainPage : Page
 
     /// Raised whenever the Claudes or the chosen one change, for the sidebar.
     public event Action? ClaudesChanged;
+    /// The title and state line, which the window shows in its title bar.
+    public (string Title, string Subtitle) Heading => (ClaudeTitle.Text, ClaudeSubtitle.Text);
     /// The Claude on screen, which is the main one when the chosen one is gone.
     public string Focused => Shown.FirstOrDefault()?.Key ?? _focus;
     public bool SetupReady => _setup == SetupState.Ready;
@@ -43,14 +45,12 @@ public sealed partial class MainPage : Page
         if (Drafting)
         {
             ClaudeTitle.Text = "New Claude";
-            ClaudeSubtitle.Text = "Not created yet · nothing is written until Create";
+            ClaudeSubtitle.Text = "Not created yet · Not running";
         }
         else
         {
             ClaudeTitle.Text = row?.Name ?? "Claude";
-            ClaudeSubtitle.Text = row is null ? "" : row.Shortcut is null
-                ? "Installed normally · its own login and chats"
-                : $"Chats: {row.SourceLabel}  ·  {row.Folder}";
+            ClaudeSubtitle.Text = row?.StateLine ?? "";
             // Loaded again only for another Claude, so a reload keeps a half-made edit.
             var shortcut = row?.Shortcut;
             if (shortcut?.Folder != _editing)
@@ -60,7 +60,9 @@ public sealed partial class MainPage : Page
             }
         }
         Editor.Visibility = Drafting || row?.Shortcut is not null ? Visibility.Visible : Visibility.Collapsed;
-        RefreshButton.Visibility = Drafting || _setup != SetupState.Ready ? Visibility.Collapsed : Visibility.Visible;
+        MainIdentity.Visibility = !Drafting && row is { Shortcut: null } ? Visibility.Visible : Visibility.Collapsed;
+        MainFolder.Text = Path.GetFileName(GraftPaths.DefaultProfile);
+        UpdateBottomBar();
         EmptyState.Visibility = !Drafting && row?.Shortcut is null && App.Store.Shortcuts.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         ClaudesChanged?.Invoke();
     }
@@ -86,6 +88,7 @@ public sealed partial class MainPage : Page
         Editor.Saved += Editor_Saved;
         Editor.Discarded += Editor_Discarded;
         Editor.DeleteRequested += Editor_DeleteRequested;
+        Editor.StateChanged += UpdateBottomBar;
         App.SharingChanged += ShowSharing;
         Loaded += (_, _) =>
         {
@@ -151,7 +154,7 @@ public sealed partial class MainPage : Page
         var ready = state == SetupState.Ready;
         Setup.Show(state);
         ProfileList.Visibility = ready ? Visibility.Visible : Visibility.Collapsed;
-        RefreshButton.Visibility = ready ? Visibility.Visible : Visibility.Collapsed;
+        BottomBar.Visibility = ready ? Visibility.Visible : Visibility.Collapsed;
         ClaudesChanged?.Invoke();
         return ready;
     }
@@ -220,15 +223,68 @@ public sealed partial class MainPage : Page
         }
     }
 
-    private void UpdateRefreshButton()
+    /// The refresh buttons sit in each page's usage heading now; what they said
+    /// while held is the bottom bar's to show, through the chosen row.
+    private void UpdateRefreshButton() => UpdateBottomBar();
+
+    private ShortcutRow? _barRow;
+
+    /// The chosen Claude's buttons, which live outside its card so they stay put
+    /// as the page scrolls.
+    private void UpdateBottomBar()
     {
-        var state = UsageStatus.RefreshButton(
-            _loading || Rows.Any(r => r.Fetching), ProfileRows.HeldUntil(Rows), DateTimeOffset.UtcNow);
-        RefreshLabel.Text = state.Text;
-        AutomationProperties.SetName(RefreshButton, state.Text);
-        RefreshButton.IsEnabled = state.Enabled;
+        var row = Shown.FirstOrDefault();
+        if (!ReferenceEquals(row, _barRow))
+        {
+            if (_barRow is not null) _barRow.PropertyChanged -= BarRowChanged;
+            _barRow = row;
+            if (row is not null) row.PropertyChanged += BarRowChanged;
+        }
+        if (!Drafting && row is not null) ClaudeSubtitle.Text = row.StateLine;
+        var editing = Drafting || row?.Shortcut is not null;
+        DeleteButton.Visibility = editing ? Visibility.Visible : Visibility.Collapsed;
+        DeleteButton.Content = Drafting ? "Discard" : "Delete Shortcut…";
+        AutomationProperties.SetName(DeleteButton, Drafting ? "Discard New Shortcut" : "Delete Shortcut");
+        DeleteButton.IsEnabled = !Editor.Busy;
+
+        StartButton.Visibility = StartInfoButton.Visibility = row is { SignedIn: true } && !Drafting ? Visibility.Visible : Visibility.Collapsed;
+        StartButton.Tag = OpenButton.Tag = row;
+        StartButton.IsEnabled = row is { StartEnabled: true };
+        StartText.Opacity = row is { Starting: true } ? 0 : 1;
+        StartRing.IsActive = row is { Starting: true };
+        StartRing.Visibility = row is { Starting: true } ? Visibility.Visible : Visibility.Collapsed;
+        if (row is not null) ToolTipService.SetToolTip(StartButton, row.StartTooltip);
+
+        OpenButton.Visibility = Drafting || row is null ? Visibility.Collapsed : Visibility.Visible;
+        OpenButton.Content = row?.OpenLabel ?? "Open";
+        AutomationProperties.SetName(OpenButton, row is null ? "Open" : Spoken.Act(row.OpenLabel, row.Name));
+        OpenButton.IsEnabled = !Editor.Busy && row?.Shortcut?.InstalledName is not null || row?.Shortcut is null;
+
+        SaveButton.Visibility = editing ? Visibility.Visible : Visibility.Collapsed;
+        var title = Editor.IsNew ? "Create Shortcut" : "Update Shortcut";
+        SaveText.Text = title;
+        AutomationProperties.SetName(SaveButton, title);
+        SaveButton.IsEnabled = Editor.IsDirty && !Editor.Busy;
+        SaveText.Opacity = Editor.Busy ? 0 : 1;
+        SaveRing.IsActive = Editor.Busy;
+        SaveRing.Visibility = Editor.Busy ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    private void BarRowChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) => UpdateBottomBar();
+
+    private void Save_Click(object sender, RoutedEventArgs e) => Editor.Save();
+
+    private void Delete_Click(object sender, RoutedEventArgs e)
+    {
+        if (Drafting) Editor.Revert();
+        else Editor.RequestDelete();
+    }
+
+    private void ShowMainFolder_Click(object sender, RoutedEventArgs e)
+    {
+        if (Directory.Exists(GraftPaths.DefaultProfile))
+            Process.Start(new ProcessStartInfo("explorer.exe", $"\"{GraftPaths.DefaultProfile}\"") { UseShellExecute = false })?.Dispose();
+    }
     /// Lights each row's dot for the profile a Claude is holding, the way the
     /// flyout does. Reading what is running is a WMI query, slow enough that doing
     /// it inline would stall the list drawing, so it runs off the UI thread and
@@ -326,7 +382,41 @@ public sealed partial class MainPage : Page
             var lenders = sharing.Lenders.GetValueOrDefault(row.SharingKey) ?? [];
             row.SetSharing(SharingText.Label(lenders, NameOf),
                 SharingText.Note(lenders, result?.Environment.GetValueOrDefault(row.SharingKey), result?.Problem));
+            var own = Graft.Account(row.ProfileDir);
+            row.SetLenders(lenders.Select(key =>
+            {
+                var profile = ProfileOf(key);
+                var same = own is not null && (profile is not null ? Graft.Account(profile) == own
+                    : PoolAccounts.Load().FirstOrDefault(a => a.Id == key)?.AccountUuid == own);
+                var state = SharingText.Condition(key, result, same, DateTimeOffset.UtcNow);
+                return new LenderLine
+                {
+                    Claude = row, Key = key, Name = NameOf(key),
+                    State = state.Length == 0 ? "Checking its login…" : char.ToUpper(state[0]) + state[1..],
+                    Attention = same || state.Contains("refused") || state.Contains("expired") || state.Contains("not signed in") || state.Contains("unreadable"),
+                    Figures = profile is not null && UsageMonitor.Peek(profile)?.Usage is { } usage
+                        ? (usage.FiveHour is int five ? $"5h {five}% · " : "") + $"Week {usage.Week}%"
+                        : "",
+                };
+            }).ToList());
         }
+    }
+
+    private static string? ProfileOf(string key) => key == UsageSharing.MainKey ? GraftPaths.DefaultProfile
+        : App.Store.Shortcuts.FirstOrDefault(s => s.Id.ToString() == key)?.ProfileDir;
+
+    private void RemoveLender_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: LenderLine line }) return;
+        try
+        {
+            var next = SharedChats.SetLender(UsageSharing.Load(), line.Claude.SharingKey, line.Key, false);
+            next.Save();
+            PoolAccounts.ForgetUnused(next);
+        }
+        catch (IOException ex) { _ = Warn("Shared usage was left as it was", ex.Message); return; }
+        ShowSharing();
+        App.Instance.SyncSharingSoon();
     }
 
     /// Built as it opens, so it lists the Claudes and how each stands now.
@@ -515,13 +605,18 @@ public sealed partial class MainPage : Page
     ///
     /// Click, never Checked/Unchecked: a reused row's binding sets IsChecked before
     /// Tag, so those fired for the row it used to hold and unticked it on a reload.
-    private void KeepWarm_Click(object sender, RoutedEventArgs e)
+    private void KeepWarm_Toggled(object sender, RoutedEventArgs e)
     {
-        if (sender is not CheckBox { Tag: ShortcutRow row } box) return;
-        var on = box.IsChecked == true;
+        // A binding setting the switch to what is already saved also raises
+        // Toggled, and must not write it again.
+        if (sender is not ToggleSwitch { Tag: ShortcutRow row } box || box.IsOn == row.KeepWarm) return;
+        // A reused row's binding can flip the switch before its Tag follows; only a
+        // person's toggle, which focuses it, is saved.
+        if (box.FocusState == FocusState.Unfocused) return;
+        var on = box.IsOn;
         if (row.Shortcut is Shortcut shortcut)
         {
-            if (App.Store.LoadError is not null) { box.IsChecked = !on; _ = WarnListUnreadable(); return; }
+            if (App.Store.LoadError is not null) { box.IsOn = !on; _ = WarnListUnreadable(); return; }
             shortcut.KeepWarm = on;
             App.Store.Update(shortcut);
         }

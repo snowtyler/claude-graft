@@ -19,14 +19,14 @@ public class UsageStatusTests
     public void FreshFigure()
     {
         var line = UsageStatus.Describe(Live(TimeSpan.FromSeconds(20)), fetching: false, Now);
-        Assert.Equal(new UsageStatus.Line("Usage updated just now", false), line);
+        Assert.Equal(new UsageStatus.Line("Updated just now from Anthropic", false), line);
     }
 
     [Fact(DisplayName = "an older figure says how old it is")]
     public void OlderFigure()
     {
         var line = UsageStatus.Describe(Live(TimeSpan.FromMinutes(3)), fetching: false, Now);
-        Assert.Equal("Usage updated 3m ago", line!.Text);
+        Assert.Equal("Updated 3m ago from Anthropic", line!.Text);
     }
 
     [Fact(DisplayName = "a read going out says it is refreshing, whatever the last one found")]
@@ -59,7 +59,7 @@ public class UsageStatusTests
     public void DiskFigure()
     {
         var entry = new UsageEntry { IsLive = false, UpdatedAt = Now.AddHours(-2) };
-        Assert.Equal("From Claude's own record, 2h 0m ago", UsageStatus.Describe(entry, false, Now)!.Text);
+        Assert.Equal("Updated 2h 0m ago from this profile's own record", UsageStatus.Describe(entry, false, Now)!.Text);
     }
 
     [Theory(DisplayName = "each way a read can fail is told apart")]
