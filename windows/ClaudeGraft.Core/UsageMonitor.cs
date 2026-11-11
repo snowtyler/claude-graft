@@ -54,6 +54,9 @@ public static class UsageMonitor
     private static readonly Dictionary<string, ProfileState> States = new();
 
     private static readonly TimeSpan LiveTtl = TimeSpan.FromMinutes(5);
+    /// How old a figure may be for a Claude in front, whose figure is the one
+    /// being spent.
+    public static readonly TimeSpan OpenProfileTtl = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan[] BackoffSteps =
     {
         TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(5),
@@ -134,9 +137,9 @@ public static class UsageMonitor
     /// live figure, otherwise disk. <paramref name="interactive"/> is a figure
     /// someone pressed for — it skips the freshness cache and the backoff, but
     /// never a service Retry-After.
-    public static async Task<UsageEntry> ReadAsync(string profile, bool interactive = false)
+    public static async Task<UsageEntry> ReadAsync(string profile, bool interactive = false, TimeSpan? freshFor = null)
     {
-        var reading = await LiveAsync(profile, interactive).ConfigureAwait(false);
+        var reading = await LiveAsync(profile, interactive, freshFor ?? LiveTtl).ConfigureAwait(false);
         var (refusal, liveAt) = Standing(profile);
         var local = Graft.UsageOf(profile);
         if (reading is null || PrefersLocal(liveAt, local?.Sampled))
@@ -267,7 +270,7 @@ public static class UsageMonitor
         catch { }
     }
 
-    private static async Task<UsageApi.Reading?> LiveAsync(string profile, bool interactive)
+    private static async Task<UsageApi.Reading?> LiveAsync(string profile, bool interactive, TimeSpan freshFor)
     {
         var now = DateTimeOffset.UtcNow;
         lock (Lock)
@@ -277,7 +280,7 @@ public static class UsageMonitor
                 interactive,
                 state.Invalidated,
                 justFetched: state.LastLive is not null && now - state.LiveAt < PressInterval,
-                haveFresh: state.LastLive is not null && now - state.LiveAt < LiveTtl,
+                haveFresh: state.LastLive is not null && now - state.LiveAt < freshFor,
                 inBackoff: now < state.BackoffUntil,
                 inRetry: now < state.RetryUntil);
             if (!fetch)

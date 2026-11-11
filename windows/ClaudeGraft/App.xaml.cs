@@ -58,6 +58,9 @@ public partial class App : Application
     private FlyoutWindow? _flyout;
     private Timer? _warmTimer;
     private Timer? _updateTimer;
+    private Timer? _frontTimer;
+    private readonly Dictionary<string, Usage?> _frontUsage = new(StringComparer.OrdinalIgnoreCase);
+    private string? _trayIconFile;
     private string? _notifiedVersion;
 
     // The tray's click callbacks arrive on H.NotifyIcon's message-window
@@ -136,6 +139,14 @@ public partial class App : Application
         _tray.LeftClickCommand = new RelayCommand(ToggleFlyout);
         _tray.RightClickCommand = new RelayCommand(ShowMenu);
         _tray.ForceCreate();
+
+        FrontClaude.Changed += ShowTray;
+        FrontClaude.Activated += profile => _ = RefreshFront(profile);
+        FrontClaude.Start(_ui);
+        // A Claude in front is spending its figure, so it is asked after more
+        // often than the five minutes the rest get.
+        _frontTimer = new Timer(_ => { if (FrontClaude.Profile is string front) _ = RefreshFront(front); },
+            null, TimeSpan.FromSeconds(30), UsageMonitor.OpenProfileTtl);
 
         RegisterNotifications();
 
@@ -225,13 +236,9 @@ public partial class App : Application
         if (version is not null && version != _notifiedVersion)
         {
             _notifiedVersion = version;
-            if (_tray is not null) _tray.ToolTipText = $"Claude Graft — update {version} ready";
             UpdateToast.Available(release!);
         }
-        else if (release is null && _tray is not null)
-        {
-            _tray.ToolTipText = "Claude Graft";
-        }
+        ShowTray();
     }
 
     private Task<bool>? _installing;
@@ -270,6 +277,7 @@ public partial class App : Application
         Updater.LaunchInstaller(path);
         _tray?.Dispose();
         WindowIdentity.Stop();
+        FrontClaude.Stop();
         Exit();
         return true;
     }
@@ -277,11 +285,43 @@ public partial class App : Application
     private void SetUpdateDownload(double? fraction)
     {
         UpdateDownload = fraction;
-        if (_tray is not null)
-            _tray.ToolTipText = fraction is { } f
-                ? $"Claude Graft — downloading update, {(int)Math.Round(f * 100)}%"
-                : AvailableUpdate is { } ready ? $"Claude Graft — update {ready.Version} ready" : "Claude Graft";
+        ShowTray();
         UpdateProgressChanged?.Invoke();
+    }
+
+    /// The tray says which Claude is in front and what its account has spent,
+    /// wearing that shortcut's icon; with none in front it is Graft's own.
+    private void ShowTray()
+    {
+        if (_tray is null) return;
+        var front = FrontClaude.Profile;
+        var shortcut = front is null ? null : Store.Shortcuts.FirstOrDefault(s => Fs.SamePath(s.ProfileDir, front));
+        if (UpdateDownload is { } f)
+            _tray.ToolTipText = $"Claude Graft — downloading update, {(int)Math.Round(f * 100)}%";
+        else if (front is not null)
+            _tray.ToolTipText = FrontLabel.Tooltip(shortcut?.Name ?? "Claude",
+                _frontUsage.GetValueOrDefault(front) is { } u ? UsageStatus.Rolled(u, DateTimeOffset.UtcNow) : null);
+        else
+            _tray.ToolTipText = AvailableUpdate is { } ready ? $"Claude Graft — update {ready.Version} ready" : "Claude Graft";
+
+        var icon = shortcut is null ? null : ShortcutIcons.LinkIcon(shortcut).File;
+        if (icon is not null && !icon.EndsWith(".ico", StringComparison.OrdinalIgnoreCase)) icon = null;
+        if (icon == _trayIconFile) return;
+        _trayIconFile = icon;
+        _tray.IconSource = new BitmapImage(new Uri(icon ?? "ms-appx:///Assets/AppIcon.ico"));
+    }
+
+    /// After a shortcut's name or icon changed, from the UI thread.
+    internal static void ShortcutsChanged() => (Current as App)?.ShowTray();
+
+    private async Task RefreshFront(string profile)
+    {
+        try
+        {
+            var entry = await UsageMonitor.ReadAsync(profile, interactive: false, freshFor: UsageMonitor.OpenProfileTtl);
+            OnUi(() => { _frontUsage[profile] = entry.Usage; ShowTray(); });
+        }
+        catch (Exception e) { Record("front.usage", e); }
     }
 
     private async Task SweepWarmProfiles()
@@ -379,6 +419,7 @@ public partial class App : Application
     {
         _tray?.Dispose();
         WindowIdentity.Stop();
+        FrontClaude.Stop();
         Exit();
     });
 

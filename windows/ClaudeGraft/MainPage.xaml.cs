@@ -529,6 +529,7 @@ public sealed partial class MainPage : Page
                 App.Store.Update(shortcut);
                 WindowIdentity.IconsChanged();
                 WindowIdentity.Refresh();
+                App.ShortcutsChanged();
             }
             catch (Installer.InstallException ex)
             {

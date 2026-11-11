@@ -28,6 +28,15 @@ public class ProcessDetectionTests
         Assert.Null(ClaudeProcesses.ShortcutOf(Browser(GraftPaths.Profile("Claude-20")), shortcuts));
     }
 
+    [Fact(DisplayName = "the Claude in front is matched to the main profile or a shortcut's, never a helper's")]
+    public void ProfileOfWindow()
+    {
+        var two = new Shortcut { Name = "Claude 2", Folder = "Claude-2" };
+        Assert.Equal(GraftPaths.DefaultProfile, ClaudeProcesses.ProfileOf(Browser(), new[] { two }));
+        Assert.Equal(two.ProfileDir, ClaudeProcesses.ProfileOf(Browser(two.ProfileDir), new[] { two }));
+        Assert.Null(ClaudeProcesses.ProfileOf(Helper(), new[] { two }));
+    }
+
     [Fact(DisplayName = "a helper is told from the browser process by its type flag")]
     public void HelperVsBrowser()
     {

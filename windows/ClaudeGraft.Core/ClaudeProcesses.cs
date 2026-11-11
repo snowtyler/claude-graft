@@ -105,6 +105,11 @@ public static class ClaudeProcesses
             ? shortcuts.FirstOrDefault(s => CarriesDataDir(command, s.ProfileDir))
             : null;
 
+    /// The profile a Claude's browser process runs on: the main one, a
+    /// shortcut's, or null for a helper or a Claude on a profile no shortcut has.
+    public static string? ProfileOf(string command, IEnumerable<Shortcut> shortcuts) =>
+        IsDefaultInstance(command) ? GraftPaths.DefaultProfile : ShortcutOf(command, shortcuts)?.ProfileDir;
+
     public static int? ProcessIdentifier(string profile) => ProcessIdentifier(profile, Enumerate());
 
     /// The pid of the Claude holding this profile, if one holds it — the browser
