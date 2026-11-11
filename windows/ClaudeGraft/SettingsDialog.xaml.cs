@@ -24,6 +24,10 @@ public sealed partial class SettingsDialog : ContentDialog
         AutoStartSwitch.IsOn = AutoStart.IsEnabled();
         StartHiddenSwitch.IsOn = current.StartHidden;
         HoldUpdatesSwitch.IsOn = current.HoldUpdates;
+        // Only an install Graft can update by hand can safely stop updating itself.
+        ManualClaudeSwitch.Visibility = ClaudeDesktopUpdates.IsSquirrel ? Visibility.Visible : Visibility.Collapsed;
+        try { ManualClaudeSwitch.IsOn = ManualUpdates.Enabled; }
+        catch (IOException) { ManualClaudeSwitch.IsEnabled = false; }
         _current = current;
 
         var version = Assembly.GetExecutingAssembly().GetName().Version;
@@ -104,6 +108,10 @@ public sealed partial class SettingsDialog : ContentDialog
         // Set from the main card rather than here, but a save must not drop it.
         KeepMainWarm = _current.KeepMainWarm,
     };
+
+    /// Manual Claude updates as chosen, or null where the switch was not offered.
+    public bool? ManualClaudeUpdates =>
+        ManualClaudeSwitch.Visibility == Visibility.Visible && ManualClaudeSwitch.IsEnabled ? ManualClaudeSwitch.IsOn : null;
 
     /// Whether the person asked to start with Windows — applied to the Startup
     /// folder separately from the settings file.

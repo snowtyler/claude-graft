@@ -249,4 +249,10 @@ public sealed partial class FlyoutView : UserControl
     }
 
     private void Quit_Click(object sender, RoutedEventArgs e) => QuitRequested?.Invoke();
+
+    private void ClaudeRestart_Requested()
+    {
+        DismissRequested?.Invoke();
+        App.ConfirmRestartClaudes();
+    }
 }

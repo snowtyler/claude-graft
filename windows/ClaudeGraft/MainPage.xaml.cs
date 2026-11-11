@@ -250,7 +250,42 @@ public sealed partial class MainPage : Page
         {
             AutoStart.Set(dialog.AutoStartEnabled);
             App.ApplySettings(dialog.Result);
+            if (dialog.ManualClaudeUpdates is bool manual && manual != ManualUpdates.Enabled)
+            {
+                try { await Task.Run(() => ManualUpdates.SetEnabled(manual)); }
+                catch (IOException e) { await Warn("Claude's updates were left as they were", e.Message); }
+                ClaudeUpdateCenter.Redraw();
+            }
         }
+    }
+
+    private async void ClaudeRestart_Requested() => await ConfirmRestartClaudesAsync();
+
+    /// Only the Claudes open when the warning was shown are covered by the
+    /// person's answer; one opened while it was up is left alone.
+    public async Task ConfirmRestartClaudesAsync()
+    {
+        var open = await Task.Run(ClaudeUpdateCenter.OpenClaudes);
+        if (open.Count == 0) { await ClaudeUpdateCenter.CheckAsync(); return; }
+        var names = string.Join(", ", open.Select(o => o.Name).Distinct());
+        var dialog = new ContentDialog
+        {
+            Title = "Restart Claude to finish updating?",
+            Content = new TextBlock
+            {
+                TextWrapping = TextWrapping.Wrap,
+                Text = $"These Claudes will close and open again on Claude Desktop {ClaudeUpdateCenter.Installed}: {names}.\n\n"
+                    + "Anything running in them stops — a Claude Code session, a task in progress, an open terminal. "
+                    + "Finish or save that work first. A Claude that will not close is left open, never forced.",
+            },
+            PrimaryButtonText = "Restart",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close,
+        };
+        PrepareDialog(dialog);
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        if (await ClaudeUpdateCenter.RestartAsync(open) is string problem)
+            await Warn("Some Claudes stayed open", problem);
     }
 
     private async void Start_Click(object sender, RoutedEventArgs e)

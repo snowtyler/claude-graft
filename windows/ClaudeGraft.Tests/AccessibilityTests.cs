@@ -47,8 +47,8 @@ public class AccessibilityTests
                 // a TextBlock nested beside an icon.
                 && Attribute(c.Control, "Content") is null
                 && Attribute(c.Control, "AutomationProperties.Name") is null
-                // Its words are set in code once an update is found.
-                && c.Control.Attribute(Xaml + "Name")?.Value != "AvailableButton")
+                // Their words, and names, are set in code as their state changes.
+                && c.Control.Attribute(Xaml + "Name")?.Value is not ("AvailableButton" or "ActionButton"))
             .Select(c => $"{c.File}: {Attribute(c.Control, "AutomationProperties.AutomationId")}")
             .ToList();
         Assert.Empty(unnamed);

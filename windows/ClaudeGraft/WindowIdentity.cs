@@ -39,6 +39,10 @@ public static class WindowIdentity
     // so a title Claude sets again is told from an echo of ours.
     private static readonly Dictionary<IntPtr, (string Own, string Shown, string Name)> Titled = new();
 
+    /// Raised, off the UI thread, for each shortcut's Claude process found:
+    /// its pid, when it started, and the shortcut's folder.
+    public static event Action<int, DateTime, string>? ShortcutFound;
+
     public static void Start(DispatcherQueue ui)
     {
         _ui = ui;
@@ -121,11 +125,13 @@ public static class WindowIdentity
                 if (command is not null) folder = ClaudeProcesses.ShortcutOf(command, App.Store.Shortcuts.ToList())?.Folder;
             }
             catch (Exception e) { Diagnostics.Note("identity.failed", new Dictionary<string, object?> { ["error"] = e.Message }); }
+            var started = StartTime(pid);
             lock (Processes)
             {
                 Asking.Remove(pid);
-                Processes[pid] = new Known(StartTime(pid), folder);
+                Processes[pid] = new Known(started, folder);
             }
+            if (folder is not null) ShortcutFound?.Invoke(pid, started, folder);
             _ui?.TryEnqueue(() =>
             {
                 EnumWindows((hwnd, _) =>

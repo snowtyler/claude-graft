@@ -23,6 +23,7 @@
         <StackPanel>
             <!-- Profiles. Capped so a long list scrolls rather than growing the
                  flyout past the screen. -->
+            <local:ClaudeUpdateLine Margin="22,12,16,0" RestartRequested="ClaudeRestart_Requested" />
             <local:SetupPrompt x:Name="Setup" Visibility="Collapsed" Padding="16,24,16,12" />
             <ScrollViewer x:Name="ProfileScroller" MaxHeight="520" VerticalScrollBarVisibility="Auto"
                           HorizontalScrollMode="Disabled">

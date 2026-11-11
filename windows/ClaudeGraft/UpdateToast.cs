@@ -60,6 +60,25 @@ internal static class UpdateToast
         return data;
     }
 
+    /// Claude restarted to update and opened the main profile in a shortcut's
+    /// place. Its own tag, so it never replaces Graft's update notice.
+    public static void StrayClaude(GracefulQuit.Target stray, string shortcut)
+    {
+        try
+        {
+            new ToastContentBuilder()
+                .AddText($"{shortcut} was opened again after Claude updated")
+                .AddText("Claude's update also opened your main Claude. Close it?")
+                .AddButton(new ToastButton().SetContent("Close It")
+                    .AddArgument("action", "closeStray")
+                    .AddArgument("pid", stray.Pid)
+                    .AddArgument("started", stray.Started.Ticks.ToString()))
+                .AddButton(new ToastButton().SetContent("Keep It").SetDismissActivation())
+                .Show(toast => { toast.Tag = "stray"; toast.Group = "claude-update"; });
+        }
+        catch (Exception e) { Diagnostics.Note("notify.failed", new Dictionary<string, object?> { ["error"] = e.Message }); }
+    }
+
     private static void Show(ToastContentBuilder builder, NotificationData? data = null)
     {
         try

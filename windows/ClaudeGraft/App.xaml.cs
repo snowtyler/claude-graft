@@ -116,7 +116,17 @@ public partial class App : Application
         // Links keep pointing at the same icon files; a Claude update redraws them.
         var shortcuts = Store.Shortcuts.ToList();
         System.Threading.Tasks.Task.Run(() => ShortcutIcons.Refresh(shortcuts));
+        // Recovery listens before the first windows are identified, or a
+        // shortcut's Claude already open at start would never be watched.
+        UpdateRecovery.StrayOpened += UpdateToast.StrayClaude;
+        UpdateRecovery.Start();
         WindowIdentity.Start(_ui);
+        ClaudeUpdateCenter.Start(_ui);
+        System.Threading.Tasks.Task.Run(() =>
+        {
+            try { ManualUpdates.Synchronize(); }
+            catch (Exception e) { Record("updates.manual-sync", e); }
+        });
 
         // No ContextFlyout: the library renders that as a native popup owned by
         // its own message-only window, which can never take the foreground a
@@ -193,7 +203,16 @@ public partial class App : Application
     private void OnToastActivated(ToastNotificationActivatedEventArgsCompat e)
     {
         var args = ToastArguments.Parse(e.Argument);
-        if (!args.TryGetValue("action", out var action) || action != "install") return;
+        if (!args.TryGetValue("action", out var action)) return;
+        if (action == "closeStray"
+            && args.TryGetValue("pid", out var pid) && int.TryParse(pid, out var p)
+            && args.TryGetValue("started", out var started) && long.TryParse(started, out var ticks))
+        {
+            var target = new GracefulQuit.Target(p, new DateTime(ticks, DateTimeKind.Local));
+            System.Threading.Tasks.Task.Run(() => UpdateRecovery.CloseStray(target));
+            return;
+        }
+        if (action != "install") return;
         OnUi(() => { if (AvailableUpdate is { } release) _ = InstallUpdateAsync(release); });
     }
 
@@ -411,6 +430,15 @@ public partial class App : Application
 
         TrayMenu.Show(items);
     }
+
+    /// The warning before closing Claudes needs a window to sit in, and the
+    /// flyout closes as soon as anything else takes the focus.
+    internal static void ConfirmRestartClaudes() => (Current as App)?.OnUi(() =>
+    {
+        var app = (App)Current;
+        app._window ??= new MainWindow();
+        app._window.ConfirmRestartClaudes();
+    });
 
     private void ShowManager() => OnUi(() =>
     {

@@ -68,6 +68,12 @@ public sealed partial class MainWindow : Window
 
     /// Brings the window up and opens the settings dialog on it — the tray's
     /// Settings entry has no window of its own to show one in.
+    public void ConfirmRestartClaudes()
+    {
+        Show();
+        if (RootFrame.Content is MainPage page) _ = page.ConfirmRestartClaudesAsync();
+    }
+
     public void ShowSettings()
     {
         Show();

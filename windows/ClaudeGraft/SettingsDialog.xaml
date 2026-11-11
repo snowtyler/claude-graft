@@ -51,6 +51,9 @@
         <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
         <StackPanel Spacing="8">
+            <ToggleSwitch x:Name="ManualClaudeSwitch" AutomationProperties.AutomationId="settings.manualClaudeUpdates"
+                          Header="Update Claude only when I ask"
+                          ToolTipService.ToolTip="Turns off Claude's own automatic updates for every profile, so it never quits mid-task to install one. Claude Desktop's line in the flyout installs updates instead. Takes effect the next time each Claude opens." />
             <ToggleSwitch x:Name="HoldUpdatesSwitch" AutomationProperties.AutomationId="settings.holdUpdates" Header="Hold Graft's updates until I install them"
                           ToolTipService.ToolTip="Off, updates install on their own and Graft restarts itself. On, a new version waits for you to press Install." />
             <Grid ColumnSpacing="12">

@@ -21,6 +21,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
             <Grid Grid.Row="0" ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
@@ -57,6 +58,7 @@
                        Text="Extra Claude Desktop profiles, each with its own login and chats."
                        Style="{StaticResource CaptionTextBlockStyle}"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <local:ClaudeUpdateLine Grid.Row="2" RestartRequested="ClaudeRestart_Requested" />
         </Grid>
 
         <!-- Profile list -->
