@@ -96,7 +96,7 @@ public static class UsageMonitor
         var fiveHourElapsed = age > TimeSpan.FromHours(5);
         return disk with
         {
-            FiveHour = fiveHourElapsed ? 0 : disk.FiveHour,
+            FiveHour = fiveHourElapsed && disk.FiveHour is not null ? 0 : disk.FiveHour,
             FiveHourReset = fiveHourElapsed ? null : disk.FiveHourReset,
             Week = disk.Week,
         };
@@ -138,15 +138,20 @@ public static class UsageMonitor
     {
         var reading = await LiveAsync(profile, interactive).ConfigureAwait(false);
         var (refusal, liveAt) = Standing(profile);
-        if (reading is null)
+        var local = Graft.UsageOf(profile);
+        if (reading is null || PrefersLocal(liveAt, local?.Sampled))
         {
-            // The endpoint has never answered for this profile, so there is no
-            // live figure to stand on; the on-disk history is all there is.
-            var disk = AsCurrentFigure(Graft.UsageOf(profile), DateTimeOffset.UtcNow);
+            var disk = AsCurrentFigure(local, DateTimeOffset.UtcNow);
             return new UsageEntry { Usage = disk, IsLive = false, UpdatedAt = disk?.Sampled, Refusal = refusal };
         }
-        return LiveEntry(reading, liveAt, refusal, Graft.UsageOf(profile)?.Organization);
+        return LiveEntry(reading, liveAt, refusal, local?.Organization);
     }
+
+    /// A running profile writes its own record; when that is newer than the last
+    /// answer from the service it is the better figure, where a cached reading
+    /// used to win regardless and left the bar behind what the profile had said.
+    public static bool PrefersLocal(DateTimeOffset liveFetched, DateTimeOffset? localSampled) =>
+        localSampled is { } sampled && sampled > liveFetched;
 
     /// The last live figure already in hand, with no read and no disk history, so
     /// a view can be built showing it rather than starting its bars from nothing.

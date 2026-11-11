@@ -17,7 +17,8 @@ public static class UsageApi
 
     public sealed record Reading
     {
-        public required int FiveHour { get; init; }
+        /// Null when the account has no five-hour limit.
+        public required int? FiveHour { get; init; }
         public required int Week { get; init; }
         public DateTimeOffset? FiveHourReset { get; init; }
         public DateTimeOffset? WeekReset { get; init; }
@@ -63,14 +64,20 @@ public static class UsageApi
     /// Separated from the request so the shape of the answer can be tested.
     public static Reading? ReadingFrom(JsonElement body)
     {
-        if (Window(body, "five_hour") is not { } session) return null;
+        // An account with no five-hour limit is sent five_hour null or no key at
+        // all; a limited one gets the window even idle, at zero. Anything else
+        // there is unreadable, and taking it for no limit would hide a real one.
+        var sent = body.TryGetProperty("five_hour", out var raw) && raw.ValueKind != JsonValueKind.Null;
+        var session = Window(body, "five_hour");
+        if (sent && session is null) return null;
         var weekly = Window(body, "seven_day");
+        if (session is null && weekly is null) return null;
         var fable = FableWindow(body);
         return new Reading
         {
-            FiveHour = session.used,
+            FiveHour = session?.used,
             Week = weekly?.used ?? 0,
-            FiveHourReset = session.resets,
+            FiveHourReset = session?.resets,
             WeekReset = weekly?.resets,
             Plan = body.TryGetProperty("subscription_type", out var s) && s.ValueKind == JsonValueKind.String
                 ? Capitalize(s.GetString()) : null,

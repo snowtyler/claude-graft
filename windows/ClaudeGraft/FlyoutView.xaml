@@ -75,7 +75,7 @@
                                 <TextBlock Text="{x:Bind FiveHourText, Mode=OneWay}"
                                            Style="{StaticResource CaptionTextBlockStyle}"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <ProgressBar Value="{x:Bind FiveHour, Mode=OneWay}" Maximum="100" Opacity="{x:Bind BarsOpacity, Mode=OneWay}"
+                                <ProgressBar Value="{x:Bind FiveHour, Mode=OneWay}" Visibility="{x:Bind FiveHourBarVisibility, Mode=OneWay}" Maximum="100" Opacity="{x:Bind BarsOpacity, Mode=OneWay}"
                                              local:BarPulse.Key="{x:Bind Pulse, Mode=OneWay}" />
                                 <TextBlock Text="{x:Bind WeekText, Mode=OneWay}" Margin="0,4,0,0"
                                            Style="{StaticResource CaptionTextBlockStyle}"

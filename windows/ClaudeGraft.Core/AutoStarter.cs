@@ -46,6 +46,8 @@ public static class AutoStarter
         // the row's button gates on, and the reason disk and refusals are treated
         // as "unknown" rather than "closed".
         if (reading is not { IsLive: true, Usage: { } usage }) return false;
+        // No five-hour limit, no window for a session to open.
+        if (usage.FiveHour is null) return false;
         var open = (usage.FiveHourReset is DateTimeOffset reset && reset > now) || usage.FiveHour > 0;
         return !open;
     }

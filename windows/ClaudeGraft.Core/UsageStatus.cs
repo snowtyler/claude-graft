@@ -49,7 +49,7 @@ public static class UsageStatus
     /// spent nothing yet. The reset is known exactly, so this needs no request.
     public static Usage Rolled(Usage usage, DateTimeOffset now) => usage with
     {
-        FiveHour = usage.FiveHourReset is { } h && h <= now ? 0 : usage.FiveHour,
+        FiveHour = usage.FiveHourReset is { } h && h <= now && usage.FiveHour is not null ? 0 : usage.FiveHour,
         FiveHourReset = usage.FiveHourReset is { } h2 && h2 <= now ? null : usage.FiveHourReset,
         Week = usage.WeekReset is { } w && w <= now ? 0 : usage.Week,
         WeekReset = usage.WeekReset is { } w2 && w2 <= now ? null : usage.WeekReset,

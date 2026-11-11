@@ -118,4 +118,13 @@ public class UsageBudgetTests
             System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(saved));
         Assert.Equal(saved, back);
     }
+
+    [Fact(DisplayName = "a sample the profile wrote after the last live answer is the figure shown")]
+    public void NewerLocalSampleWins()
+    {
+        var fetched = DateTimeOffset.UtcNow.AddMinutes(-4);
+        Assert.True(UsageMonitor.PrefersLocal(fetched, fetched.AddMinutes(1)));
+        Assert.False(UsageMonitor.PrefersLocal(fetched, fetched.AddMinutes(-1)));
+        Assert.False(UsageMonitor.PrefersLocal(fetched, null));
+    }
 }

@@ -9,7 +9,9 @@ namespace ClaudeGraft.Core;
 /// </summary>
 public sealed record Usage
 {
-    public required int FiveHour { get; init; }
+    /// Null on an account with no five-hour limit, never zero: zero is a window
+    /// with nothing spent in it yet, which a limited account reads all idle day.
+    public required int? FiveHour { get; init; }
     public required int Week { get; init; }
     public string? Organization { get; init; }
     public required DateTimeOffset Sampled { get; init; }
@@ -40,36 +42,66 @@ public static partial class Graft
             if (!doc.RootElement.TryGetProperty("samples", out var raw) || raw.ValueKind != JsonValueKind.Array)
                 return null;
 
-            var samples = new List<(DateTimeOffset time, int fiveHour, int week, string? org)>();
+            var samples = new List<UsageSample>();
             foreach (var s in raw.EnumerateArray())
             {
                 if (!s.TryGetProperty("t", out var t) || t.ValueKind != JsonValueKind.Number) continue;
                 if (!s.TryGetProperty("u", out var u) || u.ValueKind != JsonValueKind.Object) continue;
-                if (!u.TryGetProperty("fh", out var fh) || fh.ValueKind != JsonValueKind.Number) continue;
                 if (!u.TryGetProperty("sd", out var sd) || sd.ValueKind != JsonValueKind.Number) continue;
+                int? fiveHour = u.TryGetProperty("fh", out var fh) && fh.ValueKind == JsonValueKind.Number ? fh.GetInt32() : null;
                 var org = s.TryGetProperty("org", out var o) && o.ValueKind == JsonValueKind.String ? o.GetString() : null;
-                samples.Add((DateTimeOffset.FromUnixTimeMilliseconds((long)t.GetDouble()),
-                             fh.GetInt32(), sd.GetInt32(), org));
+                samples.Add(new(DateTimeOffset.FromUnixTimeMilliseconds((long)t.GetDouble()), fiveHour, sd.GetInt32(), org));
             }
             if (samples.Count == 0) return null;
-            var latest = samples[^1];
+            var newest = samples[^1];
 
+            if (HasNoFiveHourLimit(samples))
+                return new Usage
+                {
+                    FiveHour = null,
+                    Week = newest.week,
+                    Organization = newest.org,
+                    Sampled = newest.time,
+                    WeekReset = WeekResetOf(samples),
+                };
+
+            // A limited account's sample without the figure is a gap, not an
+            // empty window; read as zero it would also move the reset.
+            var complete = samples.Where(s => s.fiveHour is not null).ToList();
+            var latest = complete.LastOrDefault(s => s.org == newest.org);
+            if (latest.fiveHour is null) return null;
             return new Usage
             {
                 FiveHour = latest.fiveHour,
                 Week = latest.week,
                 Organization = latest.org,
                 Sampled = latest.time,
-                FiveHourReset = FiveHourResetOf(samples),
-                WeekReset = WeekResetOf(samples),
+                FiveHourReset = FiveHourResetOf(complete),
+                WeekReset = WeekResetOf(complete),
             };
         }
         catch { return null; }
     }
 
+    private readonly record struct UsageSample(DateTimeOffset time, int? fiveHour, int week, string? org);
+
+    /// Since November 2026 an account with no five-hour limit leaves fh out of
+    /// every sample, while a limited one writes it each time, zero included. One
+    /// sample without it is not enough to say so: the account must have left it
+    /// out twice running and written none in the five hours before, counting
+    /// only its own samples.
+    private static bool HasNoFiveHourLimit(List<UsageSample> samples)
+    {
+        var newest = samples[^1];
+        if (newest.fiveHour is not null) return false;
+        var own = samples.Where(s => s.org == newest.org).ToList();
+        if (own.Count > 1 && own[^2].fiveHour is not null) return false;
+        return !own.Any(s => s.fiveHour is not null && newest.time - s.time < FiveHourWindow);
+    }
+
     /// The window opened at the first sample after the figure was last zero, and
     /// closes five hours later. Nothing to report when none is open.
-    private static DateTimeOffset? FiveHourResetOf(List<(DateTimeOffset time, int fiveHour, int week, string? org)> s)
+    private static DateTimeOffset? FiveHourResetOf(List<UsageSample> s)
     {
         if (s.Count == 0 || s[^1].fiveHour == 0) return null;
         for (var i = s.Count - 1; i > 0; i--)
@@ -83,7 +115,7 @@ public static partial class Graft
 
     /// Weekly resets are a cycle, so the last one seen is rolled forward across
     /// stretches where Claude was not running to record it.
-    private static DateTimeOffset? WeekResetOf(List<(DateTimeOffset time, int fiveHour, int week, string? org)> s)
+    private static DateTimeOffset? WeekResetOf(List<UsageSample> s)
     {
         DateTimeOffset? lastReset = null;
         for (var i = 1; i < s.Count; i++)

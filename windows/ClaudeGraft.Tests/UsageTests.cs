@@ -32,9 +32,53 @@ public class UsageApiTests
         Assert.Equal(0, reading.Week);
     }
 
-    [Fact(DisplayName = "a response with no five-hour window is unreadable")]
-    public void RejectsMissingSession() =>
-        Assert.Null(UsageApi.ReadingFrom(Body("{\"seven_day\":{\"utilization\":10}}")));
+    [Fact(DisplayName = "an account with no five-hour limit is read as having none, not as zero")]
+    public void ReadsWeekOnly()
+    {
+        foreach (var body in new[] { "{\"seven_day\":{\"utilization\":10}}",
+                                     "{\"five_hour\":null,\"seven_day\":{\"utilization\":10}}" })
+        {
+            var reading = UsageApi.ReadingFrom(Body(body));
+            Assert.Equal(10, reading!.Week);
+            Assert.Null(reading.FiveHour);
+            Assert.Null(reading.FiveHourReset);
+        }
+    }
+
+    [Fact(DisplayName = "a five-hour window sent in a shape that will not read is refused rather than taken for no limit")]
+    public void RefusesMalformedSession() =>
+        Assert.Null(UsageApi.ReadingFrom(Body("{\"five_hour\":{\"used\":3},\"seven_day\":{\"utilization\":10}}")));
+
+    [Fact(DisplayName = "a response with neither window is unreadable")]
+    public void RejectsEmpty() => Assert.Null(UsageApi.ReadingFrom(Body("{}")));
+
+    private static Usage? History(params (TimeSpan ago, int? fh, int sd)[] samples)
+    {
+        using var t = new TempDir();
+        var profile = t.Dir("profile");
+        var now = DateTimeOffset.UtcNow;
+        var json = "{\"samples\":[" + string.Join(",", samples.Select(x =>
+            "{\"t\":" + (now - x.ago).ToUnixTimeMilliseconds() + ",\"org\":\"o\",\"u\":{"
+            + (x.fh is int f ? "\"fh\":" + f + "," : "") + "\"sd\":" + x.sd + "}}")) + "]}";
+        File.WriteAllText(Path.Combine(profile, "plan-usage-history.json"), json);
+        return Graft.UsageOf(profile);
+    }
+
+    [Fact(DisplayName = "one weekly-only sample on a limited account is a gap, not a lost limit")]
+    public void StraySampleIsAGap()
+    {
+        var usage = History((TimeSpan.FromHours(1), 40, 10), (TimeSpan.FromMinutes(1), null, 12));
+        Assert.Equal(40, usage!.FiveHour);
+        Assert.Equal(10, usage.Week);
+    }
+
+    [Fact(DisplayName = "an account that has stopped writing the five-hour figure has no five-hour limit")]
+    public void HistoryWithoutLimit()
+    {
+        var usage = History((TimeSpan.FromHours(9), 40, 10), (TimeSpan.FromHours(2), null, 50), (TimeSpan.FromMinutes(1), null, 52));
+        Assert.Null(usage!.FiveHour);
+        Assert.Equal(52, usage.Week);
+    }
 
     private const string Session = "\"five_hour\":{\"utilization\":1}";
 

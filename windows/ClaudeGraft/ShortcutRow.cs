@@ -104,7 +104,7 @@ public sealed class ShortcutRow : INotifyPropertyChanged
         _usageKnown = true;
         foreach (var name in new[]
         {
-            nameof(FiveHour), nameof(Week), nameof(FiveHourText), nameof(WeekText),
+            nameof(FiveHour), nameof(FiveHourBarVisibility), nameof(Week), nameof(FiveHourText), nameof(WeekText),
             nameof(Fable), nameof(FableText), nameof(FableVisibility),
             nameof(BarsVisibility), nameof(NoUsageVisibility), nameof(BarsOpacity),
         }) Notify(name);
@@ -127,7 +127,7 @@ public sealed class ShortcutRow : INotifyPropertyChanged
         if (!_usageKnown) return;
         foreach (var name in new[]
         {
-            nameof(FiveHour), nameof(Week), nameof(Fable), nameof(FiveHourText), nameof(WeekText),
+            nameof(FiveHour), nameof(FiveHourBarVisibility), nameof(Week), nameof(Fable), nameof(FiveHourText), nameof(WeekText),
             nameof(FableText), nameof(BarsOpacity), nameof(StartEnabled), nameof(StartTooltip),
         }) Notify(name);
         NotifyStatus();
@@ -156,6 +156,8 @@ public sealed class ShortcutRow : INotifyPropertyChanged
     // fallback, or with the endpoint refusing, the state is unknown — and greying
     // the one useful action out on a guess is worse than leaving it, so
     // uncertainty leaves it enabled.
+    private bool NoFiveHourLimit => _usage?.IsLive == true && _usage.Usage is { FiveHour: null };
+
     private bool WindowOpen => _usage?.IsLive == true
         && (Current?.FiveHourReset is DateTimeOffset r && r > DateTimeOffset.UtcNow || Current?.FiveHour > 0);
 
@@ -165,10 +167,12 @@ public sealed class ShortcutRow : INotifyPropertyChanged
     /// own is already in flight. It is also held until the first usage reading
     /// lands: before then whether a window is open is unknown, and offering the
     /// button in that gap lets a press fire a message the account did not need.
-    public bool StartEnabled => _usageKnown && !_starting && !WindowOpen;
+    public bool StartEnabled => _usageKnown && !_starting && !WindowOpen && !NoFiveHourLimit;
 
     public string StartTooltip => !_usageKnown
         ? "Waiting for this account's usage to load"
+        : NoFiveHourLimit
+            ? "This account has no five-hour limit, so there is no window to open"
         : WindowOpen
             ? "This account's five-hour window is already open"
             : "Sends one short message to this account to open its five-hour window";
@@ -177,9 +181,13 @@ public sealed class ShortcutRow : INotifyPropertyChanged
     public int Pulse { get; private set; }
 
     public int FiveHour => Current?.FiveHour ?? 0;
+    public Visibility FiveHourBarVisibility =>
+        Current is { FiveHour: null } ? Visibility.Collapsed : Visibility.Visible;
     public int Week => Current?.Week ?? 0;
 
-    public string FiveHourText => Line("5 hours", FiveHour, Current?.FiveHourReset);
+    public string FiveHourText => Current is { FiveHour: null }
+        ? "5 hours · no limit"
+        : Line("5 hours", FiveHour, Current?.FiveHourReset);
     public string WeekText => Line("Week", Week, Current?.WeekReset);
 
     public int Fable => Current?.Fable ?? 0;

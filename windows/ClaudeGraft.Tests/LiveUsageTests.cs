@@ -20,7 +20,7 @@ public class LiveUsageTests
 
         var usage = Graft.UsageOf(profile);
         Assert.NotNull(usage);
-        Assert.InRange(usage!.FiveHour, 0, 100);
+        if (usage!.FiveHour is int fiveHour) Assert.InRange(fiveHour, 0, 100);
         Assert.InRange(usage.Week, 0, 100);
     }
 }
