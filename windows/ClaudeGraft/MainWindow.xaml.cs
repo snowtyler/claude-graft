@@ -66,6 +66,10 @@ public sealed partial class MainWindow : Window
             if (SectionFrame.Content is ArtifactsPage shown) shown.OnShown();
             else SectionFrame.Navigate(typeof(ArtifactsPage));
         }
+        else if (tag == "projects" && SectionFrame.Content is not ProjectsPage)
+        {
+            SectionFrame.Navigate(typeof(ProjectsPage));
+        }
     }
 
     /// The Claudes again, for the tray's entries that act on that page.

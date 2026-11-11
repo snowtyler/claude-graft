@@ -178,6 +178,7 @@ public sealed class ArtifactCenter
     {
         _sessions.Remove(id, out var session);
         session?.Close();
+        ClaudePageWindow.CloseAll(id);
         _lists.Remove(id);
         _states.Remove(id);
         _generations.Remove(id);

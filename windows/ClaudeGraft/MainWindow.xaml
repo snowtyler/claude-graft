@@ -39,6 +39,10 @@
                                     AutomationProperties.AutomationId="sidebar.artifacts">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xF0E2;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItem Content="Projects" Tag="projects"
+                                    AutomationProperties.AutomationId="sidebar.projects">
+                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE8B7;" /></NavigationViewItem.Icon>
+                </NavigationViewItem>
             </NavigationView.MenuItems>
             <Grid>
                 <Frame x:Name="RootFrame" />
