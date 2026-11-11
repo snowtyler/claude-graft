@@ -125,4 +125,10 @@
   <Target Name="BundleLauncherOnPublish" AfterTargets="Publish">
     <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)..\GraftLaunch\GraftLaunch.csproj&quot; -c $(Configuration) -r $(RuntimeIdentifier) -p:GraftVersion=$(GraftVersion) -o &quot;$(PublishDir).&quot; --nologo -v q" />
   </Target>
+
+  <!-- In a folder of its own, as one file: it runs from a copy elsewhere, so it
+       must not lean on the runtime files beside the app. -->
+  <Target Name="BundleRelayOnPublish" AfterTargets="Publish">
+    <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)..\GraftRelay\GraftRelay.csproj&quot; -c $(Configuration) -r $(RuntimeIdentifier) -p:GraftVersion=$(GraftVersion) -o &quot;$(PublishDir)relay&quot; --nologo -v q" />
+  </Target>
 </Project>
