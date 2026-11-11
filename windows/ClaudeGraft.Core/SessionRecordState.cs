@@ -26,6 +26,12 @@ public sealed class SessionRecordState
     [JsonPropertyName("vanished")]
     public List<string> Vanished { get; set; } = new();
 
+    /// Every fork seen while both its records stood, against the session it came
+    /// from. Remembered because the pass that needs it is one where neither
+    /// record stands any more.
+    [JsonPropertyName("forks")]
+    public Dictionary<string, string> Forks { get; set; } = new();
+
     // Every key is optional on the way in — System.Text.Json fills a missing
     // member with the initializer above rather than failing — so a state file
     // from a version before one of these existed loads with the rest, claiming
@@ -40,6 +46,7 @@ public sealed class SessionRecordState
         // An explicit null parses, and would forget every withdrawal just as surely.
         if (state.Records is null || state.Withdrawn is null || state.Authored is null || state.Vanished is null)
             throw new UnreadableStateException(path, null);
+        state.Forks ??= new();
         return state;
     }
 

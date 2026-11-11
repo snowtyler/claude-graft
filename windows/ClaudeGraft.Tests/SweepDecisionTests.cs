@@ -168,4 +168,37 @@ public class MayFileRecordsTests
         Directory.CreateDirectory(Path.Combine(account, ".ORG.graft-own"));  // the stash beside it
         Assert.False(Graft.MayFileRecords(org, new HashSet<string>()));
     }
+
+    [Fact(DisplayName = "a session worked in on a Mac is not filed on this machine")]
+    public void MacFolderIsElsewhere() => Assert.False(Graft.SessionFolderIsHere("/Users/someone/project"));
+
+    [Fact(DisplayName = "a session in a home folder this machine does not have is not filed")]
+    public void MissingHomeIsElsewhere() =>
+        Assert.False(Graft.SessionFolderIsHere(@"C:\Users\nobody-here-" + Guid.NewGuid().ToString("N") + @"\project"));
+
+    [Fact(DisplayName = "a worktree deleted since its chat closed is still this machine's history")]
+    public void GoneWorktreeIsHere()
+    {
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        Assert.True(Graft.SessionFolderIsHere(Path.Combine(home, "gone-" + Guid.NewGuid().ToString("N"), "worktree")));
+    }
+
+    [Fact(DisplayName = "a path this rule cannot judge is filed as before")]
+    public void UnjudgedPathIsHere()
+    {
+        Assert.True(Graft.SessionFolderIsHere(""));
+        Assert.True(Graft.SessionFolderIsHere(@"\\server\share\project"));
+    }
+
+    [Fact(DisplayName = "a session from elsewhere is held back rather than filed")]
+    public void ElsewhereIsHeldBack() =>
+        Assert.Equal(SessionFiling.FolderElsewhere,
+            Graft.DecideFiling(new SessionFacts
+            {
+                CliSessionId = "sid", BridgeIds = new[] { "cse_x" }, OwnerAccount = "ACCT", OwnerOrganization = "ORG",
+                Title = "T", Cwd = "/w", CreatedAt = 0, LastActivityAt = 1000, Model = "m", Effort = "medium",
+                PermissionMode = "auto", Prompts = 1, Branches = Array.Empty<string>(),
+            }, new HashSet<string>(), new HashSet<string>(), Array.Empty<double>(),
+                DateTime.UtcNow.AddHours(-1), "profile", false, DateTime.UtcNow, TimeSpan.FromMinutes(1),
+                folderIsHere: false));
 }

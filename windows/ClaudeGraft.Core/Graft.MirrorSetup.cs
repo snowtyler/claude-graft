@@ -235,8 +235,16 @@ public static partial class Graft
         var mine = Path.Combine(dst, ownAccountDir, ownOrg);
         var theirs = Path.Combine(src, sourceAccountDir, sourceOrg);
         Directory.CreateDirectory(Path.GetDirectoryName(mine)!);
+        // Asked before anything is dropped. The lender signing into another
+        // account, or working in another organization, moves the source half;
+        // a folder borrowing yesterday is not new today because of that, and
+        // read as a first pass it stashed the old source's chats as its own.
+        var newKey = PairKey(mine, theirs);
+        var borrowing = MirrorPairsBorrowedBy(mine);
+        var firstPass = borrowing.Count == 0;
+        foreach (var key in borrowing.Where(k => k != newKey))
+            if (PairFolders(key) is (_, string old)) Repair(mine, old);
         ForgetStalePairs(dst, new List<(string, string)> { (mine, theirs) });
-        var firstPass = MirrorPairsBorrowedBy(mine).Count == 0;
         if (firstPass) DropBorrowedCopies(mine, theirs, dst);
         OpenForMirror(mine, firstPass);
         if (firstPass) SeedOwnChats(mine, dst);

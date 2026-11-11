@@ -57,6 +57,59 @@ public static partial class Graft
     public static int UnmirrorChatStores(string profile) =>
         StateLock.Run(() => UnmirrorChatStoresUnlocked(profile));
 
+    /// One last pass, then out with every copy the other side holds byte for
+    /// byte that the stash does not name; returns how many went.
+    private static int HandBack(string mine, string theirs)
+    {
+        MirrorChatFolders(mine, theirs);
+
+        // Which of the merged records this profile brought, asked of the stash
+        // because it is the only thing that still knows. Since the merge these
+        // have been on both sides, so the test below would otherwise take the
+        // profile's own history out and leave it in the one it was only lent to.
+        var store = Path.GetDirectoryName(Path.GetDirectoryName(mine)!)!;
+        var own = StashedCounterpart(mine, store);
+        var removed = 0;
+        foreach (var name in SafeEntries(mine).Where(IsMirrored))
+        {
+            // Kept rather than removed and fetched back out of the stash, so a
+            // chat of its own archived while grafted stays archived.
+            if (own is not null && Fs.Exists(Path.Combine(own, name))) continue;
+            try
+            {
+                var here = File.ReadAllBytes(Path.Combine(mine, name));
+                var there = File.ReadAllBytes(Path.Combine(theirs, name));
+                if (!here.AsSpan().SequenceEqual(there)) continue;
+                File.Delete(Path.Combine(mine, name));
+                removed++;
+            }
+            catch { }
+        }
+        return removed;
+    }
+
+    /// Take what a folder borrowed from one source back out before it borrows
+    /// from another. Left in, the old source's chats were carried into the new
+    /// one as this profile's own. A source that is gone has nothing to be handed
+    /// back to, and its copies are all that is left of those chats, so they stay.
+    private static void Repair(string mine, string old)
+    {
+        if (!Fs.IsDirectory(old))
+        {
+            Diagnostics.Note("mirror.repair.kept", new Dictionary<string, object?>
+            {
+                ["folder"] = mine, ["was"] = old,
+                ["because"] = "the folder it borrowed from is gone, so its copies are kept",
+            });
+            return;
+        }
+        var returned = HandBack(mine, old);
+        Diagnostics.Note("mirror.repair", new Dictionary<string, object?>
+        {
+            ["folder"] = mine, ["was"] = old, ["returned"] = returned,
+        });
+    }
+
     private static int UnmirrorChatStoresUnlocked(string profile)
     {
         // The pairs this profile borrows through, never the ones it lends: a
@@ -70,35 +123,7 @@ public static partial class Graft
         foreach (var key in keys)
         {
             if (PairFolders(key) is not (string mine, string theirs)) continue;
-
-            MirrorChatFolders(mine, theirs);   // the handover pass
-
-            // Which of the merged records this profile brought, asked of the
-            // stash because it is the only thing that still knows. Since the merge
-            // these have been on both sides, so the handover leaves them identical
-            // and the test below would otherwise take the profile's own history
-            // out and leave it in the one it was only lent to.
-            var store = Path.GetDirectoryName(Path.GetDirectoryName(mine)!)!;
-            var own = StashedCounterpart(mine, store);
-
-            foreach (var name in SafeEntries(mine).Where(IsMirrored))
-            {
-                // Kept rather than removed and fetched back out of the stash, so a
-                // chat of its own the profile archived while grafted stays
-                // archived — restoring the stashed copy over it would put the
-                // conversation back unarchived, the symptom this app is reported
-                // for most.
-                if (own is not null && Fs.Exists(Path.Combine(own, name))) continue;
-                try
-                {
-                    var here = File.ReadAllBytes(Path.Combine(mine, name));
-                    var there = File.ReadAllBytes(Path.Combine(theirs, name));
-                    if (!here.AsSpan().SequenceEqual(there)) continue;
-                    File.Delete(Path.Combine(mine, name));
-                    removed++;
-                }
-                catch { }
-            }
+            removed += HandBack(mine, theirs);
         }
         // Only the pairs this pass settled: a borrower whose pair was dropped
         // reads its next launch as a first pass and stashes the merged folder.

@@ -5,6 +5,28 @@ using System.Text.Json;
 namespace ClaudeGraft.Core;
 
 /// <summary>
+/// What a session asked and what it answered, in the shape
+/// <see cref="Graft.ResumedCopies"/> compares. Kept beside every transcript in
+/// the cache, so it holds fingerprints and sizes, never anything anybody wrote.
+/// </summary>
+public sealed class ConversationTrace
+{
+    /// What a person typed, in order: a user line with a promptId that answers
+    /// no tool and is not isMeta.
+    public List<string> Prompts { get; set; } = new();
+    /// How much the opening prompt says. A "hi" opens a hundred unrelated chats
+    /// and identifies none of them.
+    public int OpeningSize { get; set; }
+    /// Every answer that produced something, by its line's own id. A resumed
+    /// copy keeps the ids of everything it copied, so what a session did that
+    /// another did not is exactly the ids the other lacks.
+    public Dictionary<string, int> Work { get; set; } = new();
+
+    /// An edit is work however short its explanation.
+    public const int EditWeight = 1_000_000;
+}
+
+/// <summary>
 /// Reads one transcript and pulls out what a record needs. The pass a launcher
 /// runs in front of a window opening reads every transcript on the machine, so
 /// this walks each line's bytes once and takes every "key":"value" pair off it
@@ -17,12 +39,14 @@ public static class TranscriptParser
     /// Reads a transcript file. Null when no bridge line is in it: that is a
     /// session the terminal ran on its own, which was never going to be in a
     /// sidebar, so nothing is missing.
-    public static SessionFacts? SessionFacts(string path, string cliSessionId)
+    public static SessionFacts? SessionFacts(string path, string cliSessionId) => Read(path, cliSessionId).facts;
+
+    public static (SessionFacts? facts, ConversationTrace trace) Read(string path, string cliSessionId)
     {
         byte[] bytes;
         try { bytes = File.ReadAllBytes(path); }
-        catch { return null; }
-        return SessionFacts(bytes, cliSessionId);
+        catch { return (null, new ConversationTrace()); }
+        return Read(bytes, cliSessionId);
     }
 
     private const byte Quote = (byte)'"';
@@ -30,8 +54,11 @@ public static class TranscriptParser
     private const byte Colon = (byte)':';
     private const byte Newline = (byte)'\n';
 
-    public static SessionFacts? SessionFacts(byte[] bytes, string cliSessionId)
+    public static SessionFacts? SessionFacts(byte[] bytes, string cliSessionId) => Read(bytes, cliSessionId).facts;
+
+    public static (SessionFacts? facts, ConversationTrace trace) Read(byte[] bytes, string cliSessionId)
     {
+        var trace = new ConversationTrace();
         var bridgeIds = new List<string>();
         string ownerAccount = "", ownerOrganization = "";
         string? title = null, firstStamp = null, lastStamp = null;
@@ -54,6 +81,13 @@ public static class TranscriptParser
             string? stamp = null, lineCwd = null, mode = null, branch = null;
             string? promptId = null, lineModel = null, lineEffort = null;
             string? bridgeId = null, account = null, organization = null, customTitle = null;
+            (int start, int end)? content = null, textBlock = null, lineId = null;
+            var answersTool = false;
+            // An answer's own `type` comes last, after the text it carries, so
+            // what it produced is counted on every line and kept only once the
+            // line turns out to have been an answer.
+            var produced = 0;
+            var edited = false;
 
             // The one field read out of order. An answer is written
             // {"parentUuid":…,"message":{…,"type":"message",…},"type":"assistant"},
@@ -85,6 +119,26 @@ public static class TranscriptParser
                 else if (KeyIs(key, "ownerAccountUuid")) First(ref account, value);
                 else if (KeyIs(key, "ownerOrganizationUuid")) First(ref organization, value);
                 else if (KeyIs(key, "customTitle")) First(ref customTitle, value);
+                // Taken as byte ranges and only on a prompt's own line: an answer
+                // carries megabytes in these keys, and decoding it is what would
+                // make a pass slow again.
+                else if (KeyIs(key, "content"))
+                {
+                    if (type == "user" && !answersTool && content is null) content = (valStart, valEnd);
+                }
+                else if (KeyIs(key, "text"))
+                {
+                    produced += valEnd - valStart;
+                    if (type == "user" && !answersTool && textBlock is null) textBlock = (valStart, valEnd);
+                }
+                else if (KeyIs(key, "tool_use_id")) answersTool = true;
+                // The line's own id is its last; a tool input nested earlier may carry one.
+                else if (KeyIs(key, "uuid")) lineId = (valStart, valEnd);
+                else if (KeyIs(key, "name"))
+                {
+                    if (ValueIs(value, "Edit") || ValueIs(value, "Write") || ValueIs(value, "MultiEdit")
+                        || ValueIs(value, "NotebookEdit")) edited = true;
+                }
             }
 
             if (type == "bridge-session")
@@ -120,6 +174,24 @@ public static class TranscriptParser
             if (branch is not null && !branches.Contains(branch)) branches.Add(branch);
             if (promptId is not null) promptIds.Add(promptId);
 
+            if (type == "user" && promptId is not null && !answersTool
+                && !LineContains(bytes, lineStart, lineEnd, "\"isMeta\":true")
+                && (content ?? textBlock) is var (wordsStart, wordsEnd)
+                && !StartsWith(bytes.AsSpan(wordsStart, wordsEnd - wordsStart), "[Request interrupted by user")
+                && Fingerprint(bytes.AsSpan(wordsStart, wordsEnd - wordsStart)) is var (print, size))
+            {
+                if (trace.Prompts.Count == 0) trace.OpeningSize = size;
+                trace.Prompts.Add(print);
+            }
+            // An overloaded or failed request is written as an answer too, and
+            // produced nothing anybody would go back for.
+            if (assistant && lineId is var (idStart, idEnd) && (produced > 0 || edited)
+                && !LineContains(bytes, lineStart, lineEnd, "\"isApiErrorMessage\":true")
+                && Fingerprint(bytes.AsSpan(idStart, idEnd - idStart)) is var (id, _))
+            {
+                trace.Work[id] = trace.Work.GetValueOrDefault(id) + produced + (edited ? ConversationTrace.EditWeight : 0);
+            }
+
             lineStart = lineEnd + 1;
         }
 
@@ -128,9 +200,9 @@ public static class TranscriptParser
             || EpochMilliseconds(firstStamp) is not double created
             || EpochMilliseconds(lastStamp) is not double active
             || ownerAccount.Length == 0 || ownerOrganization.Length == 0)
-            return null;
+            return (null, trace);
 
-        return new SessionFacts
+        return (new SessionFacts
         {
             CliSessionId = cliSessionId,
             BridgeIds = bridgeIds,
@@ -145,8 +217,55 @@ public static class TranscriptParser
             PermissionMode = permissionMode,
             Prompts = promptIds.Count,
             Branches = branches,
-        };
+        }, trace);
     }
+
+    /// FNV-1a over a value still as JSON wrote it, whitespace folded. Decoding
+    /// first is what a compaction summary or a pasted log would otherwise cost;
+    /// one writer escapes one text one way, so the escaped bytes identify it as
+    /// well as the words, and only the whitespace escapes are folded.
+    internal static (string print, int size)? Fingerprint(ReadOnlySpan<byte> value)
+    {
+        ulong hash = 0xcbf29ce484222325;
+        bool wrote = false, gap = false;
+        var size = 0;
+        void Mix(byte b)
+        {
+            if (gap && wrote) { hash ^= (byte)' '; hash *= 0x100000001b3; size++; }
+            gap = false;
+            wrote = true;
+            size++;
+            hash ^= b;
+            hash *= 0x100000001b3;
+        }
+        var i = 0;
+        while (i < value.Length)
+        {
+            var b = value[i];
+            if (b == Backslash && i + 1 < value.Length)
+            {
+                var next = value[i + 1];
+                if (next is (byte)'n' or (byte)'t' or (byte)'r') gap = true;
+                else { Mix(b); Mix(next); }
+                i += 2;
+                continue;
+            }
+            if (b is 0x20 or 0x0a or 0x09 or 0x0d) gap = true; else Mix(b);
+            i++;
+        }
+        return wrote ? (hash.ToString("x"), size) : null;
+    }
+
+    private static bool StartsWith(ReadOnlySpan<byte> value, string ascii)
+    {
+        if (value.Length < ascii.Length) return false;
+        for (var i = 0; i < ascii.Length; i++)
+            if (value[i] != (byte)ascii[i]) return false;
+        return true;
+    }
+
+    private static bool LineContains(byte[] bytes, int lower, int upper, string needle) =>
+        bytes.AsSpan(lower, upper - lower).IndexOf(System.Text.Encoding.ASCII.GetBytes(needle)) >= 0;
 
     private static void First(ref string? slot, ReadOnlySpan<byte> value)
     {

@@ -17,6 +17,9 @@ public enum SessionFiling
     /// Run from a terminal, or by a Claude without a bridge: never in a sidebar,
     /// so nothing is missing.
     NotADesktopSession,
+    /// Worked in on another machine whose transcripts were carried here. Asked
+    /// again next pass, since a drive not attached yet may be.
+    FolderElsewhere,
 }
 
 /// <summary>What a pass does with a record that already exists on disk.</summary>
@@ -36,6 +39,21 @@ public enum SessionUpdate
 public static partial class Graft
 {
     /// Whether a transcript still needs a record written for it.
+    /// Whether the folder a session worked in could be on this machine at all.
+    /// A record filed for a transcript carried over from elsewhere is a chat
+    /// that cannot be opened. Asked of the drive and the home folder, never the
+    /// folder itself: a worktree cleaned up after its chat closed is still this
+    /// machine's history.
+    public static bool SessionFolderIsHere(string cwd)
+    {
+        if (cwd.StartsWith('/')) return false;
+        if (cwd.Length < 3 || !char.IsLetter(cwd[0]) || cwd[1] != ':' || cwd[2] is not ('\\' or '/')) return true;
+        var parts = cwd.Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries);
+        var depth = parts.Length > 2 && parts[1].Equals("Users", StringComparison.OrdinalIgnoreCase) ? 3 : 1;
+        var place = string.Join('\\', parts.Take(depth)) + (depth == 1 ? "\\" : "");
+        return Directory.Exists(place);
+    }
+
     public static SessionFiling DecideFiling(
         SessionFacts? facts,
         IReadOnlySet<string> recorded,
@@ -45,9 +63,11 @@ public static partial class Graft
         string? ownerProfile,
         bool anyDesktopRunning,
         DateTime now,
-        TimeSpan quietWindow)
+        TimeSpan quietWindow,
+        bool folderIsHere = true)
     {
         if (facts is null) return SessionFiling.NotADesktopSession;
+        if (!folderIsHere) return SessionFiling.FolderElsewhere;
         if (recorded.Contains(facts.CliSessionId)) return SessionFiling.AlreadyRecorded;
         if (withdrawn.Contains(facts.CliSessionId)) return SessionFiling.Withdrawn;
 

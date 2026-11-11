@@ -79,6 +79,31 @@ public sealed class ApplyTests : IDisposable
         Assert.Equal(new[] { "local_mine.json" },
             Directory.EnumerateFiles(stash).Select(Path.GetFileName).OrderBy(n => n).ToArray());
     }
+
+    [Fact(DisplayName = "a lender moving to another organization hands its old chats back rather than leaving them as the borrower's own")]
+    public void LenderChangesOrganization()
+    {
+        var main = MakeProfile("Claude", "AAAA", "ORG-A", "shared");
+        var work = MakeProfile("Claude-Work", "BBBB", "ORG-B", "mine");
+        var cfg = new GraftConfig { ProfileDir = work, SourceDir = main };
+        Graft.Apply(cfg);
+
+        foreach (var store in GraftPaths.ChatStoreNames)
+        {
+            var moved = Path.Combine(main, store, "AAAA", "ORG-A2");
+            Directory.CreateDirectory(moved);
+            File.WriteAllText(Path.Combine(moved, "local_elsewhere.json"), "{}");
+            Directory.SetLastWriteTimeUtc(moved, DateTime.UtcNow.AddMinutes(5));
+        }
+        Graft.Apply(cfg);
+
+        Assert.Equal(new[] { "elsewhere", "mine" }, Chats(work, "BBBB", "ORG-B"));
+        // What was merged into the lender stays there; that half is the one thing no graft undoes.
+        Assert.Equal(new[] { "mine", "shared" }, Chats(main, "AAAA", "ORG-A"));
+        var stash = Path.Combine(work, "claude-code-sessions", "BBBB", ".ORG-B.graft-own");
+        Assert.Equal(new[] { "local_mine.json" },
+            Directory.EnumerateFiles(stash).Select(Path.GetFileName).OrderBy(n => n).ToArray());
+    }
 }
 
 [Collection("GlobalState")]

@@ -57,14 +57,14 @@ public sealed class OrchestratorTests : IDisposable
         };
         if (spoke)
         {
-            lines.Add("{\"promptId\":\"p1\",\"cwd\":\"/w\",\"permissionMode\":\"auto\",\"gitBranch\":\"main\"," +
+            lines.Add("{\"promptId\":\"p1\",\"cwd\":\"C:\\\\w\",\"permissionMode\":\"auto\",\"gitBranch\":\"main\"," +
                       "\"type\":\"user\",\"message\":{\"role\":\"user\"},\"timestamp\":\"2026-08-29T17:00:00.000Z\"}");
-            lines.Add("{\"cwd\":\"/w\",\"type\":\"assistant\",\"message\":{\"model\":\"claude-opus-5\"}," +
+            lines.Add("{\"cwd\":\"C:\\\\w\",\"type\":\"assistant\",\"message\":{\"model\":\"claude-opus-5\"}," +
                       $"\"timestamp\":\"{last}\",\"effort\":\"max\"}}");
         }
         else
         {
-            lines.Add($"{{\"cwd\":\"/w\",\"type\":\"file-history-summary\",\"timestamp\":\"{last}\"}}");
+            lines.Add($"{{\"cwd\":\"C:\\\\w\",\"type\":\"file-history-summary\",\"timestamp\":\"{last}\"}}");
         }
         if (title is not null)
             lines.Add($"{{\"type\":\"custom-title\",\"customTitle\":\"{title}\"}}");

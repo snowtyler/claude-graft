@@ -14,6 +14,9 @@ public static partial class Graft
         [JsonPropertyName("modified")] public double Modified { get; set; }
         [JsonPropertyName("size")] public long Size { get; set; }
         [JsonPropertyName("facts")] public SessionFacts? Facts { get; set; }
+        /// Absent in a cache written before traces were kept; such an entry is
+        /// read again, once, rather than trusted.
+        [JsonPropertyName("trace")] public ConversationTrace? Trace { get; set; }
     }
 
     private static readonly object TranscriptCacheLock = new();
@@ -68,7 +71,7 @@ public static partial class Graft
         }
     }
 
-    private static SessionFacts? TranscriptFacts(string path, string cliSessionId)
+    private static (SessionFacts? facts, ConversationTrace trace) TranscriptReading(string path, string cliSessionId)
     {
         double stamp;
         long size;
@@ -83,17 +86,68 @@ public static partial class Graft
         lock (TranscriptCacheLock)
         {
             LoadTranscriptCache();
-            if (_transcriptCache.TryGetValue(path, out var cached) && cached.Modified == stamp && cached.Size == size)
-                return cached.Facts;
+            if (_transcriptCache.TryGetValue(path, out var cached) && cached.Modified == stamp && cached.Size == size
+                && cached.Trace is { } known)
+                return (cached.Facts, known);
         }
 
-        var facts = TranscriptParser.SessionFacts(path, cliSessionId);
+        var reading = TranscriptParser.Read(path, cliSessionId);
         lock (TranscriptCacheLock)
         {
-            _transcriptCache[path] = new CachedTranscript { Modified = stamp, Size = size, Facts = facts };
+            _transcriptCache[path] = new CachedTranscript { Modified = stamp, Size = size, Facts = reading.facts, Trace = reading.trace };
             _transcriptCacheDirty = true;
         }
-        return facts;
+        return reading;
+    }
+
+    /// <summary>
+    /// The sessions that are only an earlier copy of a conversation another
+    /// session carries on, and are therefore never filed. Editing a prompt or
+    /// resuming starts a new command line session; when the profile was grafted
+    /// no record ever named the earlier one, so it was filed and the same chat
+    /// showed up several times under one title.
+    ///
+    /// A copy shares account, organisation and folder with another session,
+    /// opens with the same substantive prompt, asked nothing the other did not,
+    /// and did next to nothing of its own: answers are compared by line id, and
+    /// a file edit is never a copy. Neither half of a known fork is a copy of the
+    /// other. Thresholds as measured on the Mac's history.
+    /// </summary>
+    public const int OpeningAtLeast = 20;
+    public const int OwnWorkAllowance = 500;
+
+    public static HashSet<string> ResumedCopies(
+        IReadOnlyList<(SessionFacts facts, ConversationTrace trace)> sessions,
+        IReadOnlyDictionary<string, string>? forksOpt = null)
+    {
+        var forks = forksOpt ?? new Dictionary<string, string>();
+        var groups = new Dictionary<string, List<(SessionFacts facts, ConversationTrace trace, HashSet<string> asked)>>();
+        foreach (var (facts, trace) in sessions)
+        {
+            if (trace.OpeningSize < OpeningAtLeast || trace.Prompts.Count == 0) continue;
+            var key = string.Join("\0", facts.OwnerAccount, facts.OwnerOrganization, facts.Cwd, trace.Prompts[0]);
+            if (!groups.TryGetValue(key, out var group)) groups[key] = group = new();
+            group.Add((facts, trace, trace.Prompts.ToHashSet()));
+        }
+        var copies = new HashSet<string>();
+        foreach (var group in groups.Values.Where(g => g.Count > 1))
+            foreach (var copy in group)
+            {
+                var carriedOn = group.Any(other =>
+                {
+                    if (other.facts.CliSessionId == copy.facts.CliSessionId) return false;
+                    if (forks.GetValueOrDefault(copy.facts.CliSessionId) == other.facts.CliSessionId
+                        || forks.GetValueOrDefault(other.facts.CliSessionId) == copy.facts.CliSessionId) return false;
+                    if (!copy.asked.IsSubsetOf(other.asked)) return false;
+                    var ownWork = copy.trace.Work.Where(a => !other.trace.Work.ContainsKey(a.Key)).Sum(a => (long)a.Value);
+                    if (ownWork > OwnWorkAllowance) return false;
+                    if (other.asked.Count > copy.asked.Count) return true;
+                    var byTime = other.facts.LastActivityAt.CompareTo(copy.facts.LastActivityAt);
+                    return byTime > 0 || (byTime == 0 && string.CompareOrdinal(other.facts.CliSessionId, copy.facts.CliSessionId) > 0);
+                });
+                if (carriedOn) copies.Add(copy.facts.CliSessionId);
+            }
+        return copies;
     }
 
     // MARK: - Record files
@@ -209,6 +263,7 @@ public static partial class Graft
 
         var recorded = new HashSet<string>(contents.Records.Keys);
         var withdrawn = new HashSet<string>(state.Withdrawn);
+        var withdrawnBefore = withdrawn.Count;
         var vanished = new HashSet<string>(state.Vanished);
         var missing = new HashSet<string>();
         var outOfSight = new HashSet<string>();
@@ -232,7 +287,10 @@ public static partial class Graft
             // those go on sight, since every record still on disk is learned
             // again below. Only a rooted path is a directory to reason about.
             if (!Path.IsPathRooted(store)) continue;
-            if (Answers(store).stashed) { outOfSight.Add(session); stashedStores.Add(store); continue; }
+            // A record this pass can see is not out of sight, whatever sits beside
+            // its folder: every mirrored folder has a stash, and a record filed
+            // there kept the title it was filed with for as long as the graft lasted.
+            if (Answers(store).stashed && !recorded.Contains(session)) { outOfSight.Add(session); stashedStores.Add(store); continue; }
             if (!Answers(store).present)
             {
                 forgotten.Add(session); goneStores.Add(store);
@@ -300,83 +358,100 @@ public static partial class Graft
             return answer;
         }
 
+        // Read in full before anything is filed: whether a session is a copy of
+        // another depends on every other session there is.
+        var readings = new List<(SessionFacts facts, ConversationTrace trace, DateTime lastWrite)>();
         foreach (var (dir, names) in transcripts)
-        {
             foreach (var name in names)
             {
                 var transcript = Path.Combine(dir, name);
                 visited.Add(transcript);
-                var lastWrite = Fs.Modified(transcript);
+                var reading = TranscriptReading(transcript, name[..^".jsonl".Length]);
+                if (reading.facts is { } read) readings.Add((read, reading.trace, Fs.Modified(transcript)));
+            }
+        // Learned while both records of a fork stand, because the pass this
+        // matters to is one where neither does, and judged from transcripts alone
+        // the original reads as a copy its fork carried on.
+        foreach (var (fork, source) in contents.Forks) state.Forks[fork] = source;
+        var present = readings.Select(r => r.facts.CliSessionId).ToHashSet();
+        state.Forks = state.Forks.Where(kv => present.Contains(kv.Key) || present.Contains(kv.Value))
+                                 .ToDictionary(kv => kv.Key, kv => kv.Value);
+        var copies = ResumedCopies(readings.Select(r => (r.facts, r.trace)).ToList(), state.Forks);
+        var copiesHeldBack = 0;
 
-                var facts = TranscriptFacts(transcript, name[..^".jsonl".Length]);
-                if (facts is null) continue;
-                // An open-and-close with nothing said never had a conversation to lose.
-                if (facts.Prompts == 0) continue;
+        foreach (var (facts, _, lastWrite) in readings)
+        {
+            // An open-and-close with nothing said never had a conversation to lose.
+            if (facts.Prompts == 0) continue;
 
-                if (contents.Deleted.Contains(facts.CliSessionId))
+            // Markers are never pruned, so the one that withdrew a session is
+            // still there every pass after and is not news.
+            if (contents.Deleted.Contains(facts.CliSessionId) && !withdrawn.Contains(facts.CliSessionId))
+            {
+                withdrawn.Add(facts.CliSessionId);
+                state.Authored.Remove(facts.CliSessionId);
+                Diagnostics.Note("sweep.withdraw", new Dictionary<string, object?>
                 {
-                    withdrawn.Add(facts.CliSessionId);
-                    state.Authored.Remove(facts.CliSessionId);
-                    Diagnostics.Note("sweep.withdraw", new Dictionary<string, object?>
-                    {
-                        ["session"] = facts.CliSessionId, ["because"] = "a deletion marker names it",
-                    });
-                }
-                if (withdrawn.Contains(facts.CliSessionId)) continue;
-                if (missing.Contains(facts.CliSessionId)) continue;
-                if (outOfSight.Contains(facts.CliSessionId)) continue;
-                if (contents.Superseded.Contains(facts.CliSessionId)) continue;
+                    ["session"] = facts.CliSessionId, ["because"] = "a deletion marker names it",
+                });
+            }
+            if (withdrawn.Contains(facts.CliSessionId)) continue;
+            if (missing.Contains(facts.CliSessionId)) continue;
+            if (outOfSight.Contains(facts.CliSessionId)) continue;
+            if (contents.Superseded.Contains(facts.CliSessionId)) continue;
 
-                var owner = Owner(facts);
+            var owner = Owner(facts);
 
-                if (recorded.Contains(facts.CliSessionId))
+            if (recorded.Contains(facts.CliSessionId))
+            {
+                if (owner is not null && state.Authored.TryGetValue(facts.CliSessionId, out var authored))
                 {
-                    if (owner is not null && state.Authored.TryGetValue(facts.CliSessionId, out var authored))
+                    switch (DecideUpdate(authored, facts, RecordOnDiskMatches(authored, RecordFile(facts, owner))))
                     {
-                        switch (DecideUpdate(authored, facts, RecordOnDiskMatches(authored, RecordFile(facts, owner))))
-                        {
-                            case SessionUpdate.Leave: break;
-                            case SessionUpdate.TakenOver: state.Authored.Remove(facts.CliSessionId); break;
-                            case SessionUpdate.Refresh:
-                                if (RewriteSessionRecord(facts, owner)) state.Authored[facts.CliSessionId] = facts;
-                                break;
-                        }
+                        case SessionUpdate.Leave: break;
+                        case SessionUpdate.TakenOver: state.Authored.Remove(facts.CliSessionId); break;
+                        case SessionUpdate.Refresh:
+                            if (RewriteSessionRecord(facts, owner)) state.Authored[facts.CliSessionId] = facts;
+                            break;
                     }
-                    continue;
                 }
+                continue;
+            }
 
-                if (owner is null) continue;
-                if (DecideFiling(facts, recorded, withdrawn, guessableDeletions, lastWrite,
-                        owner, desktopUp, now, quietWindow) != SessionFiling.File) continue;
+            // Only filing asks this: a record already on disk is left alone.
+            if (copies.Contains(facts.CliSessionId)) { copiesHeldBack++; continue; }
 
-                var destination = Path.GetDirectoryName(RecordFile(facts, owner))!;
-                if (!MayFileRecords(destination, contents.Stores))
+            if (owner is null) continue;
+            if (DecideFiling(facts, recorded, withdrawn, guessableDeletions, lastWrite,
+                    owner, desktopUp, now, quietWindow, SessionFolderIsHere(facts.Cwd)) != SessionFiling.File) continue;
+
+            var destination = Path.GetDirectoryName(RecordFile(facts, owner))!;
+            if (!MayFileRecords(destination, contents.Stores))
+            {
+                Diagnostics.Note("sweep.refused", new Dictionary<string, object?>
                 {
-                    Diagnostics.Note("sweep.refused", new Dictionary<string, object?>
-                    {
-                        ["session"] = facts.CliSessionId,
-                        ["destination"] = destination,
-                        ["because"] = Fs.Exists(destination)
-                            ? "the folder is there but this pass never read it"
-                            : "this app stashed the folder itself",
-                    });
-                    continue;
-                }
+                    ["session"] = facts.CliSessionId,
+                    ["destination"] = destination,
+                    ["because"] = Fs.Exists(destination)
+                        ? "the folder is there but this pass never read it"
+                        : "this app stashed the folder itself",
+                });
+                continue;
+            }
 
-                if (WriteSessionRecord(facts, owner))
+            if (WriteSessionRecord(facts, owner))
+            {
+                Diagnostics.Note("sweep.file", new Dictionary<string, object?>
                 {
-                    Diagnostics.Note("sweep.file", new Dictionary<string, object?>
-                    {
-                        ["session"] = facts.CliSessionId,
-                        ["owner"] = facts.OwnerAccount,
-                        ["into"] = Path.GetFileName(owner),
-                        ["title"] = facts.Title,
-                        ["cwd"] = facts.Cwd,
-                    });
-                    filed.Add(facts);
-                    state.Records[facts.CliSessionId] = destination;
-                    state.Authored[facts.CliSessionId] = facts;
-                }
+                    ["session"] = facts.CliSessionId,
+                    ["owner"] = facts.OwnerAccount,
+                    ["into"] = Path.GetFileName(owner),
+                    ["title"] = facts.Title,
+                    ["cwd"] = facts.Cwd,
+                });
+                filed.Add(facts);
+                state.Records[facts.CliSessionId] = destination;
+                state.Authored[facts.CliSessionId] = facts;
             }
         }
 
@@ -389,10 +464,13 @@ public static partial class Graft
         Diagnostics.Note("sweep.end", new Dictionary<string, object?>
         {
             ["filed"] = filed.Count,
-            ["withdrawn"] = withdrawn.Count,
+            ["withdrawn"] = withdrawn.Count - withdrawnBefore,
+            ["withdrawnInAll"] = withdrawn.Count,
             ["missingThisPass"] = missing.Count,
             ["outOfSight"] = outOfSight.Count,
             ["forgotten"] = forgotten.Count,
+            ["resumedCopies"] = copiesHeldBack,
+            ["forksKnown"] = state.Forks.Count,
         });
         SaveTranscriptCache(visited);
         return filed;

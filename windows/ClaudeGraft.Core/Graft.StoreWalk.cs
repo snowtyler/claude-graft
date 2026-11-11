@@ -11,6 +11,9 @@ public sealed class RecordSessions
     /// or resumed, gets a new command line session and the record keeps the old
     /// ids here.
     public IReadOnlyList<string> Prior { get; init; } = Array.Empty<string>();
+    /// The record it was forked from, by name. A fork gets a record of its own,
+    /// where a resume keeps the one it had.
+    public string? ForkedFrom { get; init; }
 }
 
 /// <summary>What one walk of the chat stores found.</summary>
@@ -32,6 +35,16 @@ public sealed class StoreContents
     /// transcript sits on disk with no record naming it, which is what a session
     /// that closed without a record looks like from here.
     public HashSet<string> Superseded { get; } = new();
+    /// The session every record holds, against the record's own name, which is
+    /// the only name a fork's record gives its source.
+    public Dictionary<string, string> SessionsByRecord { get; } = new();
+    /// Every session a record says was forked, against its source record's name.
+    public Dictionary<string, string> ForkedFrom { get; } = new();
+
+    /// The forks whose source record this walk found, both halves as sessions.
+    public Dictionary<string, string> Forks => ForkedFrom
+        .Where(kv => SessionsByRecord.ContainsKey(kv.Value))
+        .ToDictionary(kv => kv.Key, kv => SessionsByRecord[kv.Value]);
 }
 
 public static partial class Graft
@@ -86,7 +99,9 @@ public static partial class Graft
             if (root.TryGetProperty("priorCliSessionIds", out var p) && p.ValueKind == JsonValueKind.Array)
                 foreach (var e in p.EnumerateArray())
                     if (e.ValueKind == JsonValueKind.String) prior.Add(e.GetString()!);
-            return new RecordSessions { CliSessionId = cli, Prior = prior };
+            var forked = root.TryGetProperty("forkedFromSessionId", out var f) && f.ValueKind == JsonValueKind.String
+                ? f.GetString() : null;
+            return new RecordSessions { CliSessionId = cli, Prior = prior, ForkedFrom = forked };
         }
         catch { return new RecordSessions(); }
     }
@@ -210,6 +225,11 @@ public static partial class Graft
                             if (sessions.CliSessionId is string sid && !contents.Records.ContainsKey(sid))
                                 contents.Records[sid] = resolved;
                             foreach (var prior in sessions.Prior) contents.Superseded.Add(prior);
+                            if (sessions.CliSessionId is string held)
+                            {
+                                contents.SessionsByRecord[name[..^".json".Length]] = held;
+                                if (sessions.ForkedFrom is string source) contents.ForkedFrom[held] = source;
+                            }
                         }
                         else if (name.StartsWith("deleted_"))
                         {
