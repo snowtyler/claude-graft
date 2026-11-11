@@ -22,6 +22,21 @@ public class UpdaterTests
         }
         """;
 
+    [Fact(DisplayName = "an update installs itself unless it is held")]
+    public void InstallsUnlessHeld()
+    {
+        Assert.True(Updater.InstallsOnItsOwn(held: false, windowOpen: false));
+        Assert.False(Updater.InstallsOnItsOwn(held: true, windowOpen: false));
+    }
+
+    [Fact(DisplayName = "an update waits while a Graft window is open, since installing closes it")]
+    public void WaitsForWindow() => Assert.False(Updater.InstallsOnItsOwn(held: false, windowOpen: true));
+
+    [Fact(DisplayName = "a settings file from before the hold existed installs on its own")]
+    public void OlderSettingsDoNotHold() =>
+        Assert.False(System.Text.Json.JsonSerializer.Deserialize<GraftSettings>("""{"theme":"System"}""",
+            new System.Text.Json.JsonSerializerOptions { Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() } })!.HoldUpdates);
+
     [Fact(DisplayName = "a win-v tag names its version, and a bare Mac v tag names none")]
     public void ReadsWindowsTags()
     {

@@ -173,11 +173,10 @@ public partial class App : Application
             _ => _ = SweepWarmProfiles(), null, TimeSpan.FromSeconds(20), TimeSpan.FromMinutes(5));
 
         // A minute in, so a login-time launch is not on the network before it is
-        // up; every six hours after, well inside GitHub's unauthenticated rate
-        // limit. A found update only lights the tray and the button — nothing here
-        // installs on its own.
+        // up; hourly after, as the Mac checks, and well inside GitHub's
+        // unauthenticated rate limit.
         _updateTimer = new Timer(
-            _ => _ = CheckForUpdates(), null, TimeSpan.FromSeconds(60), TimeSpan.FromHours(6));
+            _ => _ = CheckForUpdates(), null, TimeSpan.FromSeconds(60), TimeSpan.FromHours(1));
     }
 
     /// The classic toast path, not WinUI's AppNotificationManager, which needs a
@@ -203,7 +202,12 @@ public partial class App : Application
         try
         {
             var found = await Updater.CheckAsync();
-            OnUi(() => SetAvailableUpdate(found));
+            OnUi(() =>
+            {
+                SetAvailableUpdate(found);
+                if (found is not null && Updater.InstallsOnItsOwn(Settings.HoldUpdates, GraftWindowOpen()))
+                    _ = InstallUpdateAsync(found, quiet: true);
+            });
         }
         catch (Exception e) { Record("update.check", e); }
     }
@@ -233,7 +237,8 @@ public partial class App : Application
         // still says an update is waiting. Once per version, so a check every six
         // hours does not keep rewriting the same tooltip.
         var version = release?.Version.ToString();
-        if (version is not null && version != _notifiedVersion)
+        // Only a held update is announced; one that installs itself says nothing.
+        if (version is not null && version != _notifiedVersion && Settings.HoldUpdates)
         {
             _notifiedVersion = version;
             UpdateToast.Available(release!);
@@ -247,18 +252,21 @@ public partial class App : Application
     /// cannot replace a running exe, so the process that holds it open has to go.
     /// A second press while one is under way joins it rather than starting
     /// another download. False when the download failed and nothing was handed off.
-    internal Task<bool> InstallUpdateAsync(Updater.Release release) =>
-        _installing ??= DownloadAndInstall(release);
+    internal Task<bool> InstallUpdateAsync(Updater.Release release, bool quiet = false) =>
+        _installing ??= DownloadAndInstall(release, quiet);
 
-    private async Task<bool> DownloadAndInstall(Updater.Release release)
+    private bool GraftWindowOpen() =>
+        _window?.AppWindow.IsVisible == true || _flyout?.AppWindow.IsVisible == true;
+
+    private async Task<bool> DownloadAndInstall(Updater.Release release, bool quiet)
     {
-        UpdateToast.Downloading(release);
+        if (!quiet) UpdateToast.Downloading(release);
         SetUpdateDownload(0);
         // Created here, on the UI thread, so each report lands back on it.
         var progress = new Progress<double>(fraction =>
         {
             SetUpdateDownload(fraction);
-            UpdateToast.Report(fraction);
+            if (!quiet) UpdateToast.Report(fraction);
         });
         string path;
         try { path = await Updater.DownloadAsync(release, progress); }
@@ -267,13 +275,16 @@ public partial class App : Application
             Record("update.download", e);
             _installing = null;
             SetUpdateDownload(null);
-            UpdateToast.Failed(release);
+            // One that installs itself tries again at the next check.
+            if (!quiet) UpdateToast.Failed(release);
             return false;
         }
 
-        UpdateToast.Installing();
-        Diagnostics.Note("update.install",
-            new Dictionary<string, object?> { ["version"] = release.Version.ToString(), ["path"] = path });
+        if (!quiet) UpdateToast.Installing();
+        Diagnostics.Note("update.install", new Dictionary<string, object?>
+        {
+            ["version"] = release.Version.ToString(), ["path"] = path, ["onItsOwn"] = quiet,
+        });
         Updater.LaunchInstaller(path);
         _tray?.Dispose();
         WindowIdentity.Stop();

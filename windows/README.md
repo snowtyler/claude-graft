@@ -76,9 +76,11 @@ channels a contributor does not have, so the port leaves them alone:
   Windows. So a release is an Inno Setup installer, built and published to the
   repository's GitHub releases by the tag-driven workflow, and the app updates
   itself from that feed: it polls the releases API for the newest full release
-  carrying a setup asset, and offers it from the tray and the flyout. The install
-  is a press, not a schedule — a found update lights the icon and the button, and
-  downloading and running the installer waits for the person to ask. Whether a
+  carrying a setup asset, checked hourly. As on the Mac, a found update installs
+  itself without a word, waiting only while a Graft window is open, since the
+  installer closes Graft and starts it again. Turning on Hold Graft's updates in
+  Settings makes it wait instead: the version lights the icon and the button, and
+  nothing is downloaded until the person presses Install. Whether a
   release is signed at all is still the maintainer's call; the feed is the
   repository the build was published from and nothing else is contacted.
 - **The manifest identity** is still the scaffold's placeholder name and

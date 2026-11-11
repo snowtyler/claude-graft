@@ -32,6 +32,11 @@ public sealed class GraftSettings
     /// shortcut to hold it, so it lives here beside the rest of the preferences.
     [JsonPropertyName("keepMainWarm")] public bool KeepMainWarm { get; set; }
 
+    /// Graft's own updates wait for a press instead of installing themselves.
+    /// Absent reads as off, so every machine that updates into this keeps
+    /// installing on its own as before.
+    [JsonPropertyName("holdUpdates")] public bool HoldUpdates { get; set; }
+
     private static string SettingsFile => Path.Combine(GraftPaths.OwnData, "settings.json");
 
     private static readonly JsonSerializerOptions Options = new()

@@ -93,6 +93,11 @@ public static class Updater
     public static Release? Available(JsonElement releases, Version current) =>
         LatestFrom(releases) is { } latest && latest.Version > current ? latest : null;
 
+    /// Whether a found update installs itself now. Never under a hold, and
+    /// never while a Graft window is open: the installer closes Graft, and a
+    /// person mid-click would lose it under them. The next check tries again.
+    public static bool InstallsOnItsOwn(bool held, bool windowOpen) => !held && !windowOpen;
+
     private static readonly HttpClient Http = Build();
 
     private static HttpClient Build()

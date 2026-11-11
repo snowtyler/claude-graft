@@ -51,6 +51,8 @@
         <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
         <StackPanel Spacing="8">
+            <ToggleSwitch x:Name="HoldUpdatesSwitch" Header="Hold Graft's updates until I install them"
+                          ToolTipService.ToolTip="Off, updates install on their own and Graft restarts itself. On, a new version waits for you to press Install." />
             <Grid ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
