@@ -189,6 +189,37 @@ public partial class App : Application
         // unauthenticated rate limit.
         _updateTimer = new Timer(
             _ => _ = CheckForUpdates(), null, TimeSpan.FromSeconds(60), TimeSpan.FromHours(1));
+
+        _sharingTimer = new Timer(_ => SyncSharing(), null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(30));
+    }
+
+    private Timer? _sharingTimer;
+    public static readonly SharedUsage Sharing = new();
+    public static SharedUsage.Result? SharingResult { get; private set; }
+    private int _sharingBusy;
+    private string? _lastSharingProblem;
+
+    /// Logins renew and Claudes open and close, so the relay is told again and
+    /// each environment settled on a timer. Nothing is touched for a person
+    /// who shares nothing and holds no lines.
+    internal void SyncSharing()
+    {
+        if (Interlocked.Exchange(ref _sharingBusy, 1) == 1) return;
+        try
+        {
+            if (UsageSharing.Load().Lenders.All(l => l.Value.Count == 0) && PoolEnvironment.ReadJournal().Profiles.Count == 0
+                && RelayKeeper.Send(new RelayRequest(), timeoutMs: 500) is null) return;
+            var claudes = new List<(string, string, string)> { (UsageSharing.MainKey, "Claude", GraftPaths.DefaultProfile) };
+            claudes.AddRange(Store.Shortcuts.ToList().Select(s => (s.Id.ToString(), s.Name, s.ProfileDir)));
+            SharingResult = Sharing.Pass(claudes, profile => UsageMonitor.Peek(profile) is { Usage: { } u, UpdatedAt: { } at }
+                ? PoolLimits.FromPercent(u.FiveHour, u.FiveHourReset, u.Week, u.WeekReset, at) : null,
+                ClaudeProcesses.IsRunning);
+            if (SharingResult.Problem is string problem && problem != _lastSharingProblem)
+                Diagnostics.Note("pool.problem", new Dictionary<string, object?> { ["problem"] = problem });
+            _lastSharingProblem = SharingResult.Problem;
+        }
+        catch (Exception e) { Record("pool.sync", e); }
+        finally { Volatile.Write(ref _sharingBusy, 0); }
     }
 
     /// The classic toast path, not WinUI's AppNotificationManager, which needs a

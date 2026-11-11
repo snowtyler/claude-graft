@@ -65,6 +65,8 @@ Filename: "{app}\{#MyAppExeName}"; Flags: nowait; Check: IsUpdate
 
 [UninstallRun]
 Filename: "taskkill"; Parameters: "/F /IM ClaudeGraft.exe"; Flags: runhidden; RunOnceId: "KillApp"
+; Nothing else puts back what a borrowing Claude's environment held before sharing.
+Filename: "{app}\GraftLaunch.exe"; Parameters: "--stop-sharing"; Flags: runhidden waituntilterminated; RunOnceId: "StopSharing"
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"

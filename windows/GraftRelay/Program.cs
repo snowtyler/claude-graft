@@ -24,6 +24,8 @@ public sealed class Relay
         public string KeyName { get; init; } = UsagePool.KeyName;
         /// A test's stand-in for the service, spoken to in plain TCP.
         public int? UpstreamLoopbackPort { get; init; }
+        /// How often the relay looks for Graft's install; a test shortens it.
+        public TimeSpan RemovalCheck { get; init; } = TimeSpan.FromMinutes(1);
     }
 
     private readonly Options _options;
@@ -36,6 +38,8 @@ public sealed class Relay
     private readonly PoolState _state = new();
     private Upstream _upstream = null!;
     private int _quitting;
+    private int _missing;
+    private PoolEnvironment.Journal? _remembered;
 
     public Relay(Options options)
     {
@@ -78,6 +82,7 @@ public sealed class Relay
         Diagnostics.Note("relay.started", new Dictionary<string, object?> { ["port"] = _options.Port, ["binary"] = _binary[..Math.Min(12, _binary.Length)] });
 
         var control = Task.Run(ControlLoop);
+        _ = Task.Run(WatchForRemoval);
         try
         {
             while (!_stop.IsCancellationRequested)
@@ -142,6 +147,33 @@ public sealed class Relay
     }
 
     private RelayStatus Status() => _state.Status(_binary, Environment.ProcessId, _started);
+
+    /// The relay outlives Graft, so it is the one left to notice Graft has gone.
+    /// It runs from a copy, so what it watches is the install's relay the
+    /// journal names; missing at two looks a minute apart, which an update
+    /// never is, it stops lending, puts each closed Claude back as it was, and
+    /// leaves once none still points here, taking its key with it.
+    private async Task WatchForRemoval()
+    {
+        while (!_stop.IsCancellationRequested)
+        {
+            try { await Task.Delay(_options.RemovalCheck, _stop.Token); }
+            catch (OperationCanceledException) { return; }
+            if (PoolEnvironment.JournalOnDisk() is { } journal) _remembered = journal;
+            if (_remembered?.Relay is not string source || File.Exists(source))
+            {
+                _missing = 0;
+                continue;
+            }
+            if (++_missing < 2) continue;
+            if (_missing == 2) _state.Configure(new PoolConfiguration { Enabled = false });
+            var left = PoolEnvironment.TakeOutLines(_remembered, ClaudeProcesses.IsRunning);
+            if (left.Count > 0 || _state.InFlight > 0) continue;
+            try { RelayCertificates.DeleteKey(_options.KeyName); } catch { }
+            await StepAside();
+            return;
+        }
+    }
 
     /// Stops listening and lets go of the lock before answering, so the relay
     /// replacing this one can start the moment Graft hears back.
@@ -285,6 +317,8 @@ public static class Program
                 case "--key-name" when next is not null: options = options with { KeyName = next }; i++; break;
                 case "--support" when next is not null: GraftPaths.ProfilesRootOverride = next; i++; break;
                 case "--upstream-loopback-port" when int.TryParse(next, out var up): options = options with { UpstreamLoopbackPort = up }; i++; break;
+                case "--removal-check" when double.TryParse(next, System.Globalization.CultureInfo.InvariantCulture, out var s) && s > 0:
+                    options = options with { RemovalCheck = TimeSpan.FromSeconds(s) }; i++; break;
             }
         }
         return await new Relay(options).RunAsync();

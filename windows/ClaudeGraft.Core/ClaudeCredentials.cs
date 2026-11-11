@@ -77,6 +77,43 @@ public static class ClaudeCredentials
         return BestToken(plain, required) ?? throw new CredentialException(Failure.Expired);
     }
 
+    /// Every token the profile's cache holds, current or not: a request is
+    /// traced to its Claude by any of them. Null when no login is cached.
+    public static IReadOnlyList<Token>? Tokens(string profile)
+    {
+        var config = Graft.ConfigJson(profile);
+        var encoded = CacheKeys.Select(k => config[k]?.GetValue<string>()).FirstOrDefault(v => v is not null);
+        if (encoded is null) return null;
+        byte[] blob;
+        try { blob = Convert.FromBase64String(encoded); }
+        catch { throw new CredentialException(Failure.NotSignedIn); }
+        var key = SafeStorageKeyGuarded(profile) ?? throw new CredentialException(Failure.NoKey);
+        var plain = Decrypt(blob, key) ?? throw new CredentialException(Failure.NotSignedIn);
+        return Entries(plain);
+    }
+
+    public static List<Token> Entries(byte[] plaintext)
+    {
+        using JsonDocument? doc = Parse(plaintext);
+        var all = new List<Token>();
+        if (doc is null || doc.RootElement.ValueKind != JsonValueKind.Object) return all;
+        foreach (var pair in doc.RootElement.EnumerateObject())
+        {
+            var entry = pair.Value;
+            if (entry.ValueKind != JsonValueKind.Object
+                || !entry.TryGetProperty("token", out var t) || t.ValueKind != JsonValueKind.String
+                || !entry.TryGetProperty("expiresAt", out var e) || e.ValueKind != JsonValueKind.Number) continue;
+            all.Add(new Token
+            {
+                Value = t.GetString()!,
+                Expires = DateTimeOffset.FromUnixTimeMilliseconds((long)e.GetDouble()),
+                Plan = entry.TryGetProperty("subscriptionType", out var s) && s.ValueKind == JsonValueKind.String ? s.GetString() : null,
+                Scopes = ScopesIn(pair.Name),
+            });
+        }
+        return all;
+    }
+
     /// The best current token in a decrypted cache, or null if none qualifies —
     /// pulled out so it can be tested without any live crypto.
     public static Token? BestToken(byte[] plaintext, IReadOnlyList<string> required)
@@ -148,6 +185,18 @@ public static class ClaudeCredentials
             return plain;
         }
         catch (CryptographicException) { return null; }
+    }
+
+    /// The inverse of Decrypt, for the values Graft writes into a profile's
+    /// own Code environment.
+    public static byte[] Seal(byte[] plain, byte[] key)
+    {
+        var nonce = RandomNumberGenerator.GetBytes(12);
+        var cipher = new byte[plain.Length];
+        var tag = new byte[16];
+        using var gcm = new AesGcm(key, 16);
+        gcm.Encrypt(nonce, plain, cipher, tag);
+        return [.. "v10"u8.ToArray(), .. nonce, .. cipher, .. tag];
     }
 
     /// The AES key Chromium wraps the token with, read from the profile's own

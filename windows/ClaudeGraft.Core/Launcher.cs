@@ -119,6 +119,8 @@ public static class Launcher
                 return;
             }
             SidebarSync.Synchronize(config.ProfileDir);
+            PoolEnvironment.SettleBeforeOpening(config.ProfileDir,
+                () => PoolEnvironment.EnsureRelay(PoolEnvironment.ReadJournal().Relay));
             Launch(config.ProfileDir);
         });
     }

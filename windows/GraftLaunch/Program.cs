@@ -8,6 +8,15 @@ using ClaudeGraft.Core;
 //
 // The record sweep the Mac runs here is not wired in yet; opening the profile
 // is, which is the half a shortcut needs first.
+// Run by the uninstaller while Graft is still there to run it from: nothing
+// else puts back what a borrowing Claude's environment held before sharing.
+if (args.Length == 1 && args[0] == "--stop-sharing")
+{
+    foreach (var path in PoolEnvironment.TakeOutLines(null, ClaudeProcesses.IsRunning))
+        Console.WriteLine($"still open, or changed since Graft read it: {path}");
+    return 0;
+}
+
 if (args.Length < 1 || string.IsNullOrWhiteSpace(args[0]))
 {
     Diagnostics.Note("launcher.noArgs", null);
