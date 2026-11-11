@@ -21,4 +21,17 @@ public class FrontLabelTests
 
     [Fact(DisplayName = "a long name is cut to what a tray tooltip can show")]
     public void Cut() => Assert.Equal(FrontLabel.MaxLength, FrontLabel.Tooltip(new string('x', 200), null).Length);
+
+    [Fact(DisplayName = "the conversation on screen is named on a line of its own")]
+    public void ChatLine() =>
+        Assert.Equal("Claude 2 — 5h 34% · week 12%\nFix the sign-in bug",
+            FrontLabel.Tooltip("Claude 2", Figures(34, 12), "Fix the sign-in bug"));
+
+    [Fact(DisplayName = "a long conversation title is what gets cut, never the figures")]
+    public void ChatCut()
+    {
+        var text = FrontLabel.Tooltip("Claude 2", Figures(34, 12), new string('t', 300));
+        Assert.Equal(FrontLabel.MaxLength, text.Length);
+        Assert.StartsWith("Claude 2 — 5h 34% · week 12%\n", text);
+    }
 }

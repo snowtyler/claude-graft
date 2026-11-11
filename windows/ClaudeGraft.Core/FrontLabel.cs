@@ -9,11 +9,18 @@ public static class FrontLabel
     // Windows cuts a tray tooltip off past 127 characters.
     public const int MaxLength = 127;
 
-    public static string Tooltip(string name, Usage? usage)
+    /// The conversation on screen goes on a line of its own, and is what gets
+    /// cut when the whole will not fit.
+    public static string Tooltip(string name, Usage? usage, string? chat = null)
     {
         var text = usage is null
             ? name
             : name + " — " + (usage.FiveHour is int five ? $"5h {five}%" : "5h no limit") + $" · week {usage.Week}%";
-        return text.Length <= MaxLength ? text : text[..(MaxLength - 1)] + "…";
+        if (text.Length > MaxLength) return text[..(MaxLength - 1)] + "…";
+        if (string.IsNullOrWhiteSpace(chat)) return text;
+        var room = MaxLength - text.Length - 1;
+        if (room < 4) return text;
+        chat = chat.Trim().ReplaceLineEndings(" ");
+        return text + "\n" + (chat.Length <= room ? chat : chat[..(room - 1)] + "…");
     }
 }

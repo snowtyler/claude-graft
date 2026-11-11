@@ -151,6 +151,8 @@ public partial class App : Application
         _tray.ForceCreate();
 
         FrontClaude.Changed += ShowTray;
+        ChatOnScreen.Changed += ShowTray;
+        ChatOnScreen.Start(_ui);
         FrontClaude.Activated += profile => _ = RefreshFront(profile);
         FrontClaude.Start(_ui);
         // A Claude in front is spending its figure, so it is asked after more
@@ -330,7 +332,8 @@ public partial class App : Application
             _tray.ToolTipText = $"Claude Graft — downloading update, {(int)Math.Round(f * 100)}%";
         else if (front is not null)
             _tray.ToolTipText = FrontLabel.Tooltip(shortcut?.Name ?? "Claude",
-                _frontUsage.GetValueOrDefault(front) is { } u ? UsageStatus.Rolled(u, DateTimeOffset.UtcNow) : null);
+                _frontUsage.GetValueOrDefault(front) is { } u ? UsageStatus.Rolled(u, DateTimeOffset.UtcNow) : null,
+                ChatOnScreen.TitleFor(front));
         else
             _tray.ToolTipText = AvailableUpdate is { } ready ? $"Claude Graft — update {ready.Version} ready" : "Claude Graft";
 
@@ -342,7 +345,11 @@ public partial class App : Application
     }
 
     /// After a shortcut's name or icon changed, from the UI thread.
-    internal static void ShortcutsChanged() => (Current as App)?.ShowTray();
+    internal static void ShortcutsChanged()
+    {
+        ChatOnScreen.Rewatch();
+        (Current as App)?.ShowTray();
+    }
 
     private async Task RefreshFront(string profile)
     {
