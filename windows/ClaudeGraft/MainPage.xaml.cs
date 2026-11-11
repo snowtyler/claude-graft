@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using ClaudeGraft.Core;
@@ -267,8 +268,7 @@ public sealed partial class MainPage : Page
     private static List<(string Key, string Name)> SharingClaudes() =>
         App.Store.Shortcuts.ToList().Select(s => (s.Id.ToString(), s.Name)).Prepend((UsageSharing.MainKey, "Claude")).ToList();
 
-    private static string NameOf(string key) =>
-        SharingClaudes().FirstOrDefault(c => c.Key == key).Name ?? key;
+    private static string NameOf(string key) => App.SharingName(key);
 
     /// Each card's line, from the settings and what the last pass found.
     private void ShowSharing()
@@ -309,9 +309,27 @@ public sealed partial class MainPage : Page
             item.Click += SharingLender_Click;
             menu.Items.Add(item);
         }
-        if (menu.Items.Count == 0)
-            menu.Items.Add(new MenuFlyoutItem { Text = "Add another profile to share its usage", IsEnabled = false });
+        foreach (var account in PoolAccounts.Load())
+        {
+            var same = own is not null && account.AccountUuid == own;
+            var on = lenders.Contains(account.Id);
+            var condition = on || same ? SharingText.Condition(account.Id, App.SharingResult, same, DateTimeOffset.UtcNow) : "";
+            var item = new ToggleMenuFlyoutItem
+            {
+                Text = condition.Length == 0 ? account.Name : $"{account.Name} · {condition}",
+                IsChecked = on,
+                Tag = (row, account.Id),
+            };
+            AutomationProperties.SetAutomationId(item, Spoken.Id("manager", row.Key, "sharing.account"));
+            AutomationProperties.SetName(item, $"Draw on {account.Name}");
+            item.Click += SharingLender_Click;
+            menu.Items.Add(item);
+        }
         menu.Items.Add(new MenuFlyoutSeparator());
+        var signIn = new MenuFlyoutItem { Text = "Sign in to another account…" };
+        AutomationProperties.SetAutomationId(signIn, Spoken.Id("manager", row.Key, "sharing.signIn"));
+        signIn.Click += async (_, _) => await SignInToLend(row);
+        menu.Items.Add(signIn);
         var about = new MenuFlyoutItem { Text = "About shared usage…" };
         AutomationProperties.SetAutomationId(about, Spoken.Id("manager", row.Key, "sharing.about"));
         about.Click += async (_, _) => await ExplainSharing(agree: false);
@@ -328,8 +346,59 @@ public sealed partial class MainPage : Page
             App.Settings.SharingExplained = true;
             App.Settings.Save();
         }
-        try { SharedChats.SetLender(UsageSharing.Load(), row.SharingKey, lender, on).Save(); }
+        try
+        {
+            var next = SharedChats.SetLender(UsageSharing.Load(), row.SharingKey, lender, on);
+            next.Save();
+            PoolAccounts.ForgetUnused(next);
+        }
         catch (IOException ex) { await Warn("Shared usage was left as it was", ex.Message); return; }
+        ShowSharing();
+        App.Instance.SyncSharingSoon();
+    }
+
+    /// An account with no Claude here, signed in through the browser so this
+    /// Claude can draw on it. Explained first, as adding a Claude is.
+    private async Task SignInToLend(ShortcutRow row)
+    {
+        if (!App.Settings.SharingExplained)
+        {
+            if (!await ExplainSharing(agree: true)) return;
+            App.Settings.SharingExplained = true;
+            App.Settings.Save();
+        }
+        using var cancel = new CancellationTokenSource();
+        var waiting = new ContentDialog
+        {
+            Title = "Sign in to another account",
+            Content = new TextBlock
+            {
+                Text = "Finish signing in in your browser. Choose the account this Claude should draw on; it cannot be the one this Claude already uses.",
+                TextWrapping = TextWrapping.Wrap,
+            },
+            CloseButtonText = "Cancel",
+        };
+        PrepareDialog(waiting);
+        waiting.Closed += (_, _) => cancel.Cancel();
+        var own = Graft.Account(row.ProfileDir);
+        var signIn = AccountSignIn.Run(own, url => Process.Start(new ProcessStartInfo(url) { UseShellExecute = true })?.Dispose(), cancel.Token);
+        var shown = waiting.ShowAsync().AsTask();
+        PoolAccount? account = null;
+        string? failure = null;
+        try { account = await signIn; }
+        catch (OperationCanceledException) { }
+        catch (AccountSignIn.Failure f) { failure = f.Message; }
+        // Only one dialog may be open at a time, so the warning waits for it to go.
+        waiting.Hide();
+        await shown;
+        if (failure is not null) await Warn("The account was not added", failure);
+        if (account is null) return;
+        try
+        {
+            var stored = PoolAccounts.Add(account);
+            SharedChats.SetLender(UsageSharing.Load(), row.SharingKey, stored.Id, true).Save();
+        }
+        catch (IOException ex) { await Warn("The account was not added", ex.Message); return; }
         ShowSharing();
         App.Instance.SyncSharingSoon();
     }

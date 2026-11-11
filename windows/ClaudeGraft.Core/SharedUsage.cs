@@ -95,10 +95,11 @@ public sealed class SharedUsage
     {
         var sharing = UsageSharing.Load();
         var byKey = claudes.ToDictionary(c => c.Key, c => c);
+        var accounts = PoolAccounts.Load().ToDictionary(a => a.Id);
         var involved = new List<string>();
         foreach (var (claude, list) in sharing.Lenders.Where(l => l.Value.Count > 0))
             foreach (var key in list.Prepend(claude))
-                if (!involved.Contains(key) && byKey.ContainsKey(key)) involved.Add(key);
+                if (!involved.Contains(key) && (byKey.ContainsKey(key) || accounts.ContainsKey(key))) involved.Add(key);
 
         var now = DateTimeOffset.UtcNow;
         var lending = new Dictionary<string, Lending>();
@@ -106,6 +107,18 @@ public sealed class SharedUsage
         var members = new List<PoolMember>();
         foreach (var key in involved)
         {
+            if (accounts.TryGetValue(key, out var account))
+            {
+                var token = PoolAccounts.Unseal(account.Sealed);
+                var current = token is not null && account.Expires > now.AddSeconds(120);
+                lending[key] = token is null ? Lending.Unreadable : current ? Lending.Ready : Lending.Expired;
+                members.Add(new PoolMember
+                {
+                    Id = key, Name = account.Name, Account = account.AccountUuid,
+                    Identify = token is null ? [] : [PoolRequest.Digest(token)], Token = current ? token : null,
+                });
+                continue;
+            }
             var claude = byKey[key];
             // Two shortcuts can stand for one profile; lending it twice would
             // count one account's room twice.

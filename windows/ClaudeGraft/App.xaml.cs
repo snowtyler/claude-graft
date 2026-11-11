@@ -201,6 +201,15 @@ public partial class App : Application
     public static event Action? SharingChanged;
 
     internal void SyncSharingSoon() => Task.Run(SyncSharing);
+
+    /// What a sharing key is called on screen: a Claude by its name, an account
+    /// signed in here by its email.
+    public static string SharingName(string key)
+    {
+        if (key == UsageSharing.MainKey) return "Claude";
+        if (PoolAccount.IsAccount(key)) return PoolAccounts.Load().FirstOrDefault(a => a.Id == key)?.Name ?? "Signed-in account";
+        return Store.Shortcuts.FirstOrDefault(s => s.Id.ToString() == key)?.Name ?? key;
+    }
     private int _sharingBusy;
     private string? _lastSharingProblem;
 
@@ -375,7 +384,7 @@ public partial class App : Application
         if (cli is null || SharingResult?.Status?.Sessions.FirstOrDefault(s => s.Id == cli) is not { } session) return null;
         var chat = SharedChats.Build(SharingResult.Status, UsageSharing.Load(), _ => null, key, cli).FirstOrDefault(c => c.Id == cli);
         if (chat is null || SharedChats.AnsweringKey(chat) is not string by || by == key) return null;
-        return by == UsageSharing.MainKey ? "Claude" : Store.Shortcuts.FirstOrDefault(s => s.Id.ToString() == by)?.Name;
+        return SharingName(by);
     }
 
     /// The tray says which Claude is in front and what its account has spent,

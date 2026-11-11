@@ -121,8 +121,7 @@ public sealed partial class FlyoutView : UserControl
         return App.Store.Shortcuts.FirstOrDefault(s => Fs.SamePath(s.ProfileDir, profile))?.Id.ToString() ?? "";
     }
 
-    private static string NameOf(string key) => key == UsageSharing.MainKey ? "Claude"
-        : App.Store.Shortcuts.FirstOrDefault(s => s.Id.ToString() == key)?.Name ?? key;
+    private static string NameOf(string key) => App.SharingName(key);
 
     /// The conversation on screen in the Claude in front comes first and alone;
     /// the rest wait behind a line saying how many, so they never push the
