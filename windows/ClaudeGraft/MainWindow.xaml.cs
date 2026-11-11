@@ -43,7 +43,7 @@ public sealed partial class MainWindow : Window
         // heavily scaled screen, and centred so the extra height is not pushed off it.
         var scale = GetDpiForWindow(hwnd) / 96.0;
         var work = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary).WorkArea;
-        var width = Math.Min((int)(900 * scale), work.Width);
+        var width = Math.Min((int)(1100 * scale), work.Width);
         var height = Math.Min((int)(670 * scale), (int)(work.Height * 0.9));
         AppWindow.MoveAndResize(new RectInt32(
             work.X + (work.Width - width) / 2, work.Y + (work.Height - height) / 2, width, height));
@@ -54,6 +54,18 @@ public sealed partial class MainWindow : Window
 
         RootFrame.Navigate(typeof(MainPage));
     }
+
+    private void Sections_SelectionChanged(Microsoft.UI.Xaml.Controls.NavigationView sender, Microsoft.UI.Xaml.Controls.NavigationViewSelectionChangedEventArgs args)
+    {
+        var tag = (args.SelectedItem as Microsoft.UI.Xaml.Controls.NavigationViewItem)?.Tag as string;
+        var claudes = tag is null or "claudes";
+        RootFrame.Visibility = claudes ? Visibility.Visible : Visibility.Collapsed;
+        SectionFrame.Visibility = claudes ? Visibility.Collapsed : Visibility.Visible;
+        if (tag == "artifacts" && SectionFrame.Content is not ArtifactsPage) SectionFrame.Navigate(typeof(ArtifactsPage));
+    }
+
+    /// The Claudes again, for the tray's entries that act on that page.
+    private void ShowClaudes() => Sections.SelectedItem = ClaudesItem;
 
     public void Show()
     {
@@ -71,12 +83,14 @@ public sealed partial class MainWindow : Window
     public void ConfirmRestartClaudes()
     {
         Show();
+        ShowClaudes();
         if (RootFrame.Content is MainPage page) _ = page.ConfirmRestartClaudesAsync();
     }
 
     public void ShowSettings()
     {
         Show();
+        ShowClaudes();
         if (RootFrame.Content is MainPage page) _ = page.OpenSettingsAsync();
     }
 

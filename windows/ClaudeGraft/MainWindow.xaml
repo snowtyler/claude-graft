@@ -23,6 +23,27 @@
             MainPage.xaml rather than here so you can use Page features such as
             navigation events and the Loaded lifecycle.
         -->
-        <Frame x:Name="RootFrame" Grid.Row="1" />
+        <!-- The Mac window's sidebar: the Claudes, then what belongs to every
+             account. The Claudes' page stays alive while another is shown. -->
+        <NavigationView x:Name="Sections" Grid.Row="1" PaneDisplayMode="Left"
+                        IsBackButtonVisible="Collapsed" IsSettingsVisible="False"
+                        IsPaneToggleButtonVisible="False" OpenPaneLength="200"
+                        SelectionChanged="Sections_SelectionChanged">
+            <NavigationView.MenuItems>
+                <NavigationViewItem x:Name="ClaudesItem" Content="Claudes" Tag="claudes" IsSelected="True"
+                                    AutomationProperties.AutomationId="sidebar.claudes">
+                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE80F;" /></NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItemHeader Content="Every account" />
+                <NavigationViewItem Content="Artifacts" Tag="artifacts"
+                                    AutomationProperties.AutomationId="sidebar.artifacts">
+                    <NavigationViewItem.Icon><FontIcon Glyph="&#xF0E2;" /></NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
+            <Grid>
+                <Frame x:Name="RootFrame" />
+                <Frame x:Name="SectionFrame" Visibility="Collapsed" />
+            </Grid>
+        </NavigationView>
     </Grid>
 </Window>
