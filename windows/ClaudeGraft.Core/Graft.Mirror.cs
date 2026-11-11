@@ -70,7 +70,10 @@ public static partial class Graft
     /// being opened squares up its own pair; the source is the case that misses,
     /// so a launcher that knows only its own profile still puts everything in
     /// step by reading the pairs out of the state file.
-    public static int MirrorKnownPairs()
+    public static int MirrorKnownPairs() =>
+        StateLock.Run(() => MirrorKnownPairsUnlocked());
+
+    private static int MirrorKnownPairsUnlocked()
     {
         var moved = 0;
         foreach (var key in LoadMirrorState().Pairs.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList())
@@ -89,7 +92,10 @@ public static partial class Graft
     /// So a walk that fails on either side does nothing at all rather than half a
     /// sync.
     /// </summary>
-    public static int MirrorChatFolders(string one, string other)
+    public static int MirrorChatFolders(string one, string other) =>
+        StateLock.Run(() => MirrorChatFoldersUnlocked(one, other));
+
+    private static int MirrorChatFoldersUnlocked(string one, string other)
     {
         if (Fs.SamePath(one, other)) return 0;
         foreach (var folder in new[] { one, other })
@@ -154,12 +160,21 @@ public static partial class Graft
             catch { return false; }
         }
 
-        var names = new HashSet<string>(oneNames.Where(IsMirrored));
-        names.UnionWith(otherNames.Where(IsMirrored));
+        var listedHere = new HashSet<string>(oneNames.Where(IsMirrored));
+        var listedThere = new HashSet<string>(otherNames.Where(IsMirrored));
+        var names = new HashSet<string>(listedHere);
+        names.UnionWith(listedThere);
         foreach (var name in names.OrderBy(n => n, StringComparer.Ordinal))
         {
             var here = Read(one, name);
             var there = Read(other, name);
+            // Listed but not readable — Claude holding it open, most often — is
+            // not absent, and reading it as absent deletes the other side's copy.
+            if ((here is null && listedHere.Contains(name)) || (there is null && listedThere.Contains(name)))
+            {
+                Diagnostics.Note("mirror.record-unread", new Dictionary<string, object?> { ["name"] = name });
+                continue;
+            }
             var action = MirrorDecision(here?.digest, there?.digest,
                 baseline.TryGetValue(name, out var bl) ? bl : null);
 

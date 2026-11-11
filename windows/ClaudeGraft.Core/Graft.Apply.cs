@@ -38,7 +38,10 @@ public static partial class Graft
     /// every pass after leaves the merge where it is rather than stashing it away
     /// again.
     /// </summary>
-    public static void Apply(GraftConfig config)
+    public static void Apply(GraftConfig config) =>
+        StateLock.Run(() => ApplyUnlocked(config));
+
+    private static void ApplyUnlocked(GraftConfig config)
     {
         var profile = config.ProfileDir;
         Directory.CreateDirectory(profile);

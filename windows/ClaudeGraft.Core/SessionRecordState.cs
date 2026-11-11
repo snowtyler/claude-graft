@@ -36,12 +36,11 @@ public sealed class SessionRecordState
 
     public static SessionRecordState Load(string path)
     {
-        try
-        {
-            var data = File.ReadAllBytes(path);
-            return JsonSerializer.Deserialize<SessionRecordState>(data, Options) ?? new SessionRecordState();
-        }
-        catch { return new SessionRecordState(); }
+        var state = StateFile.Read<SessionRecordState>(path, Options);
+        // An explicit null parses, and would forget every withdrawal just as surely.
+        if (state.Records is null || state.Withdrawn is null || state.Authored is null || state.Vanished is null)
+            throw new UnreadableStateException(path, null);
+        return state;
     }
 
     public void Save(string path)

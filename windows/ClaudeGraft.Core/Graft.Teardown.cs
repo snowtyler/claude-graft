@@ -6,7 +6,10 @@ public static partial class Graft
     /// The pairs outlive the graft that made them — they are the keys of a state
     /// file every launcher reads — so a deleted or returned profile leaves a pair
     /// that would go on being squared up by whichever profile opened next.
-    public static void ForgetMirrors(string profile)
+    public static void ForgetMirrors(string profile) =>
+        StateLock.Run(() => ForgetMirrorsUnlocked(profile));
+
+    private static void ForgetMirrorsUnlocked(string profile)
     {
         var stale = MirrorPairsUnder(profile).ToHashSet();
         if (stale.Count == 0) return;
@@ -51,7 +54,10 @@ public static partial class Graft
     /// copies taken out — a copy going only when the other side holds the same
     /// bytes this moment, so a deleted source or an unreadable folder leaves every
     /// copy where it is.
-    public static int UnmirrorChatStores(string profile)
+    public static int UnmirrorChatStores(string profile) =>
+        StateLock.Run(() => UnmirrorChatStoresUnlocked(profile));
+
+    private static int UnmirrorChatStoresUnlocked(string profile)
     {
         // The pairs this profile borrows through, never the ones it lends: a
         // lender picking up a borrower's pair reads its own folder as the borrowed
@@ -106,7 +112,10 @@ public static partial class Graft
 
     /// Undo a graft: drop every link this profile holds so it falls back to its
     /// own storage. Real files it wrote itself are left alone.
-    public static void Ungraft(string profile)
+    public static void Ungraft(string profile) =>
+        StateLock.Run(() => UngraftUnlocked(profile));
+
+    private static void UngraftUnlocked(string profile)
     {
         Diagnostics.Note("ungraft.begin", new Dictionary<string, object?> { ["profile"] = Path.GetFileName(profile) });
         UnmirrorChatStores(profile);

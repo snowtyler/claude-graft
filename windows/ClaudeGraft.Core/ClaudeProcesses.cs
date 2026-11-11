@@ -40,10 +40,10 @@ public static class ClaudeProcesses
     /// browser process that owns the window. Electron marks these with --type;
     /// only the one without it answers to being shown.
     public static bool IsHelper(string command) =>
-        command.Contains("--type=", StringComparison.Ordinal);
+        WindowsCommandLine.Option(WindowsCommandLine.Parse(command), "--type") is not null;
 
     public static bool HasUserDataDir(string command) =>
-        command.Contains("--user-data-dir=", StringComparison.OrdinalIgnoreCase);
+        WindowsCommandLine.Option(WindowsCommandLine.Parse(command), "--user-data-dir") is not null;
 
     /// The main binary of a Claude on no profile in particular — no helper flag,
     /// and no --user-data-dir, which is the only mark the default profile has.
@@ -51,25 +51,14 @@ public static class ClaudeProcesses
         IsClaudeDesktop(command) && !IsHelper(command) && !HasUserDataDir(command);
 
     /// Whether a command line carries this exact profile's --user-data-dir.
-    ///
-    /// Anchored at the end of the value: without that one profile's path is a
-    /// prefix of another's — <c>…\Claude</c> sits inside <c>…\Claude-2</c> — and
-    /// every shorter-named profile looks like it is running as soon as any
-    /// longer-named one is. The value may be quoted when the path holds a space,
-    /// so both spellings are checked.
+    /// Compared as whole paths, never as text: <c>…\Claude</c> is a prefix of
+    /// <c>…\Claude-2</c>, and every shorter-named profile would look open.
     public static bool CarriesDataDir(string command, string profilePath)
     {
-        // Unquoted: the value runs to a space or the end of the line.
-        var bare = "--user-data-dir=" + profilePath;
-        var i = 0;
-        while ((i = command.IndexOf(bare, i, StringComparison.OrdinalIgnoreCase)) >= 0)
-        {
-            var after = i + bare.Length;
-            if (after == command.Length || command[after] == ' ' || command[after] == '"') return true;
-            i = after;
-        }
-        // Quoted: --user-data-dir="C:\path with a space"
-        return command.Contains("--user-data-dir=\"" + profilePath + "\"", StringComparison.OrdinalIgnoreCase);
+        var value = WindowsCommandLine.Option(WindowsCommandLine.Parse(command), "--user-data-dir");
+        if (string.IsNullOrWhiteSpace(value) || !Path.IsPathFullyQualified(value)) return false;
+        try { return Fs.SamePath(value, profilePath); }
+        catch (ArgumentException) { return false; }
     }
 
     public static bool IsRunning(string profile) => IsRunning(profile, Enumerate());
@@ -85,7 +74,6 @@ public static class ClaudeProcesses
         return processes.Any(p => IsClaudeDesktop(p.command) && CarriesDataDir(p.command, profile));
     }
 
-    public static bool AnyDesktopRunning() => AnyDesktopRunning(Enumerate());
 
     /// Whether any Claude Desktop window is up, on whatever profile. The record
     /// sweep's quiet window waits on this rather than on a Claude signed into the
@@ -98,6 +86,14 @@ public static class ClaudeProcesses
     /// after the owner's account missed the window that was about to record it and
     /// filed a duplicate into a second profile. Helpers are left out; only a
     /// window-owning process records a session.
+    public static bool AnyDesktopRunning()
+    {
+        // Not knowing is treated as yes: the sweep then waits rather than filing
+        // a record a window is about to write.
+        try { return AnyDesktopRunning(Enumerate()); }
+        catch (IOException) { return true; }
+    }
+
     public static bool AnyDesktopRunning(IReadOnlyList<(int pid, string command)> processes) =>
         processes.Any(p => IsClaudeDesktop(p.command) && !IsHelper(p.command));
 

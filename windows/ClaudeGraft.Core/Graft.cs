@@ -24,10 +24,24 @@ public static partial class Graft
             return "The profile folder must be a single folder name, not a path.";
         if (trimmed is "." or ".." || trimmed.StartsWith('.'))
             return $"“{trimmed}” is not a usable folder name.";
-        if (trimmed == "Claude")
+        if (trimmed.Equals("Claude", StringComparison.OrdinalIgnoreCase))
             return "That is Claude's own profile folder. Pick another name.";
-        if (trimmed == "ClaudeGraft")
+        if (trimmed.Equals("ClaudeGraft", StringComparison.OrdinalIgnoreCase))
             return "That folder belongs to Claude Graft itself. Pick another name.";
+        return ValidateWindowsName(trimmed);
+    }
+
+    /// Windows drops a trailing dot, so "Claude." is Claude's own folder; and a
+    /// device name opens the device rather than a folder, extension or not.
+    public static string? ValidateWindowsName(string name)
+    {
+        if (name.EndsWith('.') || name.Length > 120
+            || name.Any(c => c < 32 || "<>:\"/\\|?*".Contains(c)))
+            return "Use a plain Windows name without trailing dots or reserved characters.";
+        var stem = name.Split('.')[0].TrimEnd().ToUpperInvariant();
+        if (stem is "CON" or "PRN" or "AUX" or "NUL" or "CONIN$" or "CONOUT$"
+            || System.Text.RegularExpressions.Regex.IsMatch(stem, @"^(COM|LPT)[1-9¹²³]$"))
+            return "That name is reserved by Windows.";
         return null;
     }
 
@@ -291,7 +305,10 @@ public static partial class Graft
     /// mistake, reached here by a rename rather than a sign-in. The caller is
     /// responsible for the other half of the safety: a profile whose Claude is
     /// running must not have its files moved out from under it.
-    public static ProfileMove MoveProfileFolder(string oldFolder, string newFolder)
+    public static ProfileMove MoveProfileFolder(string oldFolder, string newFolder) =>
+        StateLock.Run(() => MoveProfileFolderUnlocked(oldFolder, newFolder));
+
+    private static ProfileMove MoveProfileFolderUnlocked(string oldFolder, string newFolder)
     {
         var from = Path.GetFullPath(GraftPaths.Profile(oldFolder));
         var to = Path.GetFullPath(GraftPaths.Profile(newFolder));

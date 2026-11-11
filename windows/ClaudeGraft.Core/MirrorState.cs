@@ -18,11 +18,10 @@ public sealed class MirrorState
 
     public static MirrorState Load(string path)
     {
-        try
-        {
-            return JsonSerializer.Deserialize<MirrorState>(File.ReadAllBytes(path), Options) ?? new MirrorState();
-        }
-        catch { return new MirrorState(); }
+        var state = StateFile.Read<MirrorState>(path, Options);
+        if (state.Pairs is null || state.Pairs.Values.Any(v => v is null))
+            throw new UnreadableStateException(path, null);
+        return state;
     }
 
     public bool Save(string path)

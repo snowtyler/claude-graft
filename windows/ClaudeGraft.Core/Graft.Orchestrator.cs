@@ -183,7 +183,14 @@ public static partial class Graft
         IEnumerable<string> filingInto,
         Func<bool> anyDesktopRunning,
         DateTime? nowOpt = null,
-        TimeSpan? quietWindowOpt = null)
+        TimeSpan? quietWindowOpt = null) =>
+        StateLock.Run(() => FileMissingSessionRecordsUnlocked(filingInto, anyDesktopRunning, nowOpt, quietWindowOpt));
+
+    private static IReadOnlyList<SessionFacts> FileMissingSessionRecordsUnlocked(
+        IEnumerable<string> filingInto,
+        Func<bool> anyDesktopRunning,
+        DateTime? nowOpt,
+        TimeSpan? quietWindowOpt)
     {
         var now = nowOpt ?? DateTime.UtcNow;
         var quietWindow = quietWindowOpt ?? TimeSpan.FromSeconds(60);

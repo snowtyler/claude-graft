@@ -8,7 +8,10 @@ public static partial class Graft
     /// Share the safe files, then map this profile's chat directory onto the
     /// source's. Chats are stored per account, so when the two profiles are on
     /// different accounts the link is made one level deeper.
-    public static void GraftInto(string source, string profile)
+    public static void GraftInto(string source, string profile) =>
+        StateLock.Run(() => GraftIntoUnlocked(source, profile));
+
+    private static void GraftIntoUnlocked(string source, string profile)
     {
         // A profile pointed at itself would stash every one of its own files
         // away and replace them with links to nothing.

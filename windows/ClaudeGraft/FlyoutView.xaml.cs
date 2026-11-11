@@ -153,7 +153,9 @@ public sealed partial class FlyoutView : UserControl
     /// it lands — a beat late is not something the eye catches on a status dot.
     private async Task MarkRunning(IReadOnlyList<ShortcutRow> rows)
     {
-        var processes = await Task.Run(ClaudeProcesses.Enumerate);
+        IReadOnlyList<(int pid, string command)> processes;
+        try { processes = await Task.Run(ClaudeProcesses.Enumerate); }
+        catch (IOException) { return; }
         foreach (var row in rows)
             if (Rows.Contains(row)) row.SetRunning(ClaudeProcesses.IsRunning(row.ProfileDir, processes));
     }

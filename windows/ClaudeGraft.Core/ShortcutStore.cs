@@ -17,18 +17,29 @@ public sealed class ShortcutStore
 
     public ShortcutStore() => Load();
 
+    /// Set when shortcuts.json is there but will not read. The list is then
+    /// empty for display, and saving it would write that emptiness over every
+    /// shortcut the person has, so <see cref="Save"/> refuses.
+    public string? LoadError { get; private set; }
+
     public void Load()
     {
         try
         {
-            Shortcuts = JsonSerializer.Deserialize<List<Shortcut>>(
-                System.IO.File.ReadAllBytes(File), Options) ?? new();
+            Shortcuts = StateFile.Read<List<Shortcut>>(File, Options);
+            LoadError = null;
         }
-        catch { Shortcuts = new(); }
+        catch (UnreadableStateException e)
+        {
+            Shortcuts = new();
+            LoadError = e.Message;
+            Diagnostics.Note("shortcuts.unreadable", new Dictionary<string, object?> { ["error"] = e.InnerException?.Message });
+        }
     }
 
     public void Save()
     {
+        EnsureWritable();
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(File)!);
@@ -104,14 +115,21 @@ public sealed class ShortcutStore
 
     // MARK: - Editing
 
+    private void EnsureWritable()
+    {
+        if (LoadError is not null) throw new UnreadableStateException(File, null);
+    }
+
     public void Add(Shortcut shortcut)
     {
+        EnsureWritable();
         Shortcuts.Add(shortcut);
         Save();
     }
 
     public void Update(Shortcut shortcut)
     {
+        EnsureWritable();
         var i = Shortcuts.FindIndex(s => s.Id == shortcut.Id);
         if (i >= 0) Shortcuts[i] = shortcut; else Shortcuts.Add(shortcut);
         Save();
@@ -124,6 +142,7 @@ public sealed class ShortcutStore
     /// yet ported.)
     public string? Delete(Guid id, bool deletingProfile = false)
     {
+        EnsureWritable();
         if (Get(id) is not Shortcut shortcut) return null;
         var sharedWithAnother = Shortcuts.Any(s => s.Id != id && s.Folder == shortcut.Folder);
 

@@ -28,10 +28,15 @@ public static class WindowsProcessQuery
                 found.Add((pid, command));
             }
         }
-        catch
+        catch (Exception e)
         {
-            // WMI unavailable, or the query refused: report nothing rather than
-            // fail a sweep. A missed "yes" only costs the quiet window's minute.
+            // With no claude.exe at all, "nothing running" is still the truth.
+            // Otherwise it would let a second Claude open on a profile, or a
+            // profile be moved or deleted from under one.
+            var any = System.Diagnostics.Process.GetProcessesByName("claude");
+            foreach (var p in any) p.Dispose();
+            if (any.Length == 0) return found;
+            throw new IOException("Could not read which profile each Claude is running on.", e);
         }
         return found;
     }

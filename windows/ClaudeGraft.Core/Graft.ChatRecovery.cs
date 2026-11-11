@@ -165,7 +165,10 @@ public static partial class Graft
     /// side too — a name already here is left alone, so a second run copies
     /// nothing and a chat archived or renamed since keeps its shape, which is what
     /// makes it safe to offer to a profile that already has a history of its own.
-    public static Adoption AdoptChats(string source, string profile, string account)
+    public static Adoption AdoptChats(string source, string profile, string account) =>
+        StateLock.Run(() => AdoptChatsUnlocked(source, profile, account));
+
+    private static Adoption AdoptChatsUnlocked(string source, string profile, string account)
     {
         if (Fs.SamePath(source, profile)) return new Adoption();
 

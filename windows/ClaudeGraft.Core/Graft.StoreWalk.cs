@@ -67,7 +67,10 @@ public static partial class Graft
                 return cached.sessions;
 
         var sessions = ReadRecordSessions(path);
-        lock (RecordCacheLock) _recordCache[path] = (stamp, size, sessions);
+        // A record that would not read this time may well read next time, at the
+        // same stamp and size, so remembering the failure would make it permanent.
+        if (sessions.CliSessionId is not null)
+            lock (RecordCacheLock) _recordCache[path] = (stamp, size, sessions);
         return sessions;
     }
 
@@ -176,10 +179,18 @@ public static partial class Graft
                 {
                     if (org.StartsWith('.') || org.EndsWith(StashSuffix)) continue;
                     var orgDir = Path.Combine(accountDir, org);
-                    var names = SafeEntries(orgDir);
                     if (!Fs.IsDirectory(orgDir)) continue;
+                    List<string> names;
+                    try { names = Directory.EnumerateFileSystemEntries(orgDir).Select(Path.GetFileName).ToList()!; }
+                    catch
+                    {
+                        Diagnostics.Note("sweep.store-unread", new Dictionary<string, object?> { ["store"] = orgDir });
+                        continue;
+                    }
                     var resolved = Fs.Resolve(orgDir);
-                    contents.Stores.Add(resolved);
+                    // A store counts as read only once every record in it has
+                    // read: one that will not leaves its session looking deleted.
+                    var wholeRead = true;
                     foreach (var name in names.OrderBy(n => n, StringComparer.Ordinal))
                     {
                         var file = Fs.Resolve(Path.Combine(orgDir, name));
@@ -187,6 +198,11 @@ public static partial class Graft
                         if (name.StartsWith("local_") && name.EndsWith(".json"))
                         {
                             var sessions = SessionsOfRecord(file);
+                            if (sessions.CliSessionId is null)
+                            {
+                                wholeRead = false;
+                                Diagnostics.Note("sweep.record-unread", new Dictionary<string, object?> { ["record"] = name });
+                            }
                             // The first store to hold it keeps it; letting the
                             // last win left the place a session was filed
                             // changing from pass to pass in the one file written
@@ -207,6 +223,7 @@ public static partial class Graft
                             catch { }
                         }
                     }
+                    if (wholeRead) contents.Stores.Add(resolved);
                 }
             }
         }

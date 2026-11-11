@@ -182,7 +182,9 @@ public sealed partial class MainPage : Page
     /// sets the dots when it lands — a beat late is nothing the eye catches.
     private async Task MarkRunning(IReadOnlyList<ShortcutRow> rows)
     {
-        var processes = await Task.Run(ClaudeProcesses.Enumerate);
+        IReadOnlyList<(int pid, string command)> processes;
+        try { processes = await Task.Run(ClaudeProcesses.Enumerate); }
+        catch (IOException) { return; }
         foreach (var row in rows)
             if (Rows.Contains(row)) row.SetRunning(ClaudeProcesses.IsRunning(row.ProfileDir, processes));
     }
@@ -276,6 +278,7 @@ public sealed partial class MainPage : Page
         var on = box.IsChecked == true;
         if (row.Shortcut is Shortcut shortcut)
         {
+            if (App.Store.LoadError is not null) { box.IsChecked = !on; _ = WarnListUnreadable(); return; }
             shortcut.KeepWarm = on;
             App.Store.Update(shortcut);
         }
@@ -364,7 +367,7 @@ public sealed partial class MainPage : Page
 
         if (result == ContentDialogResult.None) return false;   // Cancel: leave it, do not open
 
-        if (dontAsk.IsChecked == true)
+        if (dontAsk.IsChecked == true && App.Store.LoadError is null)
         {
             s.StopAskingChatsFor = found.Account;
             App.Store.Update(s);
@@ -460,6 +463,7 @@ public sealed partial class MainPage : Page
 
     private async Task EditProfile(Shortcut? existing)
     {
+        if (App.Store.LoadError is not null) { await WarnListUnreadable(); return; }
         var dialog = new ProfileDialog(App.Store, existing);
         PrepareDialog(dialog);
         var result = await dialog.ShowAsync();
@@ -477,7 +481,10 @@ public sealed partial class MainPage : Page
             if (existing is not null && previousFolder is not null
                 && !Fs.SamePath(GraftPaths.Profile(previousFolder), GraftPaths.Profile(shortcut.Folder)))
             {
-                if (ClaudeProcesses.IsRunning(GraftPaths.Profile(previousFolder)))
+                bool open;
+                try { open = ClaudeProcesses.IsRunning(GraftPaths.Profile(previousFolder)); }
+                catch (IOException) { open = true; }
+                if (open)
                 {
                     await Warn("Close Claude first",
                         $"“{existing.Name}” is open. Quit its Claude window before changing the folder — "
@@ -504,14 +511,20 @@ public sealed partial class MainPage : Page
             else App.Store.Update(shortcut);
 
             var config = App.Store.ConfigFor(shortcut);
-            await Task.Run(() => Graft.Apply(config));
+            try { await Task.Run(() => Graft.Apply(config)); }
+            catch (UnreadableStateException ex)
+            {
+                await Warn("Chats were not set up yet",
+                    $"{Path.GetFileName(ex.Path)} could not be read, so nothing was moved. "
+                    + "It is set up the next time this profile opens with that file readable.");
+            }
 
             try
             {
                 Installer.Install(shortcut);
                 // A rename leaves the old-named .lnk behind; clear it.
-                if (previousName is not null && previousName != shortcut.Name)
-                    Installer.Uninstall(shortcut, previousName);
+                if (previousName is not null && !string.Equals(previousName, shortcut.Name, StringComparison.OrdinalIgnoreCase))
+                    Installer.RemoveLink(previousName);
                 shortcut.InstalledName = shortcut.Name;
                 App.Store.Update(shortcut);
             }
@@ -549,6 +562,7 @@ public sealed partial class MainPage : Page
         PrepareDialog(confirm);
 
         if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
+        if (App.Store.LoadError is not null) { await WarnListUnreadable(); return; }
 
         Installer.Uninstall(shortcut);
         string? problem;
@@ -567,6 +581,10 @@ public sealed partial class MainPage : Page
 
         if (problem is not null) await Warn("The profile folder was kept", problem);
     }
+
+    private Task WarnListUnreadable() => Warn("The profile list could not be read",
+        "shortcuts.json in %APPDATA%\\ClaudeGraft would not read, so nothing is saved over it "
+        + "until it does. Your profiles and their chats are untouched.");
 
     private async Task Warn(string title, string message)
     {

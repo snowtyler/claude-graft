@@ -40,7 +40,7 @@ public static class Installer
     /// Creates or updates the desktop shortcut for a profile.
     public static void Install(Shortcut shortcut)
     {
-        if (ReservedNames.Contains(shortcut.Name))
+        if (ReservedNames.Contains(shortcut.Name.Trim().TrimEnd('.'), StringComparer.OrdinalIgnoreCase))
             throw new InstallException(InstallError.ReservedName, $"“{shortcut.Name}” is the name of Claude itself. Pick another.");
 
         if (LauncherExe is not { } launcher)
@@ -64,13 +64,14 @@ public static class Installer
 
     /// Removes a shortcut's .lnk, and a stale one left by a rename. Only ever a
     /// link that points at our launcher.
-    public static void Uninstall(Shortcut shortcut, string? previousName = null)
+    public static void Uninstall(Shortcut shortcut) => RemoveLink(shortcut.Name);
+
+    /// The .lnk at one name, if it is ours. A rename removes only the old name:
+    /// the new one has just been written and is the shortcut's only way in.
+    public static void RemoveLink(string name)
     {
-        foreach (var name in new[] { shortcut.Name, previousName }.Where(n => !string.IsNullOrEmpty(n)))
-        {
-            var path = LinkPath(name!);
-            if (File.Exists(path) && IsOurs(path)) try { File.Delete(path); } catch { }
-        }
+        var path = LinkPath(name);
+        if (File.Exists(path) && IsOurs(path)) try { File.Delete(path); } catch { }
     }
 
     /// The .lnk this app installed for a shortcut, or null if there is none of

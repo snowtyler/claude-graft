@@ -232,7 +232,13 @@ public static class SidebarSync
     public static void Synchronize(string profileToOpen)
     {
         if (_storageBlocked) return;
-        var pairs = Candidates();
+        List<Pair> pairs;
+        try { pairs = Candidates(); }
+        catch (UnreadableStateException)
+        {
+            RecordStatus("mirror-state-unreadable", new List<string>());
+            return;
+        }
 
         // Everything reachable through a shared history, so opening one profile
         // squares up the whole connected set at once. Case-insensitive throughout,
@@ -440,7 +446,9 @@ public static class SidebarSync
     /// has (re)recorded there.
     internal static void ForgetPairsLocked()
     {
-        var live = Graft.LoadMirrorState().Pairs.Keys.ToHashSet();
+        HashSet<string> live;
+        try { live = Graft.LoadMirrorState().Pairs.Keys.ToHashSet(); }
+        catch (UnreadableStateException) { return; }
         SyncState state;
         try { state = LoadState(); }
         catch { return; }   // an unreadable baseline is left for the sync pass to refuse

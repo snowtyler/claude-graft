@@ -43,22 +43,27 @@ public static class Launcher
 
     /// Open the profile a shortcut folder names, resolving its source from the
     /// shared list — which is what a desktop shortcut hands the launcher stub.
-    /// An unknown folder opens on its own chats rather than refusing, so a
-    /// shortcut whose list entry has gone still opens its profile.
+    /// An unknown folder still opens, but exactly as it stands: applying "no
+    /// source" would ungraft it, and an unreadable list makes every folder unknown.
     public static void OpenByFolder(string folder)
     {
+        if (Graft.ValidateFolder(folder) is not null) return;
         var store = new ShortcutStore();
-        var shortcut = store.Shortcuts.FirstOrDefault(s => s.Folder == folder);
-        var config = shortcut is not null
-            ? store.ConfigFor(shortcut)
-            : new GraftConfig { ProfileDir = GraftPaths.Profile(folder), SourceDir = null };
-        Open(config);
+        var shortcut = store.Shortcuts.FirstOrDefault(s => string.Equals(s.Folder, folder, StringComparison.OrdinalIgnoreCase));
+        if (shortcut is not null) { Open(store.ConfigFor(shortcut)); return; }
+        Diagnostics.Note("launch.unknown-shortcut", new Dictionary<string, object?>
+        {
+            ["folder"] = folder, ["listUnreadable"] = store.LoadError is not null,
+        });
+        var profile = GraftPaths.Profile(folder);
+        if (!Directory.Exists(profile)) return;
+        Open(new GraftConfig { ProfileDir = profile, SourceDir = null }, applyGraft: false);
     }
 
     /// Bring the storage in line and open Claude. If one is already on the
     /// profile, show it rather than starting a second — two Claudes on one chat
     /// store both write it, which is the one loss this app exists to avoid.
-    public static void Open(GraftConfig config)
+    public static void Open(GraftConfig config, bool applyGraft = true)
     {
         var filing = FilingProfiles(config);
         if (ClaudeProcesses.IsRunning(config.ProfileDir))
@@ -67,14 +72,31 @@ public static class Launcher
             // A profile already open is the one case nothing else covers: no
             // launch to file records on the way to, and no timer behind it. So
             // the sweep runs on the way past instead, after the window is up.
-            SquareUp(filing);
+            try { SquareUp(filing); }
+            catch (UnreadableStateException e)
+            {
+                Diagnostics.Note("launch.state-unreadable", new Dictionary<string, object?> { ["file"] = Path.GetFileName(e.Path) });
+            }
             return;
         }
         // Apply first, so a record filed through a graft lands where the link now
         // points; sweep before launch, so the records are on disk before Claude
         // reads its sidebar as it comes up.
-        Graft.Apply(config);
-        SquareUp(filing);
+        try
+        {
+            // One pass, let go before the launch lock below is taken.
+            StateLock.Run(() =>
+            {
+                if (applyGraft) Graft.Apply(config);
+                SquareUp(filing);
+            });
+        }
+        catch (UnreadableStateException e)
+        {
+            // Nothing in this pass can be trusted to tell new from deleted, so
+            // none of it runs; the window still opens.
+            Diagnostics.Note("launch.state-unreadable", new Dictionary<string, object?> { ["file"] = Path.GetFileName(e.Path) });
+        }
         // The sidebar sync and the launch are one critical section: releasing the
         // lock between them would let another launcher start syncing while this
         // one opens Claude into the very databases it is reconciling. The

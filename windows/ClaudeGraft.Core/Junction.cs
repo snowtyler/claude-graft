@@ -1,4 +1,7 @@
+using System.ComponentModel;
 using System.Runtime.InteropServices;
+using System.Text;
+using Microsoft.Win32.SafeHandles;
 
 namespace ClaudeGraft.Core;
 
@@ -21,25 +24,45 @@ public static class Junction
     /// graft is only ever made with the profile's own folder as the link.
     public static void Create(string linkPath, string target)
     {
-        // .NET creates a symbolic link here, which on a default Windows install
-        // needs either administrator rights or Developer Mode; a junction needs
-        // neither, which is why Claude Desktop shortcuts can be grafted by an
-        // ordinary user. mklink /J is the one primitive that makes a junction
-        // without a P/Invoke into DeviceIoControl.
-        var start = new System.Diagnostics.ProcessStartInfo("cmd.exe",
-            $"/c mklink /J \"{linkPath}\" \"{target}\"")
+        // .NET only makes symbolic links, which need administrator rights or
+        // Developer Mode; a junction needs neither. Written as a reparse point
+        // directly, since cmd /c mklink expands %VAR% even inside quotes.
+        target = Path.GetFullPath(target);
+        if (target.StartsWith(@"\\"))
+            throw new IOException($"could not create junction {linkPath}: a junction needs a local target");
+        if (Fs.Exists(linkPath))
+            throw new IOException($"could not create junction {linkPath}: something is already there");
+        Directory.CreateDirectory(linkPath);
+        try
         {
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true,
-        };
-        using var p = System.Diagnostics.Process.Start(start)!;
-        p.WaitForExit();
-        if (p.ExitCode != 0)
-            throw new IOException(
-                $"could not create junction {linkPath} -> {target}: {p.StandardError.ReadToEnd().Trim()}");
+            var substitute = Encoding.Unicode.GetBytes(@"\??\" + target);
+            var display = Encoding.Unicode.GetBytes(target);
+            // REPARSE_DATA_BUFFER for a mount point: an 8-byte header, four
+            // offset/length words, then both names NUL-terminated.
+            var data = new byte[16 + substitute.Length + 2 + display.Length + 2];
+            BitConverter.GetBytes(0xA0000003u).CopyTo(data, 0);
+            BitConverter.GetBytes((ushort)(data.Length - 8)).CopyTo(data, 4);
+            BitConverter.GetBytes((ushort)substitute.Length).CopyTo(data, 10);
+            BitConverter.GetBytes((ushort)(substitute.Length + 2)).CopyTo(data, 12);
+            BitConverter.GetBytes((ushort)display.Length).CopyTo(data, 14);
+            substitute.CopyTo(data, 16);
+            display.CopyTo(data, 18 + substitute.Length);
+            // GENERIC_WRITE, OPEN_EXISTING, BACKUP_SEMANTICS | OPEN_REPARSE_POINT.
+            using var handle = CreateFile(linkPath, 0x40000000, 0, IntPtr.Zero, 3, 0x02200000, IntPtr.Zero);
+            if (handle.IsInvalid || !DeviceIoControl(handle, 0x000900A4, data, data.Length, IntPtr.Zero, 0, out _, IntPtr.Zero))
+                throw new IOException($"could not create junction {linkPath} -> {target}",
+                    new Win32Exception(Marshal.GetLastWin32Error()));
+        }
+        catch { Directory.Delete(linkPath); throw; }
     }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern SafeFileHandle CreateFile(string name, uint access, uint share,
+        IntPtr security, uint disposition, uint flags, IntPtr template);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool DeviceIoControl(SafeFileHandle handle, uint code, byte[] input,
+        int inputLength, IntPtr output, int outputLength, out int returned, IntPtr overlapped);
 
     /// A junction, or any reparse point, carries this attribute. The mac build's
     /// isSymlink check answers here.
@@ -67,13 +90,14 @@ public static class Junction
     /// record would land in, never of the account it is stamped with.
     public static bool ResolvesInside(string path, string profile)
     {
-        var resolved = new DirectoryInfo(path);
-        // A reparse point resolves to its target; a plain folder resolves to
-        // itself. Either way the question is whether the destination sits under
-        // the profile root once every link on the way is followed.
-        var full = Path.GetFullPath(resolved.LinkTarget ?? resolved.FullName);
-        var root = Path.GetFullPath(profile);
-        return full.StartsWith(root, StringComparison.OrdinalIgnoreCase);
+        // Every link on the way is followed, not just the last: a real folder
+        // reached through a linked store is still the source's folder.
+        string full, root;
+        try { full = WindowsPaths.Resolve(path); root = WindowsPaths.Resolve(profile); }
+        catch (IOException) { return false; }
+        root = Path.TrimEndingDirectorySeparator(root);
+        return full.Equals(root, StringComparison.OrdinalIgnoreCase)
+            || full.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 
     /// Drop the link without following it into the target. Directory.Delete on a
