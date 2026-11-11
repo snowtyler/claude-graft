@@ -15,6 +15,19 @@ public sealed partial class ClaudeUpdateLine : UserControl
     /// host window shows.
     public event Action? RestartRequested;
 
+    /// Under the words rather than beside them, for the sidebar's narrow foot.
+    public bool Stacked
+    {
+        get => Grid.GetRow(ActionButton) == 1;
+        set
+        {
+            Grid.SetColumn(ActionButton, value ? 0 : 1);
+            Grid.SetRow(ActionButton, value ? 1 : 0);
+            ActionButton.HorizontalAlignment = value ? HorizontalAlignment.Left : HorizontalAlignment.Stretch;
+            ActionButton.Margin = new Thickness(0, value ? 6 : 0, 0, 0);
+        }
+    }
+
     public ClaudeUpdateLine()
     {
         InitializeComponent();

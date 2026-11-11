@@ -3,6 +3,8 @@ using ClaudeGraft.Core;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Windows.Graphics;
 
@@ -53,12 +55,97 @@ public sealed partial class MainWindow : Window
         AppWindow.Closing += (sender, args) => { args.Cancel = true; sender.Hide(); };
 
         RootFrame.Navigate(typeof(MainPage));
+        if (RootFrame.Content is MainPage page) page.ClaudesChanged += RebuildClaudes;
+        RebuildClaudes();
+    }
+
+    private bool _rebuilding;
+    private string _builtSignature = "";
+
+    /// One entry per Claude, from the page's own rows, so the sidebar and the page
+    /// can never disagree about which Claudes there are.
+    private void RebuildClaudes()
+    {
+        if (RootFrame.Content is not MainPage page || _rebuilding) return;
+        NewClaudeItem.Visibility = page.SetupReady ? Visibility.Visible : Visibility.Collapsed;
+        // A draft is no Claude in the list yet, so nothing there is chosen.
+        if (page.Drafting && Sections.SelectedItem is not null)
+        {
+            _rebuilding = true;
+            Sections.SelectedItem = null;
+            _rebuilding = false;
+        }
+        else if (!page.Drafting && Sections.SelectedItem is null) SelectFocused(page);
+        // Entries made afresh have no indicator to slide from, so a choice that
+        // changed no Claude leaves them where they are.
+        var signature = string.Join("\n", page.Rows.Select(r => $"{r.Key}|{r.Name}|{r.SourceLabel}|{r.Shortcut?.Source.Kind}"));
+        if (signature == _builtSignature) return;
+        _builtSignature = signature;
+        _rebuilding = true;
+        try
+        {
+            var items = Sections.MenuItems;
+            var start = items.IndexOf(ClaudesHeader) + 1;
+            while (items[start] != NewClaudeItem) items.RemoveAt(start);
+            var showingClaude = Sections.SelectedItem is not NavigationViewItem { Tag: string t } || t.StartsWith("claude:");
+            foreach (var row in page.Rows.ToList())
+            {
+                var words = new StackPanel { Spacing = 1 };
+                words.Children.Add(new TextBlock { Text = row.Name, TextTrimming = TextTrimming.CharacterEllipsis });
+                var line = row.Shortcut is null ? "Installed normally" : row.SourceLabel;
+                words.Children.Add(new TextBlock
+                {
+                    Text = line, TextTrimming = TextTrimming.CharacterEllipsis,
+                    Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+                    Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+                });
+                var item = new NavigationViewItem
+                {
+                    Content = words, Tag = "claude:" + row.Key,
+                    Icon = new FontIcon { Glyph = row.Shortcut is null ? "" : row.Shortcut.Source.Kind == SourceKind.Own ? "" : "" },
+                };
+                AutomationProperties.SetName(item, $"{row.Name}, {line}");
+                AutomationProperties.SetAutomationId(item, "sidebar." + row.Key);
+                items.Insert(start++, item);
+                if (showingClaude && row.Key == page.Focused) Sections.SelectedItem = item;
+            }
+        }
+        finally { _rebuilding = false; }
+    }
+
+    private void SelectFocused(MainPage page)
+    {
+        var tag = "claude:" + page.Focused;
+        if (Sections.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => (string?)i.Tag == tag) is { } item)
+        {
+            _rebuilding = true;
+            Sections.SelectedItem = item;
+            _rebuilding = false;
+        }
+    }
+
+    private async void Sections_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
+    {
+        var tag = (args.InvokedItemContainer as NavigationViewItem)?.Tag as string;
+        if (RootFrame.Content is not MainPage page) return;
+        if (tag == "new")
+        {
+            ShowClaudes();
+            await page.AddAsync();
+        }
+        else if (tag == "settings") await page.OpenSettingsAsync();
+    }
+
+    private async void ClaudeRestart_Requested()
+    {
+        if (RootFrame.Content is MainPage page) await page.ConfirmRestartClaudesAsync();
     }
 
     private void Sections_SelectionChanged(Microsoft.UI.Xaml.Controls.NavigationView sender, Microsoft.UI.Xaml.Controls.NavigationViewSelectionChangedEventArgs args)
     {
         var tag = (args.SelectedItem as Microsoft.UI.Xaml.Controls.NavigationViewItem)?.Tag as string;
-        var claudes = tag is null or "claudes";
+        var claudes = tag is null || tag.StartsWith("claude:");
+        if (claudes && !_rebuilding && tag is not null && RootFrame.Content is MainPage page) page.Focus(tag["claude:".Length..]);
         RootFrame.Visibility = claudes ? Visibility.Visible : Visibility.Collapsed;
         SectionFrame.Visibility = claudes ? Visibility.Collapsed : Visibility.Visible;
         if (tag == "artifacts")
@@ -76,8 +163,15 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    /// The Claudes again, for the tray's entries that act on that page.
-    private void ShowClaudes() => Sections.SelectedItem = ClaudesItem;
+    /// A Claude's page again, for the tray's entries that act on that page; the
+    /// one already chosen stays chosen.
+    private void ShowClaudes()
+    {
+        if (Sections.SelectedItem is NavigationViewItem { Tag: string tag } && tag.StartsWith("claude:")) return;
+        var focused = RootFrame.Content is MainPage page ? "claude:" + page.Focused : "claude:main";
+        Sections.SelectedItem = Sections.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => (string?)i.Tag == focused)
+            ?? Sections.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => ((string?)i.Tag)?.StartsWith("claude:") == true);
+    }
 
     public void Show()
     {

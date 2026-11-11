@@ -7,6 +7,10 @@
     <!-- One line, two when the words need them, so it never pushes the
          accounts below it down the way three lines and a button did. -->
     <Grid x:Name="Root" ColumnSpacing="10" Visibility="Collapsed">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="Auto" />

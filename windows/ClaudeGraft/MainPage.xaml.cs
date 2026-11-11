@@ -13,6 +13,57 @@ namespace ClaudeGraft;
 public sealed partial class MainPage : Page
 {
     public ObservableCollection<ShortcutRow> Rows { get; } = new();
+    /// The one row the sidebar has chosen. Every row stays in Rows, so usage,
+    /// running state and sharing keep moving for the Claudes not on screen.
+    public ObservableCollection<ShortcutRow> Shown { get; } = new();
+    private string _focus = "main";
+
+    /// Raised whenever the Claudes or the chosen one change, for the sidebar.
+    public event Action? ClaudesChanged;
+    /// The Claude on screen, which is the main one when the chosen one is gone.
+    public string Focused => Shown.FirstOrDefault()?.Key ?? _focus;
+    public bool SetupReady => _setup == SetupState.Ready;
+
+    /// Choosing a Claude puts away a draft not yet created, as leaving it does on the Mac.
+    public void Focus(string key)
+    {
+        _focus = key;
+        Drafting = false;
+        SyncShown();
+    }
+
+    private void SyncShown()
+    {
+        var row = Drafting ? null : Rows.FirstOrDefault(r => r.Key == _focus) ?? Rows.FirstOrDefault();
+        if (Shown.Count != (row is null ? 0 : 1) || (row is not null && Shown[0] != row))
+        {
+            Shown.Clear();
+            if (row is not null) Shown.Add(row);
+        }
+        if (Drafting)
+        {
+            ClaudeTitle.Text = "New Claude";
+            ClaudeSubtitle.Text = "Not created yet · nothing is written until Create";
+        }
+        else
+        {
+            ClaudeTitle.Text = row?.Name ?? "Claude";
+            ClaudeSubtitle.Text = row is null ? "" : row.Shortcut is null
+                ? "Installed normally · its own login and chats"
+                : $"Chats: {row.SourceLabel}  ·  {row.Folder}";
+            // Loaded again only for another Claude, so a reload keeps a half-made edit.
+            var shortcut = row?.Shortcut;
+            if (shortcut?.Folder != _editing)
+            {
+                _editing = shortcut?.Folder;
+                if (shortcut is not null) Editor.Edit(App.Store.Shortcuts.FirstOrDefault(s => s.Id == shortcut.Id) ?? shortcut);
+            }
+        }
+        Editor.Visibility = Drafting || row?.Shortcut is not null ? Visibility.Visible : Visibility.Collapsed;
+        RefreshButton.Visibility = Drafting || _setup != SetupState.Ready ? Visibility.Collapsed : Visibility.Visible;
+        EmptyState.Visibility = !Drafting && row?.Shortcut is null && App.Store.Shortcuts.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        ClaudesChanged?.Invoke();
+    }
     private readonly DispatcherTimer _processTimer = new() { Interval = TimeSpan.FromSeconds(5) };
     // The window is built once and only hidden on close, so Loaded fires a single
     // time and its usage read is the only one there would ever be. A first read
@@ -31,13 +82,10 @@ public sealed partial class MainPage : Page
     public MainPage()
     {
         InitializeComponent();
-        // The logo is a scale-qualified asset that ships only inside resources.pri,
-        // so an unpackaged install has no ms-appx entry for it; the build copies a
-        // plain-named file out beside the binary and it is loaded from there, the
-        // same loose-file spot the window's own icon comes from.
-        var logo = System.IO.Path.Combine(System.AppContext.BaseDirectory, "Assets", "Logo.png");
-        if (System.IO.File.Exists(logo))
-            LogoImage.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(logo));
+        Rows.CollectionChanged += (_, _) => SyncShown();
+        Editor.Saved += Editor_Saved;
+        Editor.Discarded += Editor_Discarded;
+        Editor.DeleteRequested += Editor_DeleteRequested;
         App.SharingChanged += ShowSharing;
         Loaded += (_, _) =>
         {
@@ -103,8 +151,8 @@ public sealed partial class MainPage : Page
         var ready = state == SetupState.Ready;
         Setup.Show(state);
         ProfileList.Visibility = ready ? Visibility.Visible : Visibility.Collapsed;
-        AddButton.Visibility = ready ? Visibility.Visible : Visibility.Collapsed;
         RefreshButton.Visibility = ready ? Visibility.Visible : Visibility.Collapsed;
+        ClaudesChanged?.Invoke();
         return ready;
     }
 
@@ -145,8 +193,6 @@ public sealed partial class MainPage : Page
         var keep = ProfileRows.KeepShown(Rows, built);
         var rows = keep ? Rows.ToList() : built;
         if (!keep) Rows.Clear();
-        // The hint sits below the main card while there are no shortcuts yet.
-        EmptyState.Visibility = App.Store.Shortcuts.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
         // Held while any row is still reaching for a figure, so Refresh Usage is
         // not offered — nor a press swallowed — until every instance has an
@@ -164,6 +210,8 @@ public sealed partial class MainPage : Page
         _ = MarkRunning(rows);
         _ = MarkChatsElsewhere(rows);
         ShowSharing();
+        // A kept list raises no change of its own, and a rename still needs the sidebar redrawn.
+        SyncShown();
         try { await Task.WhenAll(loads); }
         finally
         {
@@ -223,8 +271,6 @@ public sealed partial class MainPage : Page
     }
 
     private void Refresh_Click(object sender, RoutedEventArgs e) => Reload(interactive: true);
-
-    private async void Settings_Click(object sender, RoutedEventArgs e) => await OpenSettingsAsync();
 
     /// Every dialog goes through here first. A dialog lives in the popup layer, a
     /// sibling of the themed content rather than a child of it, so it inherits
@@ -650,24 +696,47 @@ public sealed partial class MainPage : Page
             }
     }
 
-    private async void Add_Click(object sender, RoutedEventArgs e) => await EditProfile(null);
-
-    private async void Edit_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { Tag: ShortcutRow row } && row.Shortcut is Shortcut s)
-            await EditProfile(s);
-    }
-
-    private async Task EditProfile(Shortcut? existing)
+    /// From the sidebar's New Claude: a draft on the page, which nothing is
+    /// written for until Create.
+    public async Task AddAsync()
     {
         if (App.Store.LoadError is not null) { await WarnListUnreadable(); return; }
-        var dialog = new ProfileDialog(App.Store, existing);
-        PrepareDialog(dialog);
-        var result = await dialog.ShowAsync();
+        Drafting = true;
+        _editing = null;
+        Editor.Edit(null);
+        SyncShown();
+    }
 
-        if (result == ContentDialogResult.Primary)
+    /// A new Claude being filled in, shown in place of any card.
+    public bool Drafting { get; private set; }
+    /// Which Claude the editor holds, so a reload does not throw away a half-made edit.
+    private string? _editing;
+
+    private void Editor_Discarded()
+    {
+        Drafting = false;
+        SyncShown();
+    }
+
+    private async void Editor_DeleteRequested(Shortcut shortcut) => await ConfirmDelete(shortcut);
+
+    private async void Editor_Saved(Shortcut original, Shortcut edited, bool isNew)
+    {
+        if (App.Store.LoadError is not null) { await WarnListUnreadable(); return; }
+        Editor.Busy = true;
+        try
         {
-            var shortcut = dialog.Result;
+            if (await ApplyEdit(isNew ? null : original, edited, isNew)) { Drafting = false; _editing = null; }
+        }
+        finally { Editor.Busy = false; }
+        Reload();
+    }
+
+    /// Writes a saved edit through: moves the folder, saves the list, applies the
+    /// chats and makes the shortcut. False when it stopped before saving.
+    private async Task<bool> ApplyEdit(Shortcut? existing, Shortcut shortcut, bool isNew)
+    {
+        {
             var previousName = existing?.Name;
             var previousFolder = existing?.Folder;
 
@@ -686,7 +755,7 @@ public sealed partial class MainPage : Page
                     await Warn("Close Claude first",
                         $"“{existing.Name}” is open. Quit its Claude window before changing the folder — "
                         + "moving a profile's files while Claude is using them could lose chats.");
-                    return;
+                    return false;
                 }
                 var moved = await Task.Run(() => Graft.MoveProfileFolder(previousFolder, shortcut.Folder));
                 if (moved == Graft.ProfileMove.TargetExists)
@@ -694,18 +763,19 @@ public sealed partial class MainPage : Page
                     await Warn("That folder is already in use",
                         $"A folder named “{shortcut.Folder}” already exists. Pick a name that is not in use, "
                         + "so nothing there is overwritten.");
-                    return;
+                    return false;
                 }
                 if (moved == Graft.ProfileMove.Failed)
                 {
                     await Warn("Could not move the profile",
                         "Its files could not be moved, so nothing was changed. Make sure its Claude is closed and try again.");
-                    return;
+                    return false;
                 }
             }
 
-            if (dialog.IsNew) App.Store.Add(shortcut);
+            if (isNew) App.Store.Add(shortcut);
             else App.Store.Update(shortcut);
+            _focus = shortcut.Folder;
 
             var config = App.Store.ConfigFor(shortcut);
             try { await Task.Run(() => Graft.Apply(config)); }
@@ -732,11 +802,7 @@ public sealed partial class MainPage : Page
             {
                 await Warn("Could not create the shortcut", ex.Message);
             }
-            Reload();
-        }
-        else if (result == ContentDialogResult.Secondary && existing is not null)
-        {
-            await ConfirmDelete(existing);
+            return true;
         }
     }
 

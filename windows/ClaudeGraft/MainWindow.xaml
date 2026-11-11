@@ -27,12 +27,14 @@
              account. The Claudes' page stays alive while another is shown. -->
         <NavigationView x:Name="Sections" Grid.Row="1" PaneDisplayMode="Left"
                         IsBackButtonVisible="Collapsed" IsSettingsVisible="False"
-                        IsPaneToggleButtonVisible="False" OpenPaneLength="200"
-                        SelectionChanged="Sections_SelectionChanged">
+                        IsPaneToggleButtonVisible="False" OpenPaneLength="240"
+                        SelectionChanged="Sections_SelectionChanged" ItemInvoked="Sections_ItemInvoked">
             <NavigationView.MenuItems>
-                <NavigationViewItem x:Name="ClaudesItem" Content="Claudes" Tag="claudes" IsSelected="True"
-                                    AutomationProperties.AutomationId="sidebar.claudes">
-                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE80F;" /></NavigationViewItem.Icon>
+                <NavigationViewItemHeader x:Name="ClaudesHeader" Content="Claudes" />
+                <NavigationViewItem x:Name="NewClaudeItem" Content="New Claude…" Tag="new" SelectsOnInvoked="False"
+                                    AutomationProperties.AutomationId="sidebar.newClaude"
+                                    ToolTipService.ToolTip="Another Claude, with its own login and chats">
+                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE710;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItemHeader Content="Every account" />
                 <NavigationViewItem Content="Artifacts" Tag="artifacts"
@@ -48,6 +50,18 @@
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE721;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>
+            <NavigationView.FooterMenuItems>
+                <NavigationViewItem Content="Settings" Tag="settings" SelectsOnInvoked="False"
+                                    AutomationProperties.AutomationId="sidebar.settings">
+                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE713;" /></NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.FooterMenuItems>
+            <NavigationView.PaneFooter>
+                <!-- Claude's own version, here rather than across the top of a
+                     page, where one line took the full width above every Claude. -->
+                <local:ClaudeUpdateLine x:Name="UpdateLine" Stacked="True" Margin="16,8,12,8"
+                                        RestartRequested="ClaudeRestart_Requested" />
+            </NavigationView.PaneFooter>
             <Grid>
                 <Frame x:Name="RootFrame" />
                 <Frame x:Name="SectionFrame" Visibility="Collapsed" />

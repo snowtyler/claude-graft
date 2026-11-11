@@ -9,64 +9,40 @@
     Background="Transparent"
     mc:Ignorable="d">
 
-    <Grid Padding="24" RowSpacing="16">
+    <Grid Padding="24,24,0,24" RowSpacing="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Header: the logo and wordmark share a row with the actions, and the
-             one-line description sits full-width beneath them. -->
-        <Grid Grid.Row="0" RowSpacing="6">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <Grid Grid.Row="0" ColumnSpacing="12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
-                    <Image x:Name="LogoImage" AutomationProperties.AccessibilityView="Raw"
-                           Width="52" Height="52" VerticalAlignment="Center" />
-                    <TextBlock Text="Claude Graft" FontSize="36" FontWeight="Bold"
-                               VerticalAlignment="Center" />
+        <!-- Header: the Claude chosen in the sidebar, and what it reads. -->
+        <Grid Grid.Row="0" ColumnSpacing="12" Margin="0,0,24,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Spacing="2" VerticalAlignment="Center">
+                <TextBlock x:Name="ClaudeTitle" Text="Claude" Style="{StaticResource TitleTextBlockStyle}"
+                           TextTrimming="CharacterEllipsis" AutomationProperties.HeadingLevel="Level1" />
+                <TextBlock x:Name="ClaudeSubtitle" Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+            <Button Grid.Column="1" x:Name="RefreshButton" Click="Refresh_Click" VerticalAlignment="Center"
+                    AutomationProperties.AutomationId="manager.refresh" AutomationProperties.Name="Refresh Usage">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon Glyph="&#xE72C;" FontSize="14" />
+                    <TextBlock x:Name="RefreshLabel" Text="Refresh Usage" />
                 </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <Button x:Name="AddButton" Click="Add_Click" AutomationProperties.AutomationId="manager.add" AutomationProperties.Name="Add Profile" Style="{StaticResource AccentButtonStyle}">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="&#xE710;" FontSize="14" />
-                            <TextBlock Text="Add Profile" />
-                        </StackPanel>
-                    </Button>
-                    <Button x:Name="RefreshButton" Click="Refresh_Click" AutomationProperties.AutomationId="manager.refresh" AutomationProperties.Name="Refresh Usage">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="&#xE72C;" FontSize="14" />
-                            <TextBlock x:Name="RefreshLabel" Text="Refresh Usage" />
-                        </StackPanel>
-                    </Button>
-                    <Button Click="Settings_Click" ToolTipService.ToolTip="Settings"
-                            AutomationProperties.Name="Settings" AutomationProperties.AutomationId="manager.settings"
-                            VerticalAlignment="Stretch">
-                        <FontIcon Glyph="&#xE713;" FontSize="14" VerticalAlignment="Center" />
-                    </Button>
-                </StackPanel>
-            </Grid>
-            <TextBlock Grid.Row="1"
-                       Text="Extra Claude Desktop profiles, each with its own login and chats."
-                       Style="{StaticResource CaptionTextBlockStyle}"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-            <local:ClaudeUpdateLine Grid.Row="2" RestartRequested="ClaudeRestart_Requested" />
+            </Button>
         </Grid>
 
         <!-- Profile list -->
         <Grid Grid.Row="1">
-            <local:SetupPrompt x:Name="Setup" Visibility="Collapsed" />
-            <ListView x:Name="ProfileList" ItemsSource="{x:Bind Rows}"
+            <local:SetupPrompt x:Name="Setup" Visibility="Collapsed" Margin="0,0,24,0" />
+            <ListView x:Name="ProfileList" ItemsSource="{x:Bind Shown}"
                       SelectionMode="None"
-                      ScrollViewer.HorizontalScrollMode="Disabled">
+                      ScrollViewer.HorizontalScrollMode="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                      Padding="0,0,24,0">
                 <ListView.ItemContainerStyle>
                     <Style TargetType="ListViewItem">
                         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -103,10 +79,6 @@
                                         </TextBlock>
                                     </StackPanel>
                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                        <Button Content="Edit" Click="Edit_Click" Tag="{x:Bind}"
-                                                AutomationProperties.Name="{x:Bind local:Spoken.Act('Edit', Name)}"
-                                                AutomationProperties.AutomationId="{x:Bind local:Spoken.Id('manager', Key, 'edit')}"
-                                                Visibility="{x:Bind EditVisibility}" />
                                         <Border Background="Transparent" ToolTipService.ToolTip="{x:Bind StartTooltip, Mode=OneWay}"
                                                 Visibility="{x:Bind SignedInVisibility, Mode=OneWay}">
                                             <StackPanel Orientation="Horizontal">
@@ -236,12 +208,15 @@
                 <!-- Hint flows below the cards, never over them, while no extra
                      profiles exist yet. -->
                 <ListView.Footer>
-                    <TextBlock x:Name="EmptyState" Visibility="Collapsed"
-                               Text="Add a profile to run a second account alongside Claude."
-                               Margin="16,16,16,0"
-                               Style="{StaticResource CaptionTextBlockStyle}"
-                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                               HorizontalAlignment="Center" />
+                    <StackPanel Spacing="8">
+                        <local:ProfileEditor x:Name="Editor" Visibility="Collapsed" />
+                        <TextBlock x:Name="EmptyState" Visibility="Collapsed"
+                                   Text="Add a Claude from the sidebar to run a second account alongside this one."
+                                   Margin="16,8,16,0"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                   HorizontalAlignment="Center" />
+                    </StackPanel>
                 </ListView.Footer>
             </ListView>
         </Grid>
