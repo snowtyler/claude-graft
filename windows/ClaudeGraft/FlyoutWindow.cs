@@ -84,7 +84,7 @@ public sealed class FlyoutWindow : Window
         // Losing focus is the light-dismiss: a click anywhere else takes it away.
         Activated += (_, e) =>
         {
-            if (e.WindowActivationState == WindowActivationState.Deactivated) Hide();
+            if (e.WindowActivationState == WindowActivationState.Deactivated) Hide(clickedAway: true);
         };
     }
 
@@ -136,10 +136,16 @@ public sealed class FlyoutWindow : Window
         });
     }
 
-    private void Hide()
+    private void Hide() => Hide(clickedAway: false);
+
+    private void Hide(bool clickedAway)
     {
         if (!_shown || _hiding) return;
         _hiding = true;
+        var self = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        // The window clicked comes forward and would cover the slide; back on top of the
+        // ordinary windows, still under the topmost taskbar, without taking focus back.
+        if (clickedAway) SetWindowPos(self, 0, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
         // Dismiss is the reverse: the whole window slides back down behind the
         // taskbar and only then is put away. No fade — the bar swallows it.
         var full = FullOffset(extra: 50);
@@ -156,7 +162,8 @@ public sealed class FlyoutWindow : Window
             // thread-attach the handoff needs works only while we still hold the
             // foreground, which is why this comes before Hide, not after.
             AppWindow.Move(new PointInt32(100000, 100000));
-            if (_priorForeground != 0 && _priorForeground != hwnd)
+            // A click elsewhere already chose where focus goes.
+            if (!clickedAway && _priorForeground != 0 && _priorForeground != hwnd)
                 ForceForeground(_priorForeground);
             AppWindow.Hide();
         });
@@ -209,38 +216,32 @@ public sealed class FlyoutWindow : Window
     }
 
     /// Walks the window from one offset of its resting corner to another over the
-    /// given span, a frame at a time. AppWindow has no animation of its own, so
-    /// the move is driven off the frame tick, synced to the compositor each frame
-    /// so a full-height slide does not tear.
+    /// given span, a frame at a time, each move synced to the compositor so a
+    /// full-height slide does not tear.
+    // On its own thread rather than the XAML frame tick: with the desktop or taskbar in
+    // front, WinUI stops ticking this window and the slide ran as one frame.
     private void SlideWindow(PointInt32 from, PointInt32 to, int ms, bool easeIn, Action onDone)
     {
         _animating = true;
-        var clock = Stopwatch.StartNew();
-        Microsoft.UI.Xaml.Media.CompositionTarget.Rendering += Tick;
-
-        void Tick(object? sender, object e)
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        var rest = _rect;
+        var ui = DispatcherQueue;
+        new Thread(() =>
         {
-            // The window can be closed under a running slide; the tick outlives it.
-            if (AppWindow is null)
+            var clock = Stopwatch.StartNew();
+            double t;
+            do
             {
-                Microsoft.UI.Xaml.Media.CompositionTarget.Rendering -= Tick;
-                _animating = false;
-                return;
-            }
-            var t =Math.Min(1.0, clock.Elapsed.TotalMilliseconds / ms);
-            // Power-5 in or out, to match EverythingToolbar's feel.
-            var eased = easeIn ? Math.Pow(t, 5) : 1 - Math.Pow(1 - t, 5);
-            var dx = (int)Math.Round(from.X + (to.X - from.X) * eased);
-            var dy = (int)Math.Round(from.Y + (to.Y - from.Y) * eased);
-            AppWindow.Move(new PointInt32(_rect.X + dx, _rect.Y + dy));
-            DwmFlush();
-            if (t >= 1.0)
-            {
-                Microsoft.UI.Xaml.Media.CompositionTarget.Rendering -= Tick;
-                _animating = false;
-                onDone();
-            }
-        }
+                t = Math.Min(1.0, clock.Elapsed.TotalMilliseconds / ms);
+                // Power-5 in or out, to match EverythingToolbar's feel.
+                var eased = easeIn ? Math.Pow(t, 5) : 1 - Math.Pow(1 - t, 5);
+                var dx = (int)Math.Round(from.X + (to.X - from.X) * eased);
+                var dy = (int)Math.Round(from.Y + (to.Y - from.Y) * eased);
+                SetWindowPos(hwnd, 0, rest.X + dx, rest.Y + dy, 0, 0, SwpNoSize | SwpNoZOrder | SwpNoActivate);
+                DwmFlush();
+            } while (t < 1.0);
+            ui.TryEnqueue(() => { _animating = false; onDone(); });
+        }) { IsBackground = true, Name = "flyout slide" }.Start();
     }
 
     /// Sizes the window to the content and tucks it against the taskbar. Held off
@@ -365,6 +366,11 @@ public sealed class FlyoutWindow : Window
     private const uint WM_NCCALCSIZE = 0x0083;
 
     private delegate nint SubclassProc(nint hwnd, uint msg, nint wParam, nint lParam, nuint id, nuint refData);
+
+    private const uint SwpNoSize = 0x0001, SwpNoMove = 0x0002, SwpNoZOrder = 0x0004, SwpNoActivate = 0x0010;
+
+    [DllImport("user32.dll")]
+    private static extern bool SetWindowPos(nint hwnd, nint after, int x, int y, int cx, int cy, uint flags);
 
     [DllImport("comctl32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]

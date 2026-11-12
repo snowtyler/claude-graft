@@ -28,6 +28,29 @@ internal static class Theming
         ("GraftTitleBrush", c => c.Header, Surface.Title),
         ("GraftQuietBrush", c => c.ButtonHover, Surface.Clear),
         ("DividerStrokeColorDefaultBrush", c => c.Divider, Surface.Solid),
+        // Every clear control at rest, under the pointer and pressed, as a quiet button is.
+        ("NavigationViewItemBackground", c => c.ButtonHover, Surface.Clear),
+        ("NavigationViewItemBackgroundPointerOver", c => c.ButtonHover, Surface.Solid),
+        ("NavigationViewItemBackgroundPressed", c => c.ButtonPressed, Surface.Solid),
+        ("MenuFlyoutItemBackground", c => c.ButtonHover, Surface.Clear),
+        ("MenuFlyoutItemBackgroundPointerOver", c => c.ButtonHover, Surface.Solid),
+        ("MenuFlyoutItemBackgroundPressed", c => c.ButtonPressed, Surface.Solid),
+        ("ToggleMenuFlyoutItemBackground", c => c.ButtonHover, Surface.Clear),
+        ("ToggleMenuFlyoutItemBackgroundPointerOver", c => c.ButtonHover, Surface.Solid),
+        ("ToggleMenuFlyoutItemBackgroundPressed", c => c.ButtonPressed, Surface.Solid),
+        ("MenuFlyoutSubItemBackground", c => c.ButtonHover, Surface.Clear),
+        ("MenuFlyoutSubItemBackgroundPointerOver", c => c.ButtonHover, Surface.Solid),
+        ("MenuFlyoutSubItemBackgroundPressed", c => c.ButtonPressed, Surface.Solid),
+        ("ComboBoxItemBackground", c => c.ButtonHover, Surface.Clear),
+        ("ComboBoxItemBackgroundPointerOver", c => c.ButtonHover, Surface.Solid),
+        ("ComboBoxItemBackgroundPressed", c => c.ButtonPressed, Surface.Solid),
+        ("ListViewItemBackground", c => c.ButtonHover, Surface.Clear),
+        ("ListViewItemBackgroundPointerOver", c => c.ButtonHover, Surface.Solid),
+        ("ListViewItemBackgroundPressed", c => c.ButtonPressed, Surface.Solid),
+        ("NavigationViewButtonBackground", c => c.ButtonHover, Surface.Clear),
+        ("NavigationViewButtonBackgroundPointerOver", c => c.ButtonHover, Surface.Solid),
+        ("NavigationViewButtonBackgroundPressed", c => c.ButtonPressed, Surface.Solid),
+        ("ComboBoxBackgroundPressed", c => c.ButtonPressed, Surface.Solid),
         ("NavigationViewItemBackgroundSelected", c => c.Selection, Surface.Solid),
         ("NavigationViewItemBackgroundSelectedPointerOver", c => c.Selection, Surface.Solid),
         ("NavigationViewItemBackgroundSelectedPressed", c => c.Selection, Surface.Solid),
@@ -51,7 +74,7 @@ internal static class Theming
 
     // Edge: the lines framing the page, gone over a backdrop so the page reads as one sheet.
     // Title: the strip over the page, which over a backdrop joins the page beneath it.
-    // Clear: a clear button's rest colour, which its hover fade starts from.
+    // Clear: a rest colour at alpha 0, the hue its fade starts from rather than clear white.
     private enum Surface { Solid, Behind, Page, Edge, Title, Clear }
 
     private const byte PageAlpha = 0x40;

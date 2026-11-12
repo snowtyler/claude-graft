@@ -95,7 +95,8 @@
                                          Fill="{x:Bind StatusBrush, Mode=OneWay}"
                                          AutomationProperties.Name="{x:Bind StatusLabel, Mode=OneWay}" />
                                 <TextBlock Grid.Column="1" Text="{x:Bind Name}" AutomationProperties.Name="{x:Bind SpokenName, Mode=OneWay}"
-                                           VerticalAlignment="Center" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                           VerticalAlignment="Center" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                           TextLineBounds="Tight" />
                                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                     <Border Background="Transparent" ToolTipService.ToolTip="{x:Bind StartTooltip, Mode=OneWay}"
                                             Visibility="{x:Bind SignedInVisibility, Mode=OneWay}">

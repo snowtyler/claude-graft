@@ -37,6 +37,28 @@
                             <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="{StaticResource GraftDivider}" />
                             <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="{StaticResource GraftSidebar}" />
                             <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="{StaticResource GraftSidebar}" />
+                            <SolidColorBrush x:Key="NavigationViewItemBackground" Color="#004F4D4B" />
+                            <SolidColorBrush x:Key="NavigationViewItemBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
+                            <SolidColorBrush x:Key="NavigationViewItemBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
+                            <SolidColorBrush x:Key="MenuFlyoutItemBackground" Color="#004F4D4B" />
+                            <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
+                            <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
+                            <SolidColorBrush x:Key="ToggleMenuFlyoutItemBackground" Color="#004F4D4B" />
+                            <SolidColorBrush x:Key="ToggleMenuFlyoutItemBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
+                            <SolidColorBrush x:Key="ToggleMenuFlyoutItemBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
+                            <SolidColorBrush x:Key="MenuFlyoutSubItemBackground" Color="#004F4D4B" />
+                            <SolidColorBrush x:Key="MenuFlyoutSubItemBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
+                            <SolidColorBrush x:Key="MenuFlyoutSubItemBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
+                            <SolidColorBrush x:Key="ComboBoxItemBackground" Color="#004F4D4B" />
+                            <SolidColorBrush x:Key="ComboBoxItemBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
+                            <SolidColorBrush x:Key="ComboBoxItemBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
+                            <SolidColorBrush x:Key="ListViewItemBackground" Color="#004F4D4B" />
+                            <SolidColorBrush x:Key="ListViewItemBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
+                            <SolidColorBrush x:Key="ListViewItemBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
+                            <SolidColorBrush x:Key="NavigationViewButtonBackground" Color="#004F4D4B" />
+                            <SolidColorBrush x:Key="NavigationViewButtonBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
+                            <SolidColorBrush x:Key="NavigationViewButtonBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
+                            <SolidColorBrush x:Key="ComboBoxBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
                             <SolidColorBrush x:Key="NavigationViewItemBackgroundSelected" Color="{StaticResource GraftSelection}" />
                             <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPointerOver" Color="{StaticResource GraftSelection}" />
                             <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPressed" Color="{StaticResource GraftSelection}" />
@@ -88,6 +110,28 @@
                             <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="{StaticResource GraftDivider}" />
                             <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="{StaticResource GraftSidebar}" />
                             <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="{StaticResource GraftSidebar}" />
+                            <SolidColorBrush x:Key="NavigationViewItemBackground" Color="#00F2F0ED" />
+                            <SolidColorBrush x:Key="NavigationViewItemBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
+                            <SolidColorBrush x:Key="NavigationViewItemBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
+                            <SolidColorBrush x:Key="MenuFlyoutItemBackground" Color="#00F2F0ED" />
+                            <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
+                            <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
+                            <SolidColorBrush x:Key="ToggleMenuFlyoutItemBackground" Color="#00F2F0ED" />
+                            <SolidColorBrush x:Key="ToggleMenuFlyoutItemBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
+                            <SolidColorBrush x:Key="ToggleMenuFlyoutItemBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
+                            <SolidColorBrush x:Key="MenuFlyoutSubItemBackground" Color="#00F2F0ED" />
+                            <SolidColorBrush x:Key="MenuFlyoutSubItemBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
+                            <SolidColorBrush x:Key="MenuFlyoutSubItemBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
+                            <SolidColorBrush x:Key="ComboBoxItemBackground" Color="#00F2F0ED" />
+                            <SolidColorBrush x:Key="ComboBoxItemBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
+                            <SolidColorBrush x:Key="ComboBoxItemBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
+                            <SolidColorBrush x:Key="ListViewItemBackground" Color="#00F2F0ED" />
+                            <SolidColorBrush x:Key="ListViewItemBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
+                            <SolidColorBrush x:Key="ListViewItemBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
+                            <SolidColorBrush x:Key="NavigationViewButtonBackground" Color="#00F2F0ED" />
+                            <SolidColorBrush x:Key="NavigationViewButtonBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
+                            <SolidColorBrush x:Key="NavigationViewButtonBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
+                            <SolidColorBrush x:Key="ComboBoxBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
                             <SolidColorBrush x:Key="NavigationViewItemBackgroundSelected" Color="{StaticResource GraftSelection}" />
                             <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPointerOver" Color="{StaticResource GraftSelection}" />
                             <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPressed" Color="{StaticResource GraftSelection}" />
