@@ -50,7 +50,9 @@ public static partial class Graft
         // so it runs only with the lock held and after a successful save; it reads
         // the live pairs back from disk, so it can never drop a baseline for a
         // pair still recorded there.
-        if (state.Save(MirrorStateFile) && held) SidebarSync.ForgetPairsLocked();
+        if (!state.Save(MirrorStateFile)) return;
+        ForgetRecordBaselines(state.Pairs.Keys);
+        if (held) SidebarSync.ForgetPairsLocked();
     });
 
     /// A byte no path can contain, so the two halves of a key always come back

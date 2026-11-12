@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace ClaudeGraft.Core;
 
@@ -76,9 +77,19 @@ public static partial class Graft
     private static int MirrorKnownPairsUnlocked()
     {
         var moved = 0;
-        foreach (var key in LoadMirrorState().Pairs.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList())
-            if (PairFolders(key) is (string one, string other))
-                moved += MirrorChatFolders(one, other);
+        var keys = LoadMirrorState().Pairs.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList();
+        // Pairs sharing a folder pass a change along one pair at a time, so a launcher
+        // that stopped after one round opened its profile a change behind. A change
+        // never needs more rounds than there are pairs, and one more proves it.
+        for (var i = 0; i <= keys.Count; i++)
+        {
+            var round = 0;
+            foreach (var key in keys)
+                if (PairFolders(key) is (string one, string other))
+                    round += MirrorChatFolders(one, other);
+            moved += round;
+            if (round == 0) break;
+        }
         return moved;
     }
 
@@ -123,6 +134,8 @@ public static partial class Graft
         var state = LoadMirrorState();
         var key = PairKey(one, other);
         var baseline = state.Pairs.TryGetValue(key, out var b) ? new Dictionary<string, string>(b) : new();
+        var recordsAsLoaded = LoadRecordBaselines(key);
+        var records = new Dictionary<string, RecordBaseline>(recordsAsLoaded);
         var moved = 0;
 
         // A side holding none of the names the baseline describes, while the
@@ -136,28 +149,126 @@ public static partial class Graft
             var described = new HashSet<string>(baseline.Keys);
             var hereHasNone = !oneNames.Where(IsMirrored).Any(described.Contains);
             var thereHasNone = !otherNames.Where(IsMirrored).Any(described.Contains);
-            if (hereHasNone != thereHasNone) baseline = new();
+            if (hereHasNone != thereHasNone) { baseline = new(); records = new(); }
         }
 
         (byte[] data, string digest)? Read(string folder, string name)
         {
-            try { var d = File.ReadAllBytes(Path.Combine(folder, name)); return (d, Digest(d)); }
+            try { var d = File.ReadAllBytes(Path.Combine(folder, name)); return (d, Digest(MirrorData(d))); }
             catch { return null; }
         }
         bool Put(byte[] data, string folder, string name)
         {
-            try { AtomicWrite.Bytes(Path.Combine(folder, name), data); return true; }
+            try { AtomicWrite.Bytes(Path.Combine(folder, name), LocalScratchOrigin(data, folder)); return true; }
             catch { return false; }
         }
-        // A removal that did not happen must not be written down as one: the
-        // baseline is dropped whether or not the file went, so a removal the
-        // filesystem refused would leave a name on one side, absent on the other,
-        // with no baseline — a new chat, copied straight back to where it was
-        // deleted from.
+        // A removal that did not happen must not be written down as one: a name left
+        // on one side with no baseline is a new chat, copied straight back.
         bool Drop(string folder, string name)
         {
             try { File.Delete(Path.Combine(folder, name)); return true; }
             catch { return false; }
+        }
+
+        // Both sides hold this copy now.
+        void Settle(string name, (byte[] data, string digest) copy, RecordBaseline? known)
+        {
+            baseline[name] = copy.digest;
+            if (known is not null && known.Digest == copy.digest && known.Fields is not null) { records[name] = known; return; }
+            var record = RecordObject(MirrorData(copy.data));
+            records[name] = new RecordBaseline(copy.digest, record is null ? null : FieldDigests(record), Number(record, "lastActivityAt"));
+        }
+
+        List<string>? running = null;
+        // Both sides had a reply land since they last agreed: two Claudes carried the
+        // chat on from one point, and no record can point at both transcripts, so it
+        // becomes two. Waits while either Claude is open, which would write its own
+        // half back over the split. False when the split is not this pass's to make.
+        bool Split(string name, JsonObject borrowed, JsonObject source)
+        {
+            running ??= RunningClaudes();
+            var profiles = new[] { ProfileOfChatFolder(one), ProfileOfChatFolder(other) };
+            if (running.Any(open => profiles.Any(p => Fs.SamePath(p, open))))
+            {
+                Diagnostics.Note("mirror.diverged", new Dictionary<string, object?> { ["record"] = name, ["status"] = "waiting" });
+                return true;
+            }
+            var newName = "local_" + Guid.NewGuid().ToString().ToLowerInvariant();
+            var kept = (JsonObject)source.DeepClone();
+            var carried = (JsonObject)borrowed.DeepClone();
+            kept["title"] = SplitTitle(source["title"], ClaudeName(profiles[1]));
+            carried["title"] = SplitTitle(borrowed["title"], ClaudeName(profiles[0]));
+            // An automatic title gives way to the next one Claude thinks of, and the mark with it.
+            kept["titleSource"] = "user";
+            carried["titleSource"] = "user";
+            carried["sessionId"] = newName;
+            var keptData = EncodeRecord(kept);
+            var carriedData = EncodeRecord(carried);
+            // The new half goes in first and out again unless it lands on both sides,
+            // so a failure leaves the chat as it was for the next pass.
+            var file = newName + ".json";
+            var placed = new[] { one, other }.Where(f => Put(carriedData, f, file)).ToList();
+            if (placed.Count != 2)
+            {
+                foreach (var f in placed) Drop(f, file);
+                return true;
+            }
+            moved += 2;
+            Settle(file, (carriedData, Digest(MirrorData(carriedData))), null);
+            var landed = true;
+            foreach (var f in new[] { one, other })
+                if (Put(keptData, f, name)) moved++; else landed = false;
+            if (landed) Settle(name, (keptData, Digest(MirrorData(keptData))), null);
+            Diagnostics.Note("mirror.diverged", new Dictionary<string, object?> { ["record"] = name, ["split"] = file });
+            return true;
+        }
+
+        // Both sides moved since they last agreed: keep what each changed.
+        void Merge(string name, (byte[] data, string digest) here, (byte[] data, string digest) there, RecordBaseline? known)
+        {
+            var oneRecord = RecordObject(MirrorData(here.data));
+            var otherRecord = RecordObject(MirrorData(there.data));
+            // Activity gone back past the baseline was written by a Claude holding an
+            // older copy, so every field it differs in may be old memory: settle whole.
+            bool WentBack(JsonObject? r) => known?.Activity is double then && Number(r, "lastActivityAt") is double now && now < then;
+            bool Progressed(JsonObject r) =>
+                known?.Activity is double then && Number(r, "lastActivityAt") is double now && now > then
+                && r.TryGetPropertyValue("lastAssistantUuid", out var reply) && reply is not null
+                && FieldDigest(reply) != (known.Fields is { } f && f.TryGetValue("lastAssistantUuid", out var was) ? was : null);
+            if (IsRecordName(name) && oneRecord is not null && otherRecord is not null
+                && Progressed(oneRecord) && Progressed(otherRecord)
+                && FieldDigest(oneRecord["lastAssistantUuid"]) != FieldDigest(otherRecord["lastAssistantUuid"])
+                && Split(name, oneRecord, otherRecord))
+                return;
+
+            (byte[] data, string digest) settled;
+            if (oneRecord is not null && otherRecord is not null && known?.Fields is { } fields
+                && !WentBack(oneRecord) && !WentBack(otherRecord))
+            {
+                var prefer = RecordMoment(Path.Combine(one, name)) >= RecordMoment(Path.Combine(other, name)) ? MirrorSide.One : MirrorSide.Other;
+                var result = MergeRecordFields(oneRecord, otherRecord, fields, prefer);
+                if (result.Contested.Count > 0)
+                    Diagnostics.Note("mirror.contested", new Dictionary<string, object?> { ["record"] = name, ["fields"] = result.Contested });
+                if (SameRecord(result.Record, oneRecord)) settled = here;
+                else if (SameRecord(result.Record, otherRecord)) settled = there;
+                else { var data = EncodeRecord(result.Record); settled = (data, Digest(MirrorData(data))); }
+            }
+            // A record that reads beats one that does not: Claude skips a torn file,
+            // so carrying it over a whole one takes the chat out of both sidebars.
+            else if (IsRecordName(name) && (oneRecord is null) != (otherRecord is null))
+                settled = oneRecord is not null ? here : there;
+            else
+                settled = RecordMoment(Path.Combine(one, name)) >= RecordMoment(Path.Combine(other, name)) ? here : there;
+
+            var allLanded = true;
+            foreach (var (folder, current) in new[] { (one, here), (other, there) })
+                if (current.digest != settled.digest)
+                {
+                    if (Put(settled.data, folder, name)) moved++; else allLanded = false;
+                }
+            // A side that refused the write still holds what it held; the next pass
+            // reads both against the same baseline again.
+            if (allLanded) Settle(name, settled, null);
         }
 
         var listedHere = new HashSet<string>(oneNames.Where(IsMirrored));
@@ -175,43 +286,54 @@ public static partial class Graft
                 Diagnostics.Note("mirror.record-unread", new Dictionary<string, object?> { ["name"] = name });
                 continue;
             }
+            var known = records.TryGetValue(name, out var r) && baseline.TryGetValue(name, out var bd) && r.Digest == bd ? r : null;
+            if (known is null) records.Remove(name);
+
             var action = MirrorDecision(here?.digest, there?.digest,
                 baseline.TryGetValue(name, out var bl) ? bl : null);
 
-            // Both sides moved. What the records say about themselves is all
-            // that is left, and a record that still exists beats one that was
-            // deleted — a chat put back is a nuisance, a chat taken away is not.
+            // Both sides moved. A record that still exists beats one that was
+            // deleted, and two that both exist are merged field by field.
             if (action == MirrorAction.Conflict)
             {
-                action = (here, there) switch
-                {
-                    (null, not null) => MirrorAction.CopyToOne,
-                    (not null, null) => MirrorAction.CopyToOther,
-                    (not null, not null) => RecordMoment(Path.Combine(one, name)) >= RecordMoment(Path.Combine(other, name))
-                        ? MirrorAction.CopyToOther : MirrorAction.CopyToOne,
-                    _ => MirrorAction.Nothing,
-                };
+                if (here is not null && there is not null) { Merge(name, here.Value, there.Value, known); continue; }
+                action = here is null && there is not null ? MirrorAction.CopyToOne
+                    : here is not null ? MirrorAction.CopyToOther : MirrorAction.Nothing;
             }
 
             switch (action)
             {
                 case MirrorAction.Nothing:
-                    // Where a name held identically by both sides first earns a
-                    // baseline; either side names it.
-                    if (here?.digest is string d) baseline[name] = d;
+                    if (here is { } same) Settle(name, same, known);
+                    foreach (var (folder, record) in new[] { (one, here), (other, there) })
+                    {
+                        if (record is not { } held) continue;
+                        var localized = LocalScratchOrigin(held.data, folder);
+                        if (!localized.AsSpan().SequenceEqual(held.data)) Put(localized, folder, name);
+                    }
                     break;
                 case MirrorAction.CopyToOther:
                 case MirrorAction.CopyToOne:
-                    var source = action == MirrorAction.CopyToOther ? here : there;
-                    var destination = action == MirrorAction.CopyToOther ? other : one;
-                    if (source is null || !Put(source.Value.data, destination, name)) break;
-                    baseline[name] = source.Value.digest;
+                    var toOther = action == MirrorAction.CopyToOther;
+                    if ((toOther ? here : there) is not { } source) break;
+                    var current = toOther ? there : here;
+                    // A record nobody can read is not a change to carry; the readable
+                    // copy goes back the other way instead.
+                    if (IsRecordName(name) && current is { } readable
+                        && RecordObject(source.data) is null && RecordObject(readable.data) is not null)
+                    {
+                        if (Put(readable.data, toOther ? one : other, name)) { Settle(name, readable, null); moved++; }
+                        break;
+                    }
+                    if (!Put(source.data, toOther ? other : one, name)) break;
+                    Settle(name, source, null);
                     moved++;
                     break;
                 case MirrorAction.RemoveFromOne:
                 case MirrorAction.RemoveFromOther:
                     if (!Drop(action == MirrorAction.RemoveFromOne ? one : other, name)) break;
                     baseline.Remove(name);
+                    records.Remove(name);
                     moved++;
                     break;
                 case MirrorAction.Conflict:
@@ -223,7 +345,10 @@ public static partial class Graft
         // entry would sit in the baseline for good — growing the file, and ready
         // to read the name coming back on one side alone as a deletion.
         state.Pairs[key] = baseline.Where(kv => names.Contains(kv.Key)).ToDictionary(kv => kv.Key, kv => kv.Value);
+        records = records.Where(kv => names.Contains(kv.Key) && baseline.TryGetValue(kv.Key, out var d) && d == kv.Value.Digest)
+            .ToDictionary(kv => kv.Key, kv => kv.Value);
         SaveMirrorState(state);
+        if (!SameBaselines(records, recordsAsLoaded)) SaveRecordBaselines(records, key);
         return moved;
     }
 }

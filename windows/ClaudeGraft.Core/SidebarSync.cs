@@ -114,7 +114,7 @@ public sealed class SidebarSnapshot
 /// closed. Chromium owns the storage locks; the read/write goes through
 /// <see cref="SidebarStorage"/>, stubbed via <see cref="StorageOverride"/> in tests.
 /// </summary>
-public static class SidebarSync
+public static partial class SidebarSync
 {
     public sealed class Failure : Exception
     {

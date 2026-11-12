@@ -129,6 +129,10 @@ public partial class App : Application
         UpdateRecovery.Start();
         WindowIdentity.Start(_ui);
         ClaudeUpdateCenter.Start(_ui);
+        // Read from disk on the watcher's thread rather than from the window's list.
+        _quitWatch = new ClaudeQuitWatch(() => new ShortcutStore().Shortcuts
+            .Where(s => s.InstalledName is not null).Select(s => s.ProfileDir)
+            .Prepend(GraftPaths.DefaultProfile).ToList());
         System.Threading.Tasks.Task.Run(() =>
         {
             try { ManualUpdates.Synchronize(); }
@@ -331,6 +335,7 @@ public partial class App : Application
     }
 
     private Task<bool>? _installing;
+    private ClaudeQuitWatch? _quitWatch;
 
     /// Fetches the installer and hands off to it, then quits — the installer
     /// cannot replace a running exe, so the process that holds it open has to go.

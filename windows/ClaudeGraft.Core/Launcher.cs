@@ -119,6 +119,7 @@ public static class Launcher
                 return;
             }
             SidebarSync.Synchronize(config.ProfileDir);
+            SidebarSync.SynchronizeProjectOrder(config.ProfileDir);
             PoolEnvironment.SettleBeforeOpening(config.ProfileDir,
                 () => PoolEnvironment.EnsureRelay(PoolEnvironment.ReadJournal().Relay));
             Launch(config.ProfileDir);
@@ -133,6 +134,17 @@ public static class Launcher
     {
         Graft.MirrorKnownPairs();
         Graft.FileMissingSessionRecords(filingInto, ClaudeProcesses.AnyDesktopRunning);
+    }
+
+    /// The pass a Claude quitting calls for: whatever the mirror could not land
+    /// while it ran lands now, before anything opens it again.
+    public static void Sweep(IReadOnlyList<string> filingInto)
+    {
+        try { StateLock.Run(() => SquareUp(filingInto)); }
+        catch (UnreadableStateException e)
+        {
+            Diagnostics.Note("sweep.state-unreadable", new Dictionary<string, object?> { ["file"] = Path.GetFileName(e.Path) });
+        }
     }
 
     /// The profiles a sweep run from this launch may file into: the profile being

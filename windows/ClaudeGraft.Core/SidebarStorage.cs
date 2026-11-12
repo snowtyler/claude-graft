@@ -84,47 +84,7 @@ public static class SidebarStorage
                 ["output"] = output,
                 ["backup"] = Path.Combine(backups, Guid.NewGuid().ToString("N") + ".json"),
             };
-            var requestFile = Path.Combine(scratch, "request.json");
-            File.WriteAllBytes(requestFile, JsonSerializer.SerializeToUtf8Bytes(request));
-
-            var psi = new ProcessStartInfo(electron)
-            {
-                UseShellExecute = false, CreateNoWindow = true,
-                RedirectStandardOutput = true, RedirectStandardError = true,
-            };
-            psi.ArgumentList.Add(appDir);
-            psi.ArgumentList.Add("--request=" + requestFile);
-            // Inherited Electron/Node switches must not turn the helper into an
-            // inspector or redirect it to a different entry point.
-            foreach (var key in psi.Environment.Keys.ToList())
-                if (key.StartsWith("ELECTRON_", StringComparison.Ordinal) || key.StartsWith("NODE_", StringComparison.Ordinal))
-                    psi.Environment.Remove(key);
-
-            using var proc = Process.Start(psi) ?? throw new SidebarSync.Failure("storage-unavailable");
-            // Drain both streams, or a chatty Electron fills the redirected pipe,
-            // blocks on the write, and the wait below times out on otherwise good
-            // work. The content is discarded; only exit and the output file matter.
-            proc.OutputDataReceived += (_, _) => { };
-            proc.ErrorDataReceived += (_, _) => { };
-            proc.BeginOutputReadLine();
-            proc.BeginErrorReadLine();
-            if (!proc.WaitForExit(30000))
-            {
-                // Block until it is actually gone before returning — Synchronize
-                // swallows the throw and the launcher opens Claude next, so the
-                // only safe guarantee is that the helper has released the store by
-                // the time we return. A forced kill makes this wait short.
-                try { proc.Kill(entireProcessTree: true); } catch { }
-                proc.WaitForExit();
-                throw new SidebarSync.Failure("storage-timeout");
-            }
-            // The exit code is the only trace a helper that died before writing leaves.
-            if (proc.ExitCode != 0) throw new SidebarSync.Failure($"storage-unavailable (helper exited {proc.ExitCode})");
-
-            if (JsonNode.Parse(File.ReadAllBytes(output)) is not JsonObject reply)
-                throw new SidebarSync.Failure("storage-unavailable");
-            if (reply["ok"]?.GetValue<bool>() != true)
-                throw new SidebarSync.Failure(reply["error"]?.GetValue<string>() ?? "storage-unavailable");
+            var reply = RunHelper(electron, appDir, scratch, request);
 
             var result = new Dictionary<string, SidebarSnapshot>();
             foreach (var node in reply["profiles"]?.AsArray() ?? new JsonArray())
@@ -144,6 +104,75 @@ public static class SidebarStorage
             return result;
         }
         finally { try { Directory.Delete(scratch, recursive: true); } catch { } }
+    }
+
+    /// The project-order pass: reads copies of each profile's Local Storage, or
+    /// writes the entries given, and returns each profile's values by path.
+    public static Dictionary<string, Dictionary<string, string>> Projects(string action, JsonArray profiles)
+    {
+        var electron = ElectronExe() ?? throw new SidebarSync.Failure("runtime-unavailable");
+        var appDir = PrepareApp();
+        var scratch = Path.Combine(GraftPaths.OwnData, ".projects-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(scratch);
+        try
+        {
+            var reply = RunHelper(electron, appDir, scratch, new JsonObject
+            {
+                ["action"] = action, ["profiles"] = profiles, ["scratch"] = scratch,
+                ["output"] = Path.Combine(scratch, "result.json"),
+            });
+            var result = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var node in reply["profiles"]?.AsArray() ?? new JsonArray())
+                if (node is JsonObject item && item["path"]?.GetValue<string>() is string path && item["values"] is JsonObject values)
+                    result[path] = values.Where(p => p.Value is JsonValue v && v.GetValueKind() == JsonValueKind.String)
+                        .ToDictionary(p => p.Key, p => p.Value!.GetValue<string>());
+            return result;
+        }
+        finally { try { Directory.Delete(scratch, recursive: true); } catch { } }
+    }
+
+    private static JsonObject RunHelper(string electron, string appDir, string scratch, JsonObject request)
+    {
+        var output = request["output"]!.GetValue<string>();
+        var requestFile = Path.Combine(scratch, "request.json");
+        File.WriteAllBytes(requestFile, JsonSerializer.SerializeToUtf8Bytes(request));
+
+        var psi = new ProcessStartInfo(electron)
+        {
+            UseShellExecute = false, CreateNoWindow = true,
+            RedirectStandardOutput = true, RedirectStandardError = true,
+        };
+        psi.ArgumentList.Add(appDir);
+        psi.ArgumentList.Add("--request=" + requestFile);
+        // Inherited Electron/Node switches must not turn the helper into an
+        // inspector or redirect it to a different entry point.
+        foreach (var key in psi.Environment.Keys.ToList())
+            if (key.StartsWith("ELECTRON_", StringComparison.Ordinal) || key.StartsWith("NODE_", StringComparison.Ordinal))
+                psi.Environment.Remove(key);
+
+        using var proc = Process.Start(psi) ?? throw new SidebarSync.Failure("storage-unavailable");
+        // Drain both streams, or a chatty Electron fills the redirected pipe,
+        // blocks on the write, and the wait below times out on otherwise good work.
+        proc.OutputDataReceived += (_, _) => { };
+        proc.ErrorDataReceived += (_, _) => { };
+        proc.BeginOutputReadLine();
+        proc.BeginErrorReadLine();
+        if (!proc.WaitForExit(30000))
+        {
+            // Gone before returning: the launcher opens Claude next, and the helper
+            // must have let go of the store by then.
+            try { proc.Kill(entireProcessTree: true); } catch { }
+            proc.WaitForExit();
+            throw new SidebarSync.Failure("storage-timeout");
+        }
+        // The exit code is the only trace a helper that died before writing leaves.
+        if (proc.ExitCode != 0) throw new SidebarSync.Failure($"storage-unavailable (helper exited {proc.ExitCode})");
+
+        if (JsonNode.Parse(File.ReadAllBytes(output)) is not JsonObject reply)
+            throw new SidebarSync.Failure("storage-unavailable");
+        if (reply["ok"]?.GetValue<bool>() != true)
+            throw new SidebarSync.Failure(reply["error"]?.GetValue<string>() ?? "storage-unavailable");
+        return reply;
     }
 
     private static JsonArray Arr(IEnumerable<string> items)
@@ -336,18 +365,130 @@ async function storageOperation(action, raw) {
     } finally { db.close(); }
 }
 
-function atomicJSON(file, data) {
+function atomicWrite(file, text) {
     const temporary = file + '.graft-' + crypto.randomUUID();
     try {
-        fs.writeFileSync(temporary, JSON.stringify(data), {mode: 0o600, flag: 'wx'});
+        fs.writeFileSync(temporary, text, {mode: 0o600, flag: 'wx'});
         fs.renameSync(temporary, file);
     } finally { try { fs.unlinkSync(temporary); } catch {} }
+}
+function atomicJSON(file, data) { atomicWrite(file, JSON.stringify(data)); }
+
+// claude_desktop_config.json is a file people edit by hand, so it keeps the
+// indent it had, or none, and its final newline.
+function preferencesText(original, data) {
+    if (original === null) return JSON.stringify(data, null, 2);
+    const indent = /\n([ \t]+)\S/.exec(original)?.[1] ?? '';
+    const text = indent ? JSON.stringify(data, null, indent) : JSON.stringify(data);
+    return original.endsWith('\n') ? text + '\n' : text;
+}
+
+// Project order: one Local Storage entry per account, beside the saved
+// environments its preset:: entries name. Apart from the pin pass, so a profile
+// whose pins this cannot read still gets its projects in order. Runs in the page.
+async function projectsOperation(keys, values) {
+    if (values !== null) for (const [key, value] of Object.entries(values)) localStorage.setItem(key, value);
+    return Object.fromEntries(keys.map(key => [key, localStorage.getItem(key)]));
+}
+
+// Claude builds the sidebar from this preference at startup, not from the timed
+// Local Storage copy. Only the one key changes.
+function writeProjectPreference(profilePath, prefs) {
+    const file = path.join(profilePath, 'claude_desktop_config.json');
+    let text = null;
+    if (fs.existsSync(file)) {
+        if (!fs.lstatSync(file).isFile()) throw Error('unreadable-preferences');
+        text = fs.readFileSync(file, 'utf8');
+    }
+    const root = text === null ? {} : parse(text);
+    if (!object(root) || (root.preferences !== undefined && !object(root.preferences))
+        || (root.preferences?.epitaxyPrefs !== undefined && !object(root.preferences.epitaxyPrefs)))
+        throw Error('unreadable-preferences');
+    root.preferences ??= {};
+    root.preferences.epitaxyPrefs ??= {};
+    root.preferences.epitaxyPrefs[prefs.key] = prefs.order;
+    atomicWrite(file, preferencesText(text, root));
+}
+
+// Reads open a copy of each profile's Local Storage, so a database a Claude is
+// about to open is never locked for a read; only a write opens the real one.
+async function runProjects(request) {
+    const {app, BrowserWindow, session} = require('electron');
+    requireShape(['projects-read', 'projects-write'].includes(request.action) && Array.isArray(request.profiles)
+        && request.profiles.length > 0 && request.profiles.length <= 32
+        && request.profiles.every(item => strings(item.keys) && item.keys.length > 0
+            && item.keys.every(key => key.startsWith('LSS-persisted.code-projects-order.')
+                || key.startsWith('persisted.ccd-session-presets.'))
+            && (request.action === 'projects-read' ? item.values === undefined
+                : object(item.values) && (Object.keys(item.values).length > 0 || item.prefs !== undefined)
+                  && Object.entries(item.values).every(([key, value]) =>
+                      key.startsWith('LSS-persisted.code-projects-order.') && item.keys.includes(key)
+                      && typeof value === 'string')
+                  && (item.prefs === undefined || (object(item.prefs) && typeof item.prefs.key === 'string'
+                      && item.prefs.key.startsWith('code-projects-order.') && strings(item.prefs.order))))));
+    const writing = request.action === 'projects-write';
+    app.setPath('userData', path.join(request.scratch, 'runtime'));
+    app.commandLine.appendSwitch('disable-gpu');
+    app.commandLine.appendSwitch('disable-background-networking');
+    app.commandLine.appendSwitch('disable-component-update');
+    app.commandLine.appendSwitch('host-resolver-rules', 'MAP * ~NOTFOUND');
+    const timeout = setTimeout(() => app.exit(2), 20000);
+    await app.whenReady();
+    const results = [], windows = [];
+    try {
+        for (const [index, profile] of request.profiles.entries()) {
+            const scratch = path.join(request.scratch, 'profile-' + index);
+            fs.mkdirSync(scratch, {recursive: true, mode: 0o700});
+            const original = path.join(profile.path, 'Local Storage');
+            if (!fs.statSync(original).isDirectory()) throw Error('not-initialized');
+            if (writing && profile.prefs) writeProjectPreference(profile.path, profile.prefs);
+            // A profile that may be opening as this runs gets the preference alone.
+            if (writing && Object.keys(profile.values).length === 0) {
+                results.push({path: profile.path, values: {}});
+                continue;
+            }
+            if (writing) fs.symlinkSync(original, path.join(scratch, 'Local Storage'), 'junction');
+            else fs.cpSync(original, path.join(scratch, 'Local Storage'), {recursive: true,
+                filter: source => path.basename(source) !== 'LOCK'});
+            const ses = session.fromPath(scratch, {cache: false});
+            ses.setPermissionRequestHandler((contents, permission, callback) => callback(false));
+            await ses.protocol.handle('https', req => {
+                if (req.url !== 'https://claude.ai/') return new Response('', {status: 403});
+                return new Response('<!doctype html><title>Project order</title>', {headers: {
+                    'Content-Type': 'text/html', 'Content-Security-Policy': "default-src 'none'"}});
+            });
+            // Kept until the pass ends: closing one before the next opens leaves
+            // that one's renderer unable to start.
+            const window = new BrowserWindow({show: false, webPreferences: {
+                session: ses, sandbox: true, contextIsolation: true, nodeIntegration: false}});
+            windows.push(window);
+            await window.loadURL('https://claude.ai/');
+            const call = values => window.webContents.executeJavaScript('(' + projectsOperation.toString()
+                + ')(' + JSON.stringify(profile.keys) + ',' + JSON.stringify(values) + ')');
+            let values = await call(writing ? profile.values : null);
+            if (writing) {
+                await ses.flushStorageData();
+                values = await call(null);
+                for (const [key, value] of Object.entries(profile.values))
+                    if (values[key] !== value) throw Error('verification-failed');
+            }
+            results.push({path: profile.path, values});
+        }
+        atomicJSON(request.output, {ok: true, profiles: results});
+    } catch (error) {
+        atomicJSON(request.output, {ok: false, error: String(error.message ?? error).slice(0, 300)});
+    } finally {
+        for (const window of windows) window.destroy();
+        clearTimeout(timeout);
+        app.quit();
+    }
 }
 
 async function run() {
     const {app, BrowserWindow, session, protocol} = require('electron');
     const arg = prefix => { const found = process.argv.find(a => a.startsWith(prefix)); return found ? found.slice(prefix.length) : null; };
     const request = parse(fs.readFileSync(arg('--request='), 'utf8'));
+    if (typeof request.action === 'string' && request.action.startsWith('projects-')) return runProjects(request);
     requireShape(['read', 'write'].includes(request.action) && Array.isArray(request.profiles)
         && request.profiles.length > 0 && request.profiles.length <= 32);
     app.setPath('userData', path.join(request.scratch, 'runtime'));
