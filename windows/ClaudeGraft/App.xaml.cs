@@ -409,6 +409,9 @@ public partial class App : Application
 
     private TaskbarStrip? _strip;
     private string? _stripProfile;
+    // The end of each profile's last turn that was on screen with its Claude in front:
+    // a finished turn the person watched finish has nothing left to tell them.
+    private readonly Dictionary<string, long?> _turnSeen = new(StringComparer.OrdinalIgnoreCase);
 
     /// The taskbar strip, when it is wanted: the Claude in front and every account
     /// it draws on, the one answering ringed, its headline figure and the conversation.
@@ -423,6 +426,7 @@ public partial class App : Application
         _strip ??= new TaskbarStrip(centre => ToggleFlyout(centre));
         // Like the Mac's item it stays put while another app is in front, on the last
         // Claude that was, and on Claude's own before any has been.
+        var claudeInFront = front is not null;
         if (front is not null) _stripProfile = front;
         front = _stripProfile ??= GraftPaths.DefaultProfile;
         shortcut = Store.Shortcuts.FirstOrDefault(s => Fs.SamePath(s.ProfileDir, front));
@@ -436,7 +440,15 @@ public partial class App : Application
         var usage = _frontUsage.GetValueOrDefault(front) is { } u ? UsageStatus.Rolled(u, DateTimeOffset.UtcNow) : null;
         // No five-hour limit is not 0%: such an account shows its week, marked as one.
         var figure = usage is null ? null : usage.FiveHour is int five ? $"{five}%" : $"W {usage.Week}%";
-        _strip.Show(new TaskbarStrip.Face(marks, figure, ChatOnScreen.TitleFor(front)));
+        var (turn, ended) = ChatOnScreen.TurnFor(front);
+        if (claudeInFront && turn == ChatFocus.Turn.Done) _turnSeen[front] = ended;
+        var signal = turn switch
+        {
+            ChatFocus.Turn.NeedsPerson => TaskbarStrip.Signal.NeedsPerson,
+            ChatFocus.Turn.Done when _turnSeen.GetValueOrDefault(front) != ended => TaskbarStrip.Signal.Done,
+            _ => TaskbarStrip.Signal.None,
+        };
+        _strip.Show(new TaskbarStrip.Face(marks, figure, ChatOnScreen.TitleFor(front), signal));
     }
 
     /// The tray says which Claude is in front and what its account has spent,

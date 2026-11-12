@@ -73,4 +73,26 @@ public class ChatFocusTests
         Assert.Equal(("local_1", "Fix it", 1794382461388L, false), (r!.Session, r.Title, r.FocusedAt!.Value, r.Archived));
         Assert.Null(ChatFocus.Parse(Encoding.UTF8.GetBytes("{ broken"), T0));
     }
+
+    private static ChatFocus.Turn TurnOf(string json) =>
+        ChatFocus.TurnOf(ChatFocus.Parse(Encoding.UTF8.GetBytes("{\"sessionId\":\"local_1\"," + json + "}"), T0)!);
+
+    [Fact(DisplayName = "a prompt newer than the last turn's end is still being answered")]
+    public void Working() =>
+        Assert.Equal(ChatFocus.Turn.Working, TurnOf("\"lastTurnEdgeAt\":100,\"latestUserFrameAt\":200"));
+
+    [Fact(DisplayName = "a turn that ended after the prompt is done")]
+    public void Done() =>
+        Assert.Equal(ChatFocus.Turn.Done, TurnOf("\"lastTurnEdgeAt\":200,\"latestUserFrameAt\":100,\"turnWrapUp\":{\"description\":\"x\"}"));
+
+    [Fact(DisplayName = "a turn that ended on a question waits on the person")]
+    public void Asks() =>
+        Assert.Equal(ChatFocus.Turn.NeedsPerson, TurnOf("\"lastTurnEdgeAt\":200,\"latestUserFrameAt\":100,\"turnWrapUp\":{\"description\":\"x\",\"needsUser\":\"Which one?\"}"));
+
+    [Fact(DisplayName = "a turn that broke after the prompt waits on the person")]
+    public void Broke() =>
+        Assert.Equal(ChatFocus.Turn.NeedsPerson, TurnOf("\"lastTurnEdgeAt\":200,\"latestUserFrameAt\":100,\"errorAt\":150"));
+
+    [Fact(DisplayName = "a conversation never answered has no turn to report")]
+    public void Untouched() => Assert.Equal(ChatFocus.Turn.None, TurnOf("\"title\":\"x\""));
 }

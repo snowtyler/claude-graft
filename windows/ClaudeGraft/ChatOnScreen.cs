@@ -17,6 +17,7 @@ public static class ChatOnScreen
     private static readonly Dictionary<string, string?> Titles = new(StringComparer.OrdinalIgnoreCase);
     private static Dictionary<string, SharedChats.Record> _byCli = new();
     private static readonly Dictionary<string, string?> OnScreenCli = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, (ChatFocus.Turn Turn, long? EndedAt)> Turns = new(StringComparer.OrdinalIgnoreCase);
     private static readonly List<FileSystemWatcher> Watchers = new();
     private static Timer? _debounce;
 
@@ -69,6 +70,12 @@ public static class ChatOnScreen
         lock (Gate) return _byCli.GetValueOrDefault(cliSession);
     }
 
+    /// Where the conversation on screen in a profile stands, and when its last turn ended.
+    public static (ChatFocus.Turn Turn, long? EndedAt) TurnFor(string profile)
+    {
+        lock (Gate) return Turns.GetValueOrDefault(Path.GetFullPath(profile));
+    }
+
     /// The Claude Code session of the conversation on screen in a profile.
     public static string? OnScreenSession(string profile)
     {
@@ -103,7 +110,10 @@ public static class ChatOnScreen
                 {
                     var title = Focus.OnScreen(profile, records);
                     var shown = Focus.ShownSession(profile);
-                    var cli = records.FirstOrDefault(r => r.Session == shown)?.Cli;
+                    var record = records.FirstOrDefault(r => r.Session == shown);
+                    var cli = record?.Cli;
+                    var turn = record is null || title is null ? (ChatFocus.Turn.None, null) : (ChatFocus.TurnOf(record), record.TurnEdgeAt);
+                    if (Turns.GetValueOrDefault(profile) != turn) { Turns[profile] = turn; changed = true; }
                     if (OnScreenCli.GetValueOrDefault(profile) != cli) { OnScreenCli[profile] = cli; changed = true; }
                     if (Titles.GetValueOrDefault(profile) == title) continue;
                     Titles[profile] = title;

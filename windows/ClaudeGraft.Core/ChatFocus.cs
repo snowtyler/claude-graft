@@ -14,7 +14,22 @@ namespace ClaudeGraft.Core;
 /// </summary>
 public sealed class ChatFocus
 {
-    public sealed record Record(string Session, string? Title, long? FocusedAt, bool Archived, DateTime Written, string? Cli = null);
+    public sealed record Record(string Session, string? Title, long? FocusedAt, bool Archived, DateTime Written, string? Cli = null,
+        long? TurnEdgeAt = null, long? PromptedAt = null, bool AsksPerson = false, long? ErrorAt = null);
+
+    public enum Turn { None, Working, Done, NeedsPerson }
+
+    /// Where a conversation's last turn stands. A prompt newer than the last turn's
+    /// end is one still being answered; an ended turn that left a question, or broke
+    /// after the prompt, waits on the person. A permission asked mid-turn is never
+    /// written down, so it reads as working.
+    public static Turn TurnOf(Record r)
+    {
+        if (r.PromptedAt is long asked && (r.TurnEdgeAt is not long ended || asked > ended)) return Turn.Working;
+        if (r.TurnEdgeAt is null) return Turn.None;
+        if (r.AsksPerson || (r.ErrorAt is long broke && broke >= (r.PromptedAt ?? 0))) return Turn.NeedsPerson;
+        return Turn.Done;
+    }
 
     public static Record? Parse(ReadOnlySpan<byte> json, DateTime written)
     {
@@ -30,10 +45,18 @@ public sealed class ChatFocus
                 root.TryGetProperty("lastFocusedAt", out var f) && f.ValueKind == JsonValueKind.Number && f.TryGetInt64(out var at) ? at : null,
                 root.TryGetProperty("isArchived", out var a) && a.ValueKind == JsonValueKind.True,
                 written,
-                root.TryGetProperty("cliSessionId", out var c) && c.ValueKind == JsonValueKind.String ? c.GetString() : null);
+                root.TryGetProperty("cliSessionId", out var c) && c.ValueKind == JsonValueKind.String ? c.GetString() : null,
+                Stamp(root, "lastTurnEdgeAt"),
+                Stamp(root, "latestUserFrameAt"),
+                root.TryGetProperty("turnWrapUp", out var w) && w.ValueKind == JsonValueKind.Object
+                    && w.TryGetProperty("needsUser", out var n) && n.ValueKind == JsonValueKind.String && n.GetString()!.Length > 0,
+                Stamp(root, "errorAt"));
         }
         catch (JsonException) { return null; }
     }
+
+    private static long? Stamp(JsonElement root, string name) =>
+        root.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt64(out var at) ? at : null;
 
     private readonly Dictionary<(string Session, long At), HashSet<string>> _owners = new();
     private readonly HashSet<string> _looked = new(StringComparer.OrdinalIgnoreCase);

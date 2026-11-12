@@ -17,7 +17,8 @@ namespace ClaudeGraft;
 internal sealed class TaskbarStrip : IDisposable
 {
     public sealed record Mark(string? IconFile, bool Answering);
-    public sealed record Face(IReadOnlyList<Mark> Marks, string? Usage, string? Title);
+    public enum Signal { None, Done, NeedsPerson }
+    public sealed record Face(IReadOnlyList<Mark> Marks, string? Usage, string? Title, Signal Signal = Signal.None);
 
     private readonly Action<Windows.Graphics.PointInt32> _click;
     private readonly WndProc _proc;
@@ -75,7 +76,7 @@ internal sealed class TaskbarStrip : IDisposable
     }
 
     private static bool Same(Face a, Face b) =>
-        a.Usage == b.Usage && a.Title == b.Title && a.Marks.SequenceEqual(b.Marks);
+        a.Usage == b.Usage && a.Title == b.Title && a.Signal == b.Signal && a.Marks.SequenceEqual(b.Marks);
 
     // MARK: Placement
 
@@ -197,7 +198,8 @@ internal sealed class TaskbarStrip : IDisposable
         var usage = face.Usage is null ? Size.Empty : Measure(face.Usage, bold);
         var title = string.IsNullOrWhiteSpace(face.Title) ? Size.Empty : Measure(face.Title!, font);
         var room = Math.Min(title.Width, Px(TextRoom));
-        var width = pad + face.Marks.Count * (icon + gap) + (usage.Width > 0 ? usage.Width + gap : 0) + (room > 0 ? room + gap : 0) - gap + pad;
+        var dot = face.Signal == Signal.None ? 0 : Px(8);
+        var width = pad + face.Marks.Count * (icon + gap) + (usage.Width > 0 ? usage.Width + gap : 0) + (dot > 0 ? dot + gap : 0) + (room > 0 ? room + gap : 0) - gap + pad;
         width = Math.Max(width, height);
 
         using var bitmap = new Bitmap(width, height, PixelFormat.Format32bppPArgb);
@@ -240,6 +242,16 @@ internal sealed class TaskbarStrip : IDisposable
             {
                 g.DrawString(face.Usage, bold, inkBrush, x, (height - usage.Height) / 2f, StringFormat.GenericTypographic);
                 x += usage.Width + gap;
+            }
+            if (dot > 0)
+            {
+                // Windows' own success and caution colours, for the bar's light or dark.
+                var colour = face.Signal == Signal.Done
+                    ? (light ? Color.FromArgb(255, 15, 123, 15) : Color.FromArgb(255, 108, 203, 95))
+                    : (light ? Color.FromArgb(255, 157, 93, 0) : Color.FromArgb(255, 252, 225, 0));
+                using var signal = new SolidBrush(colour);
+                g.FillEllipse(signal, x, (height - dot) / 2, dot, dot);
+                x += dot + gap;
             }
             if (room > 0)
             {
