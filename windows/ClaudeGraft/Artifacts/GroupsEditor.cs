@@ -86,6 +86,7 @@ public sealed class GroupsEditor
             XamlRoot = root, Title = "Groups", Content = body,
             CloseButtonText = "Done", DefaultButton = ContentDialogButton.Close,
         };
+        Dialogs.Prepare(_dialog, root);
         _dialog.Resources["ContentDialogMaxWidth"] = 720.0;
         _selection = _center.Groups.FirstOrDefault()?.Id;
         Render();

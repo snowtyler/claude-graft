@@ -6,6 +6,7 @@ namespace ClaudeGraft.Core;
 /// </summary>
 public static class Links
 {
-    public const string Support = "https://ko-fi.com/snowtyler";
+    public const string SupportAuthor = "https://ko-fi.com/aadityavmore";
+    public const string SupportWindows = "https://ko-fi.com/snowtyler";
     public const string Source = "https://github.com/" + Updater.Repo;
 }

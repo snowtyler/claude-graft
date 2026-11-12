@@ -22,7 +22,7 @@
                 <!-- Twelve icons laid out here took more room than the rest,
                      so the one in use opens the others. -->
                 <Button x:Name="IconButton" AutomationProperties.AutomationId="profile.icon" Width="36" Height="32" Padding="2"
-                        Background="Transparent" BorderThickness="0"
+                        Background="{ThemeResource GraftQuietBrush}" BorderThickness="0"
                         ToolTipService.ToolTip="Shortcut icon" AutomationProperties.Name="Shortcut icon">
                     <Image x:Name="IconImage" Width="26" Height="26" />
                     <Button.Flyout>
@@ -54,7 +54,7 @@
                 <TextBox x:Name="FolderBox" Grid.Column="2" FontFamily="Consolas" TextAlignment="Right" VerticalAlignment="Center"
                          AutomationProperties.Name="Profile folder" AutomationProperties.AutomationId="profile.folder"
                          TextChanged="FolderBox_TextChanged" ToolTipService.ToolTip="Profile folder" />
-                <Button Grid.Column="3" x:Name="ShowFolderButton" Click="ShowFolder_Click" Padding="6" Background="Transparent" BorderThickness="0"
+                <Button Grid.Column="3" x:Name="ShowFolderButton" Click="ShowFolder_Click" Padding="6" Background="{ThemeResource GraftQuietBrush}" BorderThickness="0"
                         ToolTipService.ToolTip="Show in File Explorer" AutomationProperties.Name="Show in File Explorer"
                         AutomationProperties.AutomationId="profile.showFolder">
                     <FontIcon Glyph="&#xE8B7;" FontSize="16" />

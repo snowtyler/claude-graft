@@ -25,6 +25,7 @@ public sealed class GraftSettings
 {
     [JsonPropertyName("theme")] public AppTheme Theme { get; set; } = AppTheme.System;
     [JsonPropertyName("backdrop")] public BackdropMaterial Backdrop { get; set; } = BackdropMaterial.Mica;
+    [JsonPropertyName("palette")] public AppPalette Palette { get; set; } = AppPalette.Graft;
     [JsonPropertyName("startHidden")] public bool StartHidden { get; set; } = true;
 
     /// Whether the app keeps the main Claude's five-hour window open on its own.

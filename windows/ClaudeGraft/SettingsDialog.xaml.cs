@@ -21,11 +21,24 @@ public sealed partial class SettingsDialog : ContentDialog
         // through the selected index without a lookup table.
         ThemeBox.SelectedIndex = (int)current.Theme;
         BackdropBox.SelectedIndex = (int)current.Backdrop;
+        // Each scheme beside a dot of its accent, so the list reads before it is tried.
+        foreach (var palette in Enum.GetValues<AppPalette>())
+        {
+            var accent = Palettes.For(palette, dark: true, palette == AppPalette.Accent ? SystemAccent() : null).Accent;
+            var item = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            item.Children.Add(new Microsoft.UI.Xaml.Shapes.Ellipse { Width = 10, Height = 10, VerticalAlignment = VerticalAlignment.Center,
+                Fill = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, accent.R, accent.G, accent.B)) });
+            item.Children.Add(new TextBlock { Text = Palettes.Title(palette) });
+            var choice = new ComboBoxItem { Content = item };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(choice, Palettes.Title(palette));
+            PaletteBox.Items.Add(choice);
+        }
+        PaletteBox.SelectedIndex = (int)current.Palette;
         AutoStartSwitch.IsOn = AutoStart.IsEnabled();
         StartHiddenSwitch.IsOn = current.StartHidden;
         HoldUpdatesSwitch.IsOn = current.HoldUpdates;
         // Only an install Graft can update by hand can safely stop updating itself.
-        ManualClaudeSwitch.Visibility = ClaudeDesktopUpdates.IsSquirrel ? Visibility.Visible : Visibility.Collapsed;
+        ManualClaudeRow.Visibility = ClaudeDesktopUpdates.IsSquirrel ? Visibility.Visible : Visibility.Collapsed;
         try { ManualClaudeSwitch.IsOn = ManualUpdates.Enabled; }
         catch (IOException) { ManualClaudeSwitch.IsEnabled = false; }
         _current = current;
@@ -92,6 +105,12 @@ public sealed partial class SettingsDialog : ContentDialog
         }
     }
 
+    private static Rgb SystemAccent()
+    {
+        var c = new Windows.UI.ViewManagement.UISettings().GetColorValue(Windows.UI.ViewManagement.UIColorType.Accent);
+        return new Rgb(c.R, c.G, c.B);
+    }
+
     private void ShowStatus(string? text)
     {
         UpdateStatus.Text = text ?? "";
@@ -103,6 +122,7 @@ public sealed partial class SettingsDialog : ContentDialog
     {
         Theme = (AppTheme)ThemeBox.SelectedIndex,
         Backdrop = (BackdropMaterial)BackdropBox.SelectedIndex,
+        Palette = (AppPalette)PaletteBox.SelectedIndex,
         StartHidden = StartHiddenSwitch.IsOn,
         HoldUpdates = HoldUpdatesSwitch.IsOn,
         // Set from the main card rather than here, but a save must not drop it.
@@ -112,7 +132,7 @@ public sealed partial class SettingsDialog : ContentDialog
 
     /// Manual Claude updates as chosen, or null where the switch was not offered.
     public bool? ManualClaudeUpdates =>
-        ManualClaudeSwitch.Visibility == Visibility.Visible && ManualClaudeSwitch.IsEnabled ? ManualClaudeSwitch.IsOn : null;
+        ManualClaudeRow.Visibility == Visibility.Visible && ManualClaudeSwitch.IsEnabled ? ManualClaudeSwitch.IsOn : null;
 
     /// Whether the person asked to start with Windows — applied to the Startup
     /// folder separately from the settings file.

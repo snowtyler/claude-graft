@@ -302,7 +302,7 @@ public sealed class FlyoutWindow : Window
 
     private void ApplyAppearance()
     {
-        _view.RequestedTheme = Appearance.ToElementTheme(App.Settings.Theme);
+        Theming.Refresh(_view, Appearance.ToElementTheme(App.Settings.Theme));
 
         SyncBackdropTheme();
 

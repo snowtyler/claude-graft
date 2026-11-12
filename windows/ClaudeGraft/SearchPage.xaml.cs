@@ -209,7 +209,7 @@ public sealed partial class SearchPage : Page
         var open = new Button
         {
             Content = new FontIcon { Glyph = gone ? "" : "", FontSize = 14 }, Padding = new Thickness(6), VerticalAlignment = VerticalAlignment.Center,
-            Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent), BorderThickness = new Thickness(0),
+            Background = (Brush)Application.Current.Resources["GraftQuietBrush"], BorderThickness = new Thickness(0),
             IsEnabled = !gone || hit.Transcript is not null,
         };
         open.Click += (_, _) => Open(hit);

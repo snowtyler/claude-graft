@@ -87,7 +87,6 @@ public sealed partial class MainPage : Page
             Shown.Clear();
             if (row is not null) Shown.Add(row);
         }
-        foreach (var each in Rows) each.IsShown = each == row;
         if (Drafting)
         {
             ClaudeTitle.Text = "New Claude";
@@ -374,22 +373,7 @@ public sealed partial class MainPage : Page
 
     private void Refresh_Click(object sender, RoutedEventArgs e) => Reload(interactive: true);
 
-    /// Every dialog goes through here first. A dialog lives in the popup layer, a
-    /// sibling of the themed content rather than a child of it, so it inherits
-    /// neither the theme set on the page's root nor — as it turns out — an
-    /// app-level corner override: the stock template rounds its surface from an
-    /// OverlayCornerRadius resolved at the dialog's own scope, which no resource
-    /// higher up ever reached. So the theme is set on the dialog directly, and the
-    /// corner is set both ways the SDK might read it — the resource the stock
-    /// template looks up, and the CornerRadius a template-bound one would — so the
-    /// modal rounds to the 8px used everywhere else and wears the chosen theme.
-    private void PrepareDialog(ContentDialog dialog)
-    {
-        dialog.XamlRoot = XamlRoot;
-        dialog.RequestedTheme = Appearance.ToElementTheme(App.Settings.Theme);
-        dialog.CornerRadius = new CornerRadius(8);
-        dialog.Resources["OverlayCornerRadius"] = new CornerRadius(8);
-    }
+    private void PrepareDialog(ContentDialog dialog) => Dialogs.Prepare(dialog, XamlRoot);
 
     /// Opens the settings dialog and, once Done is pressed, writes the auto-start
     /// shortcut and hands the rest to the app to save and apply everywhere.

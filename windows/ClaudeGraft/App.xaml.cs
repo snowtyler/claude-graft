@@ -46,6 +46,7 @@ public partial class App : Application
         // flashes it even when the material is the same.
         if (updated.Theme == Settings.Theme
             && updated.Backdrop == Settings.Backdrop
+            && updated.Palette == Settings.Palette
             && updated.StartHidden == Settings.StartHidden) return;
 
         Settings = updated;

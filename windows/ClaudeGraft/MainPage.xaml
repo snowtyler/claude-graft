@@ -105,12 +105,10 @@
 
                 <local:ProfileEditor x:Name="Editor" Visibility="Collapsed" />
 
-                <!-- Every Claude's page stays built and only the focused one shows: rebuilding on each
-                     switch made its menus and buttons redraw from blank, a visible flicker. -->
-                <ItemsControl x:Name="ProfileList" ItemsSource="{x:Bind Rows}">
+                <ItemsControl x:Name="ProfileList" ItemsSource="{x:Bind Shown}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="local:ShortcutRow">
-                            <StackPanel Spacing="12" Visibility="{x:Bind ShownVisibility, Mode=OneWay}">
+                            <StackPanel Spacing="12">
                                 <!-- Chats an account switch left in another profile: an offer to
                                      bring them over, standing for as long as any are still missing. -->
                                 <Border Visibility="{x:Bind ElsewhereVisibility, Mode=OneWay}" Style="{StaticResource Card}">
@@ -161,7 +159,8 @@
                                         <TextBlock Text="{x:Bind UsageStatusText, Mode=OneWay}" Visibility="{x:Bind UsageStatusVisibility, Mode=OneWay}"
                                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextTrimming="CharacterEllipsis" />
                                     </StackPanel>
-                                    <Button Grid.Column="3" Click="Refresh_Click" Style="{StaticResource InfoGlyphButton}" Padding="6"
+                                    <Button Grid.Column="3" Click="Refresh_Click" Padding="6" Background="{ThemeResource GraftQuietBrush}" BorderThickness="0"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"
                                             ToolTipService.ToolTip="Refresh Usage" AutomationProperties.Name="Refresh Usage"
                                             AutomationProperties.AutomationId="{x:Bind local:Spoken.Id('manager', Key, 'refresh')}">
                                         <FontIcon Glyph="&#xE72C;" FontSize="14" />
@@ -266,7 +265,7 @@
                                             </Flyout>
                                         </Button.Flyout>
                                     </Button>
-                                    <DropDownButton Grid.Column="3" Tag="{x:Bind}" Background="Transparent" BorderThickness="0"
+                                    <DropDownButton Grid.Column="3" Tag="{x:Bind}" Background="{ThemeResource GraftQuietBrush}" BorderThickness="0"
                                                     AutomationProperties.Name="{x:Bind AddLenderLabel, Mode=OneWay}"
                                                     AutomationProperties.AutomationId="{x:Bind local:Spoken.Id('manager', Key, 'sharing')}">
                                         <StackPanel Orientation="Horizontal" Spacing="8">
@@ -303,7 +302,7 @@
                                                         <TextBlock Grid.Column="2" Text="{x:Bind Figures}" VerticalAlignment="Center"
                                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                                         <Button Grid.Column="3" Click="RemoveLender_Click" Tag="{x:Bind}" Padding="4"
-                                                                Background="Transparent" BorderThickness="0"
+                                                                Background="{ThemeResource GraftQuietBrush}" BorderThickness="0"
                                                                 ToolTipService.ToolTip="Stop drawing on this account"
                                                                 AutomationProperties.Name="{x:Bind RemoveName}" AutomationProperties.AutomationId="{x:Bind RemoveId}">
                                                             <FontIcon Glyph="&#xE738;" FontSize="14" />
@@ -333,7 +332,7 @@
 
         <!-- Delete on the left, what the Claude is for on the right, as on the Mac. -->
         <Grid Grid.Row="2" x:Name="BottomBar" Padding="16,10" ColumnSpacing="8" BorderThickness="0,1,0,0"
-              BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" Background="{ThemeResource LayerFillColorDefaultBrush}">
+              BorderBrush="{ThemeResource NavigationViewContentGridBorderBrush}" Background="Transparent">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />

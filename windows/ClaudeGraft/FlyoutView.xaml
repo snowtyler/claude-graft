@@ -140,7 +140,7 @@
                  its content set in code. -->
             <Button x:Name="AvailableButton" Click="Install_Click" AutomationProperties.AutomationId="flyout.install" Visibility="Collapsed"
                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                    Background="Transparent" BorderThickness="0" Padding="22,4,12,4"
+                    Background="{ThemeResource GraftQuietBrush}" BorderThickness="0" Padding="22,4,12,4"
                     Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
             <ProgressBar x:Name="UpdateProgress" Visibility="Collapsed" Maximum="1"
                          AutomationProperties.Name="Downloading the update" AutomationProperties.AutomationId="flyout.updateProgress"

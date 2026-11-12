@@ -24,8 +24,8 @@
                 <ColumnDefinition x:Name="SidebarColumn" Width="240" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <Border Grid.Column="1" x:Name="TitleOverPage" Background="{ThemeResource GraftHeaderBrush}"
-                    BorderThickness="1,0,0,0" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" />
+            <Border Grid.Column="1" x:Name="TitleOverPage" Background="{ThemeResource GraftTitleBrush}" CornerRadius="14,0,0,0"
+                    BorderThickness="1,0,0,0" BorderBrush="{ThemeResource NavigationViewContentGridBorderBrush}" />
         </Grid>
         <!-- The page's title and state sit in the title bar, as the Mac's do, rather
              than in a header of their own under an empty one. -->
@@ -37,7 +37,7 @@
                 <StackPanel Orientation="Horizontal">
                     <Grid x:Name="SidebarSpacer" Width="192">
                         <Button x:Name="SettingsButton" Click="Settings_Click" Width="34" Height="30" CornerRadius="6" Padding="0"
-                                HorizontalAlignment="Right" Margin="0,0,6,0" Background="Transparent" BorderThickness="0"
+                                HorizontalAlignment="Right" Margin="0,0,6,0" Background="{ThemeResource GraftQuietBrush}" BorderThickness="0"
                                 ToolTipService.ToolTip="Settings" AutomationProperties.Name="Settings"
                                 AutomationProperties.AutomationId="sidebar.settings">
                             <FontIcon Glyph="&#xE713;" FontSize="14" />

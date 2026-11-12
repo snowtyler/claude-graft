@@ -383,14 +383,6 @@ public sealed class ShortcutRow : INotifyPropertyChanged
             Notify(name);
     }
 
-    private bool _isShown;
-    public bool IsShown
-    {
-        get => _isShown;
-        set { if (_isShown == value) return; _isShown = value; Notify(nameof(ShownVisibility)); }
-    }
-    public Visibility ShownVisibility => _isShown ? Visibility.Visible : Visibility.Collapsed;
-
     private void Notify(string name) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 

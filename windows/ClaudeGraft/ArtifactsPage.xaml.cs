@@ -234,7 +234,7 @@ internal sealed class ArtifactRow
     private Button IconButton(string glyph, string help, string name, string id, bool enabled, Action click)
     {
         var button = new Button { Content = new FontIcon { Glyph = glyph, FontSize = 14 }, Padding = new Thickness(6),
-            Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent), BorderThickness = new Thickness(0), IsEnabled = enabled };
+            Background = (Brush)Application.Current.Resources["GraftQuietBrush"], BorderThickness = new Thickness(0), IsEnabled = enabled };
         button.Click += (_, _) => click();
         ToolTipService.SetToolTip(button, help);
         AutomationProperties.SetName(button, name);
@@ -247,7 +247,7 @@ internal sealed class ArtifactRow
     private DropDownButton MenuButton(FrameworkElement content, string help, string name, string id, MenuFlyout menu, bool enabled)
     {
         var button = new DropDownButton { Content = content, Flyout = menu, Padding = new Thickness(6, 4, 6, 4), IsEnabled = enabled,
-            Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent), BorderThickness = new Thickness(0) };
+            Background = (Brush)Application.Current.Resources["GraftQuietBrush"], BorderThickness = new Thickness(0) };
         ToolTipService.SetToolTip(button, help);
         AutomationProperties.SetName(button, name);
         AutomationProperties.SetAutomationId(button, $"artifact.{Token}.{id}");
@@ -358,6 +358,7 @@ internal sealed class ArtifactRow
             XamlRoot = _root, Title = "Rename Artifact", Content = box,
             PrimaryButtonText = "Rename", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Primary,
         };
+        Dialogs.Prepare(dialog, _root);
         if (await dialog.ShowAsync() == ContentDialogResult.Primary) _center.Rename(_artifact, box.Text);
     }
 
@@ -369,6 +370,7 @@ internal sealed class ArtifactRow
             Content = "claude.ai keeps no copy, and everyone it was shared with loses it too.",
             PrimaryButtonText = "Delete", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close,
         };
+        Dialogs.Prepare(dialog, _root);
         if (await dialog.ShowAsync() == ContentDialogResult.Primary) _center.Delete(_artifact);
     }
 }

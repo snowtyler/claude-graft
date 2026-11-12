@@ -25,6 +25,10 @@
                             <Color x:Key="GraftMeter">#68CE67</Color>
                             <Color x:Key="GraftTrack">#484644</Color>
                             <SolidColorBrush x:Key="GraftHeaderBrush" Color="{StaticResource GraftHeader}" />
+                            <SolidColorBrush x:Key="GraftTitleBrush" Color="{StaticResource GraftHeader}" />
+                            <!-- A clear button's rest colour: its hover colour, unseen. Plain Transparent is clear
+                                 white, and the hover fade ran through white on its way to grey. -->
+                            <SolidColorBrush x:Key="GraftQuietBrush" Color="#004F4D4B" />
                             <SolidColorBrush x:Key="GraftSidebarBrush" Color="{StaticResource GraftSidebar}" />
                             <SolidColorBrush x:Key="GraftMeterBrush" Color="{StaticResource GraftMeter}" />
                             <SolidColorBrush x:Key="GraftTrackBrush" Color="{StaticResource GraftTrack}" />
@@ -53,6 +57,12 @@
                             <SolidColorBrush x:Key="TextControlBackground" Color="{StaticResource GraftField}" />
                             <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="{StaticResource GraftField}" />
                             <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="{StaticResource GraftField}" />
+                            <SolidColorBrush x:Key="ContentDialogBackground" Color="{StaticResource GraftCard}" />
+                            <SolidColorBrush x:Key="ContentDialogTopOverlay" Color="{StaticResource GraftCard}" />
+                            <SolidColorBrush x:Key="ContentDialogBorderBrush" Color="{StaticResource GraftDivider}" />
+                            <SolidColorBrush x:Key="FlyoutPresenterBackground" Color="{StaticResource GraftCard}" />
+                            <SolidColorBrush x:Key="MenuFlyoutPresenterBackground" Color="{StaticResource GraftCard}" />
+                            <SolidColorBrush x:Key="ComboBoxDropDownBackground" Color="{StaticResource GraftCard}" />
                         </ResourceDictionary>
                         <ResourceDictionary x:Key="Light">
                             <Color x:Key="GraftContent">#F6F5F3</Color>
@@ -68,6 +78,8 @@
                             <Color x:Key="GraftMeter">#34C759</Color>
                             <Color x:Key="GraftTrack">#DDDAD6</Color>
                             <SolidColorBrush x:Key="GraftHeaderBrush" Color="{StaticResource GraftHeader}" />
+                            <SolidColorBrush x:Key="GraftTitleBrush" Color="{StaticResource GraftHeader}" />
+                            <SolidColorBrush x:Key="GraftQuietBrush" Color="#00F2F0ED" />
                             <SolidColorBrush x:Key="GraftSidebarBrush" Color="{StaticResource GraftSidebar}" />
                             <SolidColorBrush x:Key="GraftMeterBrush" Color="{StaticResource GraftMeter}" />
                             <SolidColorBrush x:Key="GraftTrackBrush" Color="{StaticResource GraftTrack}" />
@@ -92,6 +104,12 @@
                             <SolidColorBrush x:Key="TextControlBackground" Color="{StaticResource GraftField}" />
                             <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="{StaticResource GraftField}" />
                             <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="{StaticResource GraftField}" />
+                            <SolidColorBrush x:Key="ContentDialogBackground" Color="{StaticResource GraftCard}" />
+                            <SolidColorBrush x:Key="ContentDialogTopOverlay" Color="{StaticResource GraftCard}" />
+                            <SolidColorBrush x:Key="ContentDialogBorderBrush" Color="{StaticResource GraftDivider}" />
+                            <SolidColorBrush x:Key="FlyoutPresenterBackground" Color="{StaticResource GraftCard}" />
+                            <SolidColorBrush x:Key="MenuFlyoutPresenterBackground" Color="{StaticResource GraftCard}" />
+                            <SolidColorBrush x:Key="ComboBoxDropDownBackground" Color="{StaticResource GraftCard}" />
                         </ResourceDictionary>
                     </ResourceDictionary.ThemeDictionaries>
                 </ResourceDictionary>
@@ -104,13 +122,35 @@
             <!-- One divider between the sidebar and the page, as the Mac draws it,
                  in place of WinUI's rounded, outlined content frame. -->
             <Thickness x:Key="NavigationViewContentGridBorderThickness">1,0,0,0</Thickness>
-            <CornerRadius x:Key="NavigationViewContentGridCornerRadius">0</CornerRadius>
+            <!-- Rounded on the sidebar's side only, with the title strip's corner above, so the
+                 page reads as one sheet the sidebar flows around. -->
+            <CornerRadius x:Key="NavigationViewContentGridCornerRadius">0,0,0,14</CornerRadius>
             <Thickness x:Key="NavigationViewContentMargin">0</Thickness>
             <!-- The pane's toggle lives in the title bar, so its empty row in the pane goes. -->
             <x:Double x:Key="NavigationViewPaneHeaderRowMinHeight">0</x:Double>
 
             <!-- The ⓘ beside a label: no hover plate, as on the Mac, and set on the label's
                  capitals rather than centred on its box. -->
+            <!-- WinUI's box switches its fill on hover with no fade; every box gets a button's. -->
+            <Style TargetType="ComboBox" BasedOn="{StaticResource DefaultComboBoxStyle}">
+                <Setter Property="local:Fade.OnHover" Value="True" />
+            </Style>
+            <Style TargetType="ComboBoxItem" BasedOn="{StaticResource DefaultComboBoxItemStyle}">
+                <Setter Property="local:Fade.OnHover" Value="True" />
+            </Style>
+            <Style TargetType="MenuFlyoutItem" BasedOn="{StaticResource DefaultMenuFlyoutItemStyle}">
+                <Setter Property="local:Fade.OnHover" Value="True" />
+            </Style>
+            <Style TargetType="ToggleMenuFlyoutItem" BasedOn="{StaticResource DefaultToggleMenuFlyoutItemStyle}">
+                <Setter Property="local:Fade.OnHover" Value="True" />
+            </Style>
+            <Style TargetType="MenuFlyoutSubItem" BasedOn="{StaticResource DefaultMenuFlyoutSubItemStyle}">
+                <Setter Property="local:Fade.OnHover" Value="True" />
+            </Style>
+            <!-- WinUI keeps NavigationViewItem's style unnamed; the theme's still applies beneath this. -->
+            <Style TargetType="NavigationViewItem">
+                <Setter Property="local:Fade.OnHover" Value="True" />
+            </Style>
             <Style x:Key="InfoGlyphButton" TargetType="Button">
                 <Setter Property="Padding" Value="3" />
                 <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />

@@ -45,7 +45,7 @@
                     <TextBlock x:Name="AddAccountText" Text="Add Account…" />
                 </StackPanel>
             </Button>
-            <Button Grid.Column="5" x:Name="RefreshButton" Click="Refresh_Click" Padding="8" Background="Transparent" BorderThickness="0"
+            <Button Grid.Column="5" x:Name="RefreshButton" Click="Refresh_Click" Padding="8" Background="{ThemeResource GraftQuietBrush}" BorderThickness="0"
                     ToolTipService.ToolTip="Ask claude.ai for every account's projects again"
                     AutomationProperties.Name="Refresh Projects" AutomationProperties.AutomationId="projects.refresh">
                 <Grid>

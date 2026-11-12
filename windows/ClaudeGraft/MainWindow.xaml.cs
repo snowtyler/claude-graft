@@ -55,8 +55,8 @@ public sealed partial class MainWindow : Window
         // late to cancel, so this is on AppWindow.Closing.
         AppWindow.Closing += (sender, args) => { args.Cancel = true; sender.Hide(); };
 
-        foreach (var frame in new[] { RootFrame, SectionFrame })
-            frame.Navigated += (_, e) => { if (e.Content is FrameworkElement page) page.Loaded += (_, _) => NoFades.Strip(page); };
+        // The title bar's pane button is WinUI's, with no fade of its own.
+        AppTitleBar.Loaded += (_, _) => { foreach (var b in Buttons(AppTitleBar)) Fade.Add(b); };
         RootFrame.Navigate(typeof(MainPage));
         if (RootFrame.Content is MainPage page) page.ClaudesChanged += RebuildClaudes;
         RebuildClaudes();
@@ -80,13 +80,91 @@ public sealed partial class MainWindow : Window
     }
 
     // Hidden outright, as the Mac's is: folded to WinUI's icon rail, the two-line items stretched it into a scroll.
+    private const double PaneWidth = 240;
+    private bool _paneMoving, _paneOpen = true;
+
+    // The sidebar's width is walked frame by frame, both ways, so the page and the title
+    // reflow with it; WinUI's own show slid the pane alone and dropped it on hide.
     private void AppTitleBar_PaneToggleRequested(TitleBar sender, object args)
     {
-        Sections.IsPaneVisible = !Sections.IsPaneVisible;
-        var open = Sections.IsPaneVisible;
-        SidebarColumn.Width = new GridLength(open ? Sections.OpenPaneLength : 0);
-        SidebarSpacer.Width = open ? Sections.OpenPaneLength - 48 : 0;
-        SettingsButton.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        if (_paneMoving) return;
+        _paneMoving = true;
+        var opening = !_paneOpen;
+        // The items keep their full width and slide with the edge; squeezed, they wrapped and
+        // moved up and down. The pane itself never hides, since hiding redrew the whole window.
+        if (Named<FrameworkElement>(Sections, "PaneContentGrid", _ => true) is { } items)
+        {
+            items.Width = PaneWidth;
+            items.HorizontalAlignment = HorizontalAlignment.Right;
+        }
+        if (opening) SetPane(true, 0);
+        var started = DateTime.UtcNow;
+        void Step(object? _, object __)
+        {
+            var t = Math.Min(1, (DateTime.UtcNow - started).TotalMilliseconds / 220);
+            var eased = 1 - Math.Pow(1 - t, 3);
+            SetPane(true, PaneWidth * (opening ? eased : 1 - eased));
+            if (t < 1) return;
+            CompositionTarget.Rendering -= Step;
+            SetPane(opening, PaneWidth);
+            _paneMoving = false;
+        }
+        CompositionTarget.Rendering += Step;
+    }
+
+    private void SetPane(bool open, double width)
+    {
+        _paneOpen = open;
+        Sections.OpenPaneLength = open ? width : 0;
+        SidebarColumn.Width = new GridLength(open ? width : 0);
+        SidebarSpacer.Width = open ? Math.Max(0, width - 48) : 0;
+        SettingsButton.Visibility = open && width > 60 ? Visibility.Visible : Visibility.Collapsed;
+        // The page's rounded, ruled left edge is where it meets the sidebar; with the sidebar
+        // gone it meets the window's own edge, and a curve and a line there read as a gap.
+        TitleOverPage.CornerRadius = new CornerRadius(open ? 14 : 0, 0, 0, 0);
+        TitleOverPage.BorderThickness = new Thickness(open ? 1 : 0, 0, 0, 0);
+        ShapePageEdge();
+    }
+
+    private Grid? _contentGrid;
+
+    // WinUI resets the frame's corner itself as the pane shows or hides, after this has run,
+    // so the frame is held to the sidebar's state whenever its corner changes.
+    private void ShapePageEdge()
+    {
+        // The page's frame, not a sidebar item's part of the same name: the one holding the page.
+        if (_contentGrid is null && Named<Grid>(Sections, "ContentGrid", g => g.ActualHeight > 200) is { } grid)
+        {
+            _contentGrid = grid;
+            grid.RegisterPropertyChangedCallback(Grid.CornerRadiusProperty, (_, _) => ShapePageEdge());
+        }
+        if (_contentGrid is null) return;
+        var open = _paneOpen;
+        var corner = new CornerRadius(0, 0, 0, open ? 14 : 0);
+        if (_contentGrid.CornerRadius != corner) _contentGrid.CornerRadius = corner;
+        var edge = new Thickness(open ? 1 : 0, 0, 0, 0);
+        if (_contentGrid.BorderThickness != edge) _contentGrid.BorderThickness = edge;
+    }
+
+    private static IEnumerable<Button> Buttons(DependencyObject root)
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is Button button) yield return button;
+            else foreach (var inner in Buttons(child)) yield return inner;
+        }
+    }
+
+    private static T? Named<T>(DependencyObject root, string name, Func<T, bool> which) where T : FrameworkElement
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is T found && found.Name == name && which(found)) return found;
+            if (Named(child, name, which) is { } deeper) return deeper;
+        }
+        return null;
     }
 
     private async void Settings_Click(object sender, RoutedEventArgs e)
@@ -188,7 +266,6 @@ public sealed partial class MainWindow : Window
         if (claudes && !_rebuilding && tag is not null && RootFrame.Content is MainPage page) page.Focus(tag["claude:".Length..]);
         RootFrame.Visibility = claudes ? Visibility.Visible : Visibility.Collapsed;
         SectionFrame.Visibility = claudes ? Visibility.Collapsed : Visibility.Visible;
-        NoFades.Strip((claudes ? RootFrame : SectionFrame).Content as DependencyObject);
         // Navigated every time, to pages the Frame keeps, so each visit plays the opening
         // transition and a page comes back as it was left; loading again refreshes it.
         var section = tag switch { "artifacts" => typeof(ArtifactsPage), "projects" => typeof(ProjectsPage), "search" => typeof(SearchPage), _ => null };
@@ -210,7 +287,56 @@ public sealed partial class MainWindow : Window
 
     private bool _leftClaudes;
 
-    private void Support_Click(object sender, RoutedEventArgs e) => OpenLink(Links.Support);
+    // Graft is one author's app carried to Windows by another; a tip can go to either.
+    private async void Support_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new ContentDialog
+        {
+            XamlRoot = Content.XamlRoot,
+            Title = "Support Claude Graft",
+            CloseButtonText = "Close",
+            CloseButtonStyle = (Style)Application.Current.Resources["DialogNeutralButtonStyle"],
+        };
+        var list = new StackPanel { Spacing = 8, Width = 340 };
+        list.Children.Add(new TextBlock
+        {
+            Text = "Graft is free. A tip on Ko-fi keeps it worked on.",
+            TextWrapping = TextWrapping.Wrap,
+            Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+            Margin = new Thickness(0, 0, 0, 6),
+        });
+        list.Children.Add(Tip("The original author", "Made Claude Graft for the Mac", Links.SupportAuthor, "support.author", dialog));
+        list.Children.Add(Tip("The Windows maintainer", "Brought it to Windows", Links.SupportWindows, "support.windows", dialog));
+        dialog.Content = list;
+        Dialogs.Prepare(dialog, Content.XamlRoot);
+        await dialog.ShowAsync();
+    }
+
+    private static Button Tip(string who, string what, string url, string id, ContentDialog dialog)
+    {
+        var text = new StackPanel { Spacing = 1 };
+        text.Children.Add(new TextBlock { Text = who });
+        text.Children.Add(new TextBlock { Text = what, Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+            Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"] });
+        var row = new Grid { ColumnSpacing = 12 };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        row.Children.Add(new FontIcon { Glyph = "", FontSize = 16, VerticalAlignment = VerticalAlignment.Center });
+        Grid.SetColumn(text, 1);
+        row.Children.Add(text);
+        var open = new FontIcon { Glyph = "", FontSize = 12, VerticalAlignment = VerticalAlignment.Center,
+            Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"] };
+        Grid.SetColumn(open, 2);
+        row.Children.Add(open);
+        var button = new Button { Content = row, HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch, Padding = new Thickness(14, 10, 14, 10) };
+        AutomationProperties.SetName(button, $"Support {who.ToLowerInvariant()} on Ko-fi");
+        AutomationProperties.SetAutomationId(button, id);
+        ToolTipService.SetToolTip(button, url);
+        button.Click += (_, _) => { OpenLink(url); dialog.Hide(); };
+        return button;
+    }
     private void Source_Click(object sender, RoutedEventArgs e) => OpenLink(Links.Source);
 
     private static void OpenLink(string url) => _ = Windows.System.Launcher.LaunchUriAsync(new Uri(url));
@@ -261,7 +387,8 @@ public sealed partial class MainWindow : Window
     private void ApplyAppearance()
     {
         var settings = App.Settings;
-        RootGrid.RequestedTheme = Appearance.ToElementTheme(settings.Theme);
+        Theming.Apply(settings);
+        Theming.Refresh(RootGrid, Appearance.ToElementTheme(settings.Theme));
 
         // Only when the material actually changes: assigning SystemBackdrop
         // re-composites the window, which reads as a flash if done for a Done that
