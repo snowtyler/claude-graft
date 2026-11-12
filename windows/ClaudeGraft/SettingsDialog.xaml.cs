@@ -21,19 +21,8 @@ public sealed partial class SettingsDialog : ContentDialog
         // through the selected index without a lookup table.
         ThemeBox.SelectedIndex = (int)current.Theme;
         BackdropBox.SelectedIndex = (int)current.Backdrop;
-        // Each scheme beside a dot of its accent, so the list reads before it is tried.
-        foreach (var palette in Enum.GetValues<AppPalette>())
-        {
-            var accent = Palettes.For(palette, dark: true, palette == AppPalette.Accent ? SystemAccent() : null).Accent;
-            var item = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            item.Children.Add(new Microsoft.UI.Xaml.Shapes.Ellipse { Width = 10, Height = 10, VerticalAlignment = VerticalAlignment.Center,
-                Fill = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, accent.R, accent.G, accent.B)) });
-            item.Children.Add(new TextBlock { Text = Palettes.Title(palette) });
-            var choice = new ComboBoxItem { Content = item };
-            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(choice, Palettes.Title(palette));
-            PaletteBox.Items.Add(choice);
-        }
-        PaletteBox.SelectedIndex = (int)current.Palette;
+        DrawPalettes();
+        PaletteGrid.SelectedIndex = (int)current.Palette;
         AutoStartSwitch.IsOn = AutoStart.IsEnabled();
         StartHiddenSwitch.IsOn = current.StartHidden;
         HoldUpdatesSwitch.IsOn = current.HoldUpdates;
@@ -107,6 +96,62 @@ public sealed partial class SettingsDialog : ContentDialog
         }
     }
 
+    private void Pages_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
+    {
+        AppearancePage.Visibility = sender.SelectedItem == AppearanceTab ? Visibility.Visible : Visibility.Collapsed;
+        GeneralPage.Visibility = sender.SelectedItem == GeneralTab ? Visibility.Visible : Visibility.Collapsed;
+        UpdatesPage.Visibility = sender.SelectedItem == UpdatesTab ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    // The tiles show the mode that will be in effect, so changing it repaints them.
+    private void ThemeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (PaletteGrid is null || PaletteGrid.Items.Count == 0) return;
+        var chosen = PaletteGrid.SelectedIndex;
+        DrawPalettes();
+        PaletteGrid.SelectedIndex = chosen;
+    }
+
+    /// Each scheme as Windows shows a theme: a small window in its own colours, its
+    /// sidebar, a card on its content and a bar of its accent.
+    private void DrawPalettes()
+    {
+        var dark = (AppTheme)Math.Max(0, ThemeBox.SelectedIndex) switch
+        {
+            AppTheme.Light => false,
+            AppTheme.Dark => true,
+            _ => new Windows.UI.ViewManagement.UISettings().GetColorValue(Windows.UI.ViewManagement.UIColorType.Background).R < 128,
+        };
+        static Microsoft.UI.Xaml.Media.SolidColorBrush Paint(Rgb c) => new(Windows.UI.Color.FromArgb(0xFF, c.R, c.G, c.B));
+
+        PaletteGrid.Items.Clear();
+        foreach (var palette in Enum.GetValues<AppPalette>())
+        {
+            var c = Palettes.For(palette, dark, palette == AppPalette.Accent ? SystemAccent() : null);
+            var window = new Grid { Width = 98, Height = 62, Background = Paint(c.Content) };
+            window.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(24) });
+            window.ColumnDefinitions.Add(new ColumnDefinition());
+            window.Children.Add(new Border { Background = Paint(c.Sidebar) });
+            var card = new Border
+            {
+                Background = Paint(c.Card), BorderBrush = Paint(c.Divider), BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(3), Margin = new Thickness(26, 10, 8, 10),
+                Child = new Border
+                {
+                    Background = Paint(c.Accent), CornerRadius = new CornerRadius(2), Width = 18, Height = 5,
+                    HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 5, 5),
+                },
+            };
+            Grid.SetColumnSpan(card, 2);
+            window.Children.Add(card);
+            var tile = new Border { CornerRadius = new CornerRadius(4), Child = window };
+            ToolTipService.SetToolTip(tile, Palettes.Title(palette));
+            var item = new GridViewItem { Content = tile, Padding = new Thickness(0), Margin = new Thickness(0, 0, 6, 6) };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(item, Palettes.Title(palette));
+            PaletteGrid.Items.Add(item);
+        }
+    }
+
     private static Rgb SystemAccent()
     {
         var c = new Windows.UI.ViewManagement.UISettings().GetColorValue(Windows.UI.ViewManagement.UIColorType.Accent);
@@ -124,7 +169,7 @@ public sealed partial class SettingsDialog : ContentDialog
     {
         Theme = (AppTheme)ThemeBox.SelectedIndex,
         Backdrop = (BackdropMaterial)BackdropBox.SelectedIndex,
-        Palette = (AppPalette)PaletteBox.SelectedIndex,
+        Palette = (AppPalette)Math.Max(0, PaletteGrid.SelectedIndex),
         StartHidden = StartHiddenSwitch.IsOn,
         HoldUpdates = HoldUpdatesSwitch.IsOn,
         TaskbarStrip = TaskbarStripSwitch.IsOn,
