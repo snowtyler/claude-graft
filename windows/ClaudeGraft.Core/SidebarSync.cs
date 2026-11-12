@@ -183,10 +183,9 @@ public static partial class SidebarSync
     private static HashSet<string> SessionIds(string directory)
     {
         var profile = Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(directory)!)!)!;
-        var inside = Fs.Resolve(Path.Combine(profile, "claude-code-sessions")) + Path.DirectorySeparatorChar;
         // A linked store belongs to the source, not this profile.
         if (Junction.IsLink(directory)
-            || !(Fs.Resolve(directory) + Path.DirectorySeparatorChar).StartsWith(inside, StringComparison.OrdinalIgnoreCase))
+            || !Junction.ResolvesInside(directory, Path.Combine(profile, "claude-code-sessions")))
             throw new Failure("linked-chat-store");
         return Directory.EnumerateFiles(directory).Select(Path.GetFileName)
             .Where(n => n!.StartsWith("local_") && n.EndsWith(".json"))

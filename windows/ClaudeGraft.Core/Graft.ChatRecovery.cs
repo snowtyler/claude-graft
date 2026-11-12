@@ -188,7 +188,6 @@ public static partial class Graft
             return new Adoption { Copied = 0, Running = running };
         }
 
-        var root = Fs.Resolve(profile) + Path.DirectorySeparatorChar;
         var copied = 0;
         var markers = 0;
 
@@ -204,8 +203,7 @@ public static partial class Graft
             // A folder that resolves outside the profile is one a graft linked or
             // stashed away; filling it would file these records into the store
             // next door. Per store, since a graft can take one and leave the other.
-            if (IsStashedAway(into)
-                || !(Fs.Resolve(into) + Path.DirectorySeparatorChar).StartsWith(root, StringComparison.OrdinalIgnoreCase))
+            if (IsStashedAway(into) || !Junction.ResolvesInside(into, profile))
             {
                 Diagnostics.Note("adopt.skipped", new Dictionary<string, object?>
                 {

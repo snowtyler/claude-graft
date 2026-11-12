@@ -46,6 +46,16 @@ public sealed class WindowsSafetyTests : IDisposable
         Assert.False(Junction.ResolvesInside(through, profile));
     }
 
+    [Fact(DisplayName = "a folder not made yet under a linked store resolves outside the profile")]
+    public void MissingUnderLinkedAncestor()
+    {
+        _temp.Dir("source", "account");
+        var profile = _temp.Dir("profile");
+        var store = Path.Combine(profile, "store");
+        Junction.Create(store, _temp.Dir("source"));
+        Assert.False(Junction.ResolvesInside(Path.Combine(store, "account", "new-org"), profile));
+    }
+
     [Fact(DisplayName = "a junction path holding percent signs is taken literally")]
     public void LiteralJunctionPaths()
     {

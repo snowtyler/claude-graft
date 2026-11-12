@@ -67,9 +67,7 @@ public static partial class Graft
     /// resolves inside the profile at all.
     private static int DropBorrowedCopies(string folder, string source, string store)
     {
-        var profile = Fs.Resolve(Path.GetDirectoryName(store)!) + Path.DirectorySeparatorChar;
-        if (!(Fs.Resolve(folder) + Path.DirectorySeparatorChar).StartsWith(profile, StringComparison.OrdinalIgnoreCase))
-            return 0;
+        if (!Junction.ResolvesInside(folder, Path.GetDirectoryName(store)!)) return 0;
         var own = StashedCounterpart(folder, store);
         if (own is null) return 0;
 
