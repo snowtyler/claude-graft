@@ -99,9 +99,27 @@ public static class WindowIdentity
 
     private static void OnNameChange(IntPtr hook, uint @event, IntPtr hwnd, int idObject, int idChild, uint thread, uint time)
     {
-        if (idObject != 0 || idChild != 0 || !Titled.TryGetValue(hwnd, out var titled)) return;
+        if (idObject != 0 || idChild != 0 || !Titled.ContainsKey(hwnd)) return;
+        // A Claude that rewrites its title as fast as it is corrected turned this into a
+        // loop through the UI thread; corrected once a second at most, it ends.
+        if (Correcting.TryGetValue(hwnd, out var last) && Environment.TickCount64 - last < 1000)
+        {
+            if (Pending.Add(hwnd))
+                _ = Task.Delay(1000).ContinueWith(_ => _ui?.TryEnqueue(() => { Pending.Remove(hwnd); Correct(hwnd); }));
+            return;
+        }
+        Correct(hwnd);
+    }
+
+    private static readonly Dictionary<IntPtr, long> Correcting = new();
+    private static readonly HashSet<IntPtr> Pending = new();
+
+    private static void Correct(IntPtr hwnd)
+    {
+        if (!Titled.TryGetValue(hwnd, out var titled) || !IsWindow(hwnd)) return;
         var current = Title(hwnd);
         if (current == titled.Shown) return;
+        Correcting[hwnd] = Environment.TickCount64;
         Name(hwnd, current, titled.Name);
     }
 
@@ -197,24 +215,14 @@ public static class WindowIdentity
     private static int? ClaudePid(IntPtr hwnd)
     {
         GetWindowThreadProcessId(hwnd, out var pid);
-        if (pid == 0) return null;
-        try
-        {
-            using var process = Process.GetProcessById((int)pid);
-            return process.ProcessName.Equals("claude", StringComparison.OrdinalIgnoreCase) ? (int)pid : null;
-        }
-        catch { return null; }
+        return pid != 0 && ProcessFacts.IsClaude((int)pid) ? (int)pid : null;
     }
 
-    private static DateTime StartTime(int pid)
-    {
-        try { using var p = Process.GetProcessById(pid); return p.StartTime; }
-        catch { return default; }
-    }
+    private static DateTime StartTime(int pid) => ProcessFacts.StartTime(pid);
 
     private static string Title(IntPtr hwnd)
     {
-        var buffer = new char[512];
+        var buffer = new char[GetWindowTextLength(hwnd) + 1];
         var length = GetWindowText(hwnd, buffer, buffer.Length);
         return new string(buffer, 0, Math.Max(0, length));
     }
@@ -303,6 +311,7 @@ public static class WindowIdentity
     private static extern IntPtr SendMessageTimeoutText(IntPtr hwnd, uint message, IntPtr wParam, string lParam, uint flags, uint ms, out IntPtr result);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern int GetWindowText(IntPtr hwnd, char[] text, int max);
+    [DllImport("user32.dll")] private static extern int GetWindowTextLength(IntPtr hwnd);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern IntPtr LoadImage(IntPtr instance, string name, uint type, int cx, int cy, uint flags);
     [DllImport("user32.dll")] private static extern uint GetDpiForSystem();

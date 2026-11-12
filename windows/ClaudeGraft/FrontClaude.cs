@@ -53,22 +53,23 @@ public static class FrontClaude
         // This app's own flyout in front is a look at the Claude just in use.
         if (pid == 0 || pid == Environment.ProcessId) return;
         var ticket = ++_generation;
-        if (!IsClaude(pid, out var started))
-        {
-            Show(ticket, null, switched: false);
-            return;
-        }
-        lock (Known)
-            if (Known.TryGetValue(pid, out var known) && known.Started == started)
-            {
-                Show(ticket, known.Profile, switched);
-                return;
-            }
-        // The command line comes from WMI, too slow for the UI thread; a flick
-        // past one Claude to another can land the older lookup last, so only the
-        // newest ticket is shown.
+        // Nothing here waits on the UI thread: a wait there lets the next foreground
+        // event in, and a run of them nested until the window never finished loading.
+        // A flick past one Claude to another can land the older lookup last, so only
+        // the newest ticket is shown.
         Task.Run(() =>
         {
+            if (!IsClaude(pid, out var started))
+            {
+                _ui?.TryEnqueue(() => Show(ticket, null, switched: false));
+                return;
+            }
+            lock (Known)
+                if (Known.TryGetValue(pid, out var known) && known.Started == started)
+                {
+                    _ui?.TryEnqueue(() => Show(ticket, known.Profile, switched));
+                    return;
+                }
             string? profile = null;
             try
             {
@@ -92,14 +93,9 @@ public static class FrontClaude
     private static bool IsClaude(int pid, out DateTime started)
     {
         started = default;
-        try
-        {
-            using var process = Process.GetProcessById(pid);
-            if (!process.ProcessName.Equals("claude", StringComparison.OrdinalIgnoreCase)) return false;
-            started = process.StartTime;
-            return true;
-        }
-        catch { return false; }
+        if (!ProcessFacts.IsClaude(pid)) return false;
+        started = ProcessFacts.StartTime(pid);
+        return true;
     }
 
     [DllImport("user32.dll")]
