@@ -208,7 +208,7 @@ public sealed partial class MainWindow : Window
             {
                 var line = row.Shortcut is null ? "Installed normally"
                     : row.Shortcut.InstalledName is null ? "Not created yet" : row.SourceLabel;
-                var words = new StackPanel { Spacing = 1 };
+                var words = new StackPanel { Spacing = 1, Margin = new Thickness(0, 6, 0, 6) };
                 words.Children.Add(new TextBlock { Text = row.Name, TextTrimming = TextTrimming.CharacterEllipsis });
                 words.Children.Add(new TextBlock
                 {
