@@ -63,13 +63,13 @@ public sealed partial class ClaudeUpdateLine : UserControl
             Words.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run
             {
                 Text = (Stacked ? "" : " ") + (held < 0 ? rest : rest[..held]),
-                Foreground = ClaudeUpdateCenter.Alarming ? null : (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+                Foreground = ClaudeUpdateCenter.Alarming ? null : Themed.Brush("TextFillColorSecondaryBrush"),
             });
         }
         else Words.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = line });
         ToolTipService.SetToolTip(Words, line);
-        Words.Foreground = (Brush)Application.Current.Resources[ClaudeUpdateCenter.Alarming
-            ? "SystemFillColorCriticalBrush" : "TextFillColorPrimaryBrush"];
+        Words.Foreground = Themed.Brush(ClaudeUpdateCenter.Alarming
+            ? "SystemFillColorCriticalBrush" : "TextFillColorPrimaryBrush");
         var busy = phase is ClaudeUpdateCenter.Phase.Installing or ClaudeUpdateCenter.Phase.Restarting or ClaudeUpdateCenter.Phase.Checking;
         // The spinner takes the check button's place rather than pushing the words over.
         CheckBusy.IsActive = busy;
@@ -84,8 +84,8 @@ public sealed partial class ClaudeUpdateLine : UserControl
             ClaudeUpdateCenter.Phase.Store => "",
             _ => "",
         };
-        Glyph.Foreground = (Brush)Application.Current.Resources[ClaudeUpdateCenter.Alarming
-            ? "SystemFillColorCriticalBrush" : "TextFillColorSecondaryBrush"];
+        Glyph.Foreground = Themed.Brush(ClaudeUpdateCenter.Alarming
+            ? "SystemFillColorCriticalBrush" : "TextFillColorSecondaryBrush");
         var action = ClaudeUpdateCenter.Action;
         ActionButton.Content = action;
         ActionButton.Visibility = action is null ? Visibility.Collapsed : Visibility.Visible;

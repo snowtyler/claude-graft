@@ -214,7 +214,7 @@ public sealed partial class MainWindow : Window
                 {
                     Text = line, TextTrimming = TextTrimming.CharacterEllipsis,
                     Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
-                    Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+                    Foreground = Themed.Brush("TextFillColorSecondaryBrush"),
                 });
                 var glyph = row.Shortcut is null ? "\uE80F" : row.Shortcut.Source.Kind == SourceKind.Own ? "\uEA3A" : "\uE71B";
                 var item = new NavigationViewItem { Content = words, Tag = "claude:" + row.Key, Icon = new FontIcon { Glyph = glyph } };
@@ -305,7 +305,7 @@ public sealed partial class MainWindow : Window
         {
             Text = "Graft is free. A tip on Ko-fi keeps it worked on.",
             TextWrapping = TextWrapping.Wrap,
-            Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+            Foreground = Themed.Brush("TextFillColorSecondaryBrush"),
             Margin = new Thickness(0, 0, 0, 6),
         });
         list.Children.Add(Tip("The original author", "Made Claude Graft for the Mac", Links.SupportAuthor, "support.author", dialog));
@@ -320,7 +320,7 @@ public sealed partial class MainWindow : Window
         var text = new StackPanel { Spacing = 1 };
         text.Children.Add(new TextBlock { Text = who });
         text.Children.Add(new TextBlock { Text = what, Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
-            Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"] });
+            Foreground = Themed.Brush("TextFillColorSecondaryBrush") });
         var row = new Grid { ColumnSpacing = 12 };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -329,7 +329,7 @@ public sealed partial class MainWindow : Window
         Grid.SetColumn(text, 1);
         row.Children.Add(text);
         var open = new FontIcon { Glyph = "", FontSize = 12, VerticalAlignment = VerticalAlignment.Center,
-            Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"] };
+            Foreground = Themed.Brush("TextFillColorSecondaryBrush") };
         Grid.SetColumn(open, 2);
         row.Children.Add(open);
         var button = new Button { Content = row, HorizontalAlignment = HorizontalAlignment.Stretch,
@@ -391,7 +391,7 @@ public sealed partial class MainWindow : Window
     {
         var settings = App.Settings;
         Theming.Apply(settings);
-        Theming.Refresh(RootGrid, Appearance.ToElementTheme(settings.Theme));
+        Theming.Refresh(ThemeRoot, Appearance.ToElementTheme(settings.Theme));
 
         // Only when the material actually changes: assigning SystemBackdrop
         // re-composites the window, which reads as a flash if done for a Done that

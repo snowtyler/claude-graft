@@ -27,6 +27,19 @@ public partial class App : Application
     public static GraftSettings Settings { get; private set; } = GraftSettings.Load();
     public static event Action? SettingsChanged;
 
+    /// Has every window dress itself again, as a change of look in Settings does.
+    public static void LooksChanged()
+    {
+        Theming.Apply(Settings);
+        Themed.Refresh();
+        SettingsChanged?.Invoke();
+    }
+
+
+    // Launched in the mode it will show, so a mode the app keeps needs no swap at all.
+    private static ApplicationTheme ModeInEffect() =>
+        Appearance.ToElementTheme(Settings.Theme) == ElementTheme.Dark ? ApplicationTheme.Dark : ApplicationTheme.Light;
+
     internal static App Instance => (App)Current;
 
     /// Held here so a background check and a manual one share one answer, and the
@@ -61,7 +74,7 @@ public partial class App : Application
         Settings = updated;
         updated.Save();
         if (chimeChanged) _ = Task.Run(SyncChimeHook);
-        if (looks) SettingsChanged?.Invoke();
+        if (looks) LooksChanged();
         (Current as App)?.ShowTray();
     }
 
@@ -107,6 +120,7 @@ public partial class App : Application
             (_, e) => Record("task.unobserved", e.Exception);
 
         InitializeComponent();
+        RequestedTheme = ModeInEffect();
     }
 
     // Nothing is swallowed — the exception is written down and left to take the

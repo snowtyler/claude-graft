@@ -183,7 +183,7 @@ public sealed partial class FlyoutView : UserControl
             text.Children.Add(new TextBlock
             {
                 Text = detail, Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
-                Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources[chat.PassedOver ? "SystemFillColorCautionBrush" : "TextFillColorSecondaryBrush"],
+                Foreground = Themed.Brush(chat.PassedOver ? "SystemFillColorCautionBrush" : "TextFillColorSecondaryBrush"),
             });
         grid.Children.Add(text);
 
@@ -233,7 +233,7 @@ public sealed partial class FlyoutView : UserControl
                 : downloading is { } f
                     ? $"{_update.Version} · downloading {(int)Math.Round(f * 100)}%"
                     : $"{_update.Version} is available · you have {Shown(Updater.Current)}"),
-            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+            Foreground = Themed.Brush("TextFillColorSecondaryBrush"),
         });
         GraftGlyph.Glyph = _update is not null ? "" : _checking || !App.UpdateChecked ? "" : "";
         var busy = _checking || downloading is not null;

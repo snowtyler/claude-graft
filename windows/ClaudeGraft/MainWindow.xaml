@@ -8,6 +8,9 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     Title="Claude Graft"
     mc:Ignorable="d">
+    <!-- A control, not the Grid alone: plain text takes its colour from the nearest control,
+         and with none above it kept the mode the app launched in. -->
+    <UserControl x:Name="ThemeRoot" Foreground="{ThemeResource TextFillColorPrimaryBrush}">
     <!-- Painted whatever the backdrop: the Mac's window is solid, and a material showing through tinted the sidebar and title bar cool. -->
     <Grid x:Name="RootGrid" Background="{ThemeResource GraftSidebarBrush}">
         <Grid.RowDefinitions>
@@ -142,4 +145,5 @@
             </Grid>
         </NavigationView>
     </Grid>
+    </UserControl>
 </Window>

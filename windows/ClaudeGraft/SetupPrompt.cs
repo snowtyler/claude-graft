@@ -25,7 +25,7 @@ public sealed class SetupPrompt : StackPanel
         TextWrapping = TextWrapping.Wrap,
         HorizontalAlignment = HorizontalAlignment.Center,
         TextAlignment = TextAlignment.Center,
-        Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+        Foreground = Themed.Brush("TextFillColorSecondaryBrush"),
     };
     private readonly Button _action = new()
     {
@@ -50,7 +50,7 @@ public sealed class SetupPrompt : StackPanel
         {
             Glyph = "",
             FontSize = 36,
-            Foreground = (Brush)Application.Current.Resources["AccentTextFillColorPrimaryBrush"],
+            Foreground = Themed.Brush("AccentTextFillColorPrimaryBrush"),
         });
         Children.Add(_title);
         Children.Add(_body);

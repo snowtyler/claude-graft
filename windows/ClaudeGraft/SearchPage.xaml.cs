@@ -177,7 +177,7 @@ public sealed partial class SearchPage : Page
     private FrameworkElement Row(SearchHit hit)
     {
         var token = (hit.Id.Length > 8 ? hit.Id[^8..] : hit.Id).Replace('\\', '-');
-        var secondary = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"];
+        var secondary = Themed.Brush("TextFillColorSecondaryBrush");
         var caption = (Style)Application.Current.Resources["CaptionTextBlockStyle"];
         var grid = new Grid { ColumnSpacing = 6, Padding = new Thickness(0, 4, 0, 4), Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent) };
         foreach (var width in new[] { GridLength.Auto, new GridLength(1, GridUnitType.Star), GridLength.Auto })
@@ -209,7 +209,7 @@ public sealed partial class SearchPage : Page
         var open = new Button
         {
             Content = new FontIcon { Glyph = gone ? "" : "", FontSize = 14 }, Padding = new Thickness(6), VerticalAlignment = VerticalAlignment.Center,
-            Background = (Brush)Application.Current.Resources["GraftQuietBrush"], BorderThickness = new Thickness(0),
+            Background = Themed.Brush("GraftQuietBrush"), BorderThickness = new Thickness(0),
             IsEnabled = !gone || hit.Transcript is not null,
         };
         open.Click += (_, _) => Open(hit);

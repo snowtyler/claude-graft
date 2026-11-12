@@ -380,8 +380,8 @@ public sealed class ShortcutRow : INotifyPropertyChanged
     public string SharingLabel => _sharingLabel;
     public string SharingNote => _sharingNote?.Text ?? "";
     public Visibility SharingNoteVisibility => _sharingNote is null ? Visibility.Collapsed : Visibility.Visible;
-    public Brush SharingNoteBrush => (Brush)Application.Current.Resources[_sharingNote?.Attention == true
-        ? "SystemFillColorCautionBrush" : "TextFillColorTertiaryBrush"];
+    public Brush SharingNoteBrush => Themed.Brush(_sharingNote?.Attention == true
+        ? "SystemFillColorCautionBrush" : "TextFillColorTertiaryBrush");
 
     public void SetSharing(string label, (string Text, bool Attention)? note)
     {
@@ -430,5 +430,5 @@ public sealed class LenderLine
     public string RemoveName => $"Stop drawing on {Name}";
     public string RemoveId => Id + ".remove";
     public string Id => Spoken.Length == 0 ? "" : ClaudeGraft.Spoken.Id("manager", Claude.Key, "lender." + Key[^Math.Min(8, Key.Length)..]);
-    public Brush StateBrush => (Brush)Application.Current.Resources[Attention ? "SystemFillColorCautionBrush" : "TextFillColorSecondaryBrush"];
+    public Brush StateBrush => Themed.Brush(Attention ? "SystemFillColorCautionBrush" : "TextFillColorSecondaryBrush");
 }

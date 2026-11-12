@@ -79,20 +79,6 @@ internal static class Theming
 
     private const byte PageAlpha = 0x40;
 
-    // WinUI's accent brushes, by the shade each mode gives them.
-    private static readonly (string Key, Func<PaletteColors, Rgb> Dark, Func<PaletteColors, Rgb> Light)[] Accents =
-    [
-        ("AccentFillColorDefaultBrush", c => c.AccentLight2, c => c.AccentDark1),
-        ("AccentFillColorSecondaryBrush", c => c.AccentLight2, c => c.AccentDark1),
-        ("AccentFillColorTertiaryBrush", c => c.AccentLight2, c => c.AccentDark1),
-        ("AccentFillColorSelectedTextBackgroundBrush", c => c.Accent, c => c.Accent),
-        ("AccentTextFillColorPrimaryBrush", c => c.AccentLight3, c => c.AccentDark2),
-        ("AccentTextFillColorSecondaryBrush", c => c.AccentLight3, c => c.AccentDark3),
-        ("AccentTextFillColorTertiaryBrush", c => c.AccentLight2, c => c.AccentDark1),
-        ("SystemControlHighlightAccentBrush", c => c.Accent, c => c.Accent),
-        ("SystemControlForegroundAccentBrush", c => c.Accent, c => c.Accent),
-    ];
-
     public static void Apply(GraftSettings settings)
     {
         var accent = SystemAccent();
@@ -114,11 +100,11 @@ internal static class Theming
                         Surface.Page or Surface.Title when behind => PageAlpha,
                         _ => 0xFF,
                     });
-            foreach (var dictionary in ThemeDictionaries(resources, theme))
-                foreach (var (key, onDark, onLight) in Accents)
-                    Paint(dictionary, key, (dark ? onDark : onLight)(colors), null);
-            if (dark)
+            // The accent goes in by its app-wide colours alone: a brush written into WinUI's own
+            // dictionaries froze every built-in control in the mode it was drawn in.
+            if (theme == "Default")
             {
+                colors = Palettes.For(settings.Palette, true, accent);
                 resources["SystemAccentColor"] = Color(colors.Accent, 0xFF);
                 resources["SystemAccentColorLight1"] = Color(colors.AccentLight1, 0xFF);
                 resources["SystemAccentColorLight2"] = Color(colors.AccentLight2, 0xFF);
@@ -132,8 +118,12 @@ internal static class Theming
         {
             _watching = true;
             var ui = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
-            // A new Windows accent reaches the System accent theme without a restart.
-            System.ColorValuesChanged += (_, _) => ui?.TryEnqueue(() => { if (App.Settings.Palette == AppPalette.Accent) Apply(App.Settings); });
+            // A new Windows accent or mode reaches a theme that follows it without a restart.
+            System.ColorValuesChanged += (_, _) => ui?.TryEnqueue(() =>
+            {
+                if (App.Settings.Palette != AppPalette.Accent && App.Settings.Theme != AppTheme.System) return;
+                App.LooksChanged();
+            });
         }
     }
 
@@ -165,10 +155,5 @@ internal static class Theming
         root.RequestedTheme = wanted;
     }
 
-    private static IEnumerable<ResourceDictionary> ThemeDictionaries(ResourceDictionary root, string theme)
-    {
-        if (root.ThemeDictionaries.TryGetValue(theme, out var found) && found is ResourceDictionary dictionary) yield return dictionary;
-        foreach (var merged in root.MergedDictionaries)
-            foreach (var inner in ThemeDictionaries(merged, theme)) yield return inner;
-    }
+
 }

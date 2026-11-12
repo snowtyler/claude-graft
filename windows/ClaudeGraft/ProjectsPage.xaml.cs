@@ -83,7 +83,7 @@ public sealed partial class ProjectsPage : Page
     private FrameworkElement Row(ClaudeProject project)
     {
         var token = project.Id.Length > 8 ? project.Id[..8] : project.Id;
-        var secondary = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"];
+        var secondary = Themed.Brush("TextFillColorSecondaryBrush");
         var grid = new Grid { ColumnSpacing = 6, Padding = new Thickness(0, 4, 0, 4), Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent) };
         foreach (var width in new[] { GridLength.Auto, new GridLength(1, GridUnitType.Star), GridLength.Auto, GridLength.Auto })
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = width });
@@ -124,7 +124,7 @@ public sealed partial class ProjectsPage : Page
         var open = new Button
         {
             Content = new FontIcon { Glyph = "", FontSize = 14 }, Padding = new Thickness(6), VerticalAlignment = VerticalAlignment.Center,
-            Background = (Brush)Application.Current.Resources["GraftQuietBrush"], BorderThickness = new Thickness(0),
+            Background = Themed.Brush("GraftQuietBrush"), BorderThickness = new Thickness(0),
         };
         open.Click += (_, _) => Open(project);
         ToolTipService.SetToolTip(open, project.IsBeta ? "Open, signed in as its account" : "Open in the browser");
