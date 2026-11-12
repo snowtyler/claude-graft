@@ -25,7 +25,7 @@
         <ProgressRing x:Name="CheckBusy" Grid.Column="2" Width="16" Height="16" MinWidth="0" MinHeight="0" Margin="4"
                       Visibility="Collapsed" AutomationProperties.AccessibilityView="Raw" />
         <Button x:Name="CheckButton" Grid.Column="2" Click="Check_Click" Visibility="Collapsed" VerticalAlignment="Center"
-                Width="24" Height="24" Padding="0" MinHeight="0" MinWidth="0" Background="{ThemeResource GraftQuietBrush}" BorderThickness="0"
+                Width="24" Height="24" Padding="0" MinHeight="0" MinWidth="0" Style="{StaticResource SubtleButtonStyle}"
                 ToolTipService.ToolTip="Check for Claude Updates" AutomationProperties.Name="Check for Claude Updates"
                 AutomationProperties.AutomationId="claudeUpdate.check">
             <FontIcon Glyph="&#xE72C;" FontSize="14" />

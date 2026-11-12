@@ -234,7 +234,7 @@ internal sealed class ArtifactRow
     private Button IconButton(string glyph, string help, string name, string id, bool enabled, Action click)
     {
         var button = new Button { Content = new FontIcon { Glyph = glyph, FontSize = 14 }, Padding = new Thickness(6),
-            Background = Themed.Brush("GraftQuietBrush"), BorderThickness = new Thickness(0), IsEnabled = enabled };
+            Style = (Style)Application.Current.Resources["SubtleButtonStyle"], IsEnabled = enabled };
         button.Click += (_, _) => click();
         ToolTipService.SetToolTip(button, help);
         AutomationProperties.SetName(button, name);
@@ -247,7 +247,7 @@ internal sealed class ArtifactRow
     private DropDownButton MenuButton(FrameworkElement content, string help, string name, string id, MenuFlyout menu, bool enabled)
     {
         var button = new DropDownButton { Content = content, Flyout = menu, Padding = new Thickness(6, 4, 6, 4), IsEnabled = enabled,
-            Background = Themed.Brush("GraftQuietBrush"), BorderThickness = new Thickness(0) };
+            Style = (Style)Application.Current.Resources["SubtleButtonStyle"] };
         ToolTipService.SetToolTip(button, help);
         AutomationProperties.SetName(button, name);
         AutomationProperties.SetAutomationId(button, $"artifact.{Token}.{id}");

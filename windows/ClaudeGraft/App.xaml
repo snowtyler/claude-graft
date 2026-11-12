@@ -25,9 +25,6 @@
                             <Color x:Key="GraftMeter">#68CE67</Color>
                             <Color x:Key="GraftTrack">#484644</Color>
                             <SolidColorBrush x:Key="GraftHeaderBrush" Color="{StaticResource GraftHeader}" />
-                            <!-- A clear button's rest colour: its hover colour, unseen. Plain Transparent is clear
-                                 white, and the hover fade ran through white on its way to grey. -->
-                            <SolidColorBrush x:Key="GraftQuietBrush" Color="#004F4D4B" />
                             <SolidColorBrush x:Key="GraftSidebarBrush" Color="{StaticResource GraftSidebar}" />
                             <SolidColorBrush x:Key="GraftMeterBrush" Color="{StaticResource GraftMeter}" />
                             <SolidColorBrush x:Key="GraftTrackBrush" Color="{StaticResource GraftTrack}" />
@@ -36,54 +33,14 @@
                             <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="{StaticResource GraftDivider}" />
                             <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="{StaticResource GraftSidebar}" />
                             <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="{StaticResource GraftSidebar}" />
-                            <SolidColorBrush x:Key="NavigationViewItemBackground" Color="#004F4D4B" />
-                            <SolidColorBrush x:Key="NavigationViewItemBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
-                            <SolidColorBrush x:Key="NavigationViewItemBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
-                            <SolidColorBrush x:Key="MenuFlyoutItemBackground" Color="#004F4D4B" />
-                            <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
-                            <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
-                            <SolidColorBrush x:Key="ToggleMenuFlyoutItemBackground" Color="#004F4D4B" />
-                            <SolidColorBrush x:Key="ToggleMenuFlyoutItemBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
-                            <SolidColorBrush x:Key="ToggleMenuFlyoutItemBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
-                            <SolidColorBrush x:Key="MenuFlyoutSubItemBackground" Color="#004F4D4B" />
-                            <SolidColorBrush x:Key="MenuFlyoutSubItemBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
-                            <SolidColorBrush x:Key="MenuFlyoutSubItemBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
-                            <SolidColorBrush x:Key="ComboBoxItemBackground" Color="#004F4D4B" />
-                            <SolidColorBrush x:Key="ComboBoxItemBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
-                            <SolidColorBrush x:Key="ComboBoxItemBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
-                            <SolidColorBrush x:Key="ListViewItemBackground" Color="#004F4D4B" />
-                            <SolidColorBrush x:Key="ListViewItemBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
-                            <SolidColorBrush x:Key="ListViewItemBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
-                            <SolidColorBrush x:Key="NavigationViewButtonBackground" Color="#004F4D4B" />
-                            <SolidColorBrush x:Key="NavigationViewButtonBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
-                            <SolidColorBrush x:Key="NavigationViewButtonBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
-                            <SolidColorBrush x:Key="ComboBoxBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
-                            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelected" Color="{StaticResource GraftSelection}" />
-                            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPointerOver" Color="{StaticResource GraftSelection}" />
-                            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPressed" Color="{StaticResource GraftSelection}" />
+                            <!-- WinUI's own selection fill, held here so the icon rail can fade it without touching WinUI's brushes. -->
+                            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelected" Color="#0FFFFFFF" />
+                            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPointerOver" Color="#0AFFFFFF" />
+                            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPressed" Color="#0FFFFFFF" />
                             <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush" Color="{StaticResource GraftCard}" />
                             <SolidColorBrush x:Key="CardBackgroundFillColorSecondaryBrush" Color="{StaticResource GraftHeader}" />
-                            <SolidColorBrush x:Key="CardStrokeColorDefaultBrush" Color="Transparent" />
                             <SolidColorBrush x:Key="DividerStrokeColorDefaultBrush" Color="{StaticResource GraftDivider}" />
                             <SolidColorBrush x:Key="LayerFillColorDefaultBrush" Color="{StaticResource GraftContent}" />
-                            <SolidColorBrush x:Key="ButtonBackground" Color="{StaticResource GraftButton}" />
-                            <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
-                            <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
-                            <SolidColorBrush x:Key="ButtonBorderBrush" Color="Transparent" />
-                            <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="Transparent" />
-                            <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="Transparent" />
-                            <SolidColorBrush x:Key="ComboBoxBackground" Color="{StaticResource GraftButton}" />
-                            <SolidColorBrush x:Key="ComboBoxBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
-                            <SolidColorBrush x:Key="ComboBoxBorderBrush" Color="Transparent" />
-                            <SolidColorBrush x:Key="TextControlBackground" Color="{StaticResource GraftField}" />
-                            <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="{StaticResource GraftField}" />
-                            <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="{StaticResource GraftField}" />
-                            <SolidColorBrush x:Key="ContentDialogBackground" Color="{StaticResource GraftCard}" />
-                            <SolidColorBrush x:Key="ContentDialogTopOverlay" Color="{StaticResource GraftCard}" />
-                            <SolidColorBrush x:Key="ContentDialogBorderBrush" Color="{StaticResource GraftDivider}" />
-                            <SolidColorBrush x:Key="FlyoutPresenterBackground" Color="{StaticResource GraftCard}" />
-                            <SolidColorBrush x:Key="MenuFlyoutPresenterBackground" Color="{StaticResource GraftCard}" />
-                            <SolidColorBrush x:Key="ComboBoxDropDownBackground" Color="{StaticResource GraftCard}" />
                         </ResourceDictionary>
                         <ResourceDictionary x:Key="Light">
                             <Color x:Key="GraftContent">#F6F5F3</Color>
@@ -99,7 +56,6 @@
                             <Color x:Key="GraftMeter">#34C759</Color>
                             <Color x:Key="GraftTrack">#DDDAD6</Color>
                             <SolidColorBrush x:Key="GraftHeaderBrush" Color="{StaticResource GraftHeader}" />
-                            <SolidColorBrush x:Key="GraftQuietBrush" Color="#00F2F0ED" />
                             <SolidColorBrush x:Key="GraftSidebarBrush" Color="{StaticResource GraftSidebar}" />
                             <SolidColorBrush x:Key="GraftMeterBrush" Color="{StaticResource GraftMeter}" />
                             <SolidColorBrush x:Key="GraftTrackBrush" Color="{StaticResource GraftTrack}" />
@@ -108,50 +64,13 @@
                             <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="{StaticResource GraftDivider}" />
                             <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="{StaticResource GraftSidebar}" />
                             <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="{StaticResource GraftSidebar}" />
-                            <SolidColorBrush x:Key="NavigationViewItemBackground" Color="#00F2F0ED" />
-                            <SolidColorBrush x:Key="NavigationViewItemBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
-                            <SolidColorBrush x:Key="NavigationViewItemBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
-                            <SolidColorBrush x:Key="MenuFlyoutItemBackground" Color="#00F2F0ED" />
-                            <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
-                            <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
-                            <SolidColorBrush x:Key="ToggleMenuFlyoutItemBackground" Color="#00F2F0ED" />
-                            <SolidColorBrush x:Key="ToggleMenuFlyoutItemBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
-                            <SolidColorBrush x:Key="ToggleMenuFlyoutItemBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
-                            <SolidColorBrush x:Key="MenuFlyoutSubItemBackground" Color="#00F2F0ED" />
-                            <SolidColorBrush x:Key="MenuFlyoutSubItemBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
-                            <SolidColorBrush x:Key="MenuFlyoutSubItemBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
-                            <SolidColorBrush x:Key="ComboBoxItemBackground" Color="#00F2F0ED" />
-                            <SolidColorBrush x:Key="ComboBoxItemBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
-                            <SolidColorBrush x:Key="ComboBoxItemBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
-                            <SolidColorBrush x:Key="ListViewItemBackground" Color="#00F2F0ED" />
-                            <SolidColorBrush x:Key="ListViewItemBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
-                            <SolidColorBrush x:Key="ListViewItemBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
-                            <SolidColorBrush x:Key="NavigationViewButtonBackground" Color="#00F2F0ED" />
-                            <SolidColorBrush x:Key="NavigationViewButtonBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
-                            <SolidColorBrush x:Key="NavigationViewButtonBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
-                            <SolidColorBrush x:Key="ComboBoxBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
-                            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelected" Color="{StaticResource GraftSelection}" />
-                            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPointerOver" Color="{StaticResource GraftSelection}" />
-                            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPressed" Color="{StaticResource GraftSelection}" />
+                            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelected" Color="#09000000" />
+                            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPointerOver" Color="#06000000" />
+                            <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPressed" Color="#09000000" />
                             <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush" Color="{StaticResource GraftCard}" />
                             <SolidColorBrush x:Key="CardBackgroundFillColorSecondaryBrush" Color="{StaticResource GraftHeader}" />
-                            <SolidColorBrush x:Key="CardStrokeColorDefaultBrush" Color="{StaticResource GraftDivider}" />
                             <SolidColorBrush x:Key="DividerStrokeColorDefaultBrush" Color="{StaticResource GraftDivider}" />
                             <SolidColorBrush x:Key="LayerFillColorDefaultBrush" Color="{StaticResource GraftContent}" />
-                            <SolidColorBrush x:Key="ButtonBackground" Color="{StaticResource GraftButton}" />
-                            <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
-                            <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="{StaticResource GraftButtonPressed}" />
-                            <SolidColorBrush x:Key="ComboBoxBackground" Color="{StaticResource GraftButton}" />
-                            <SolidColorBrush x:Key="ComboBoxBackgroundPointerOver" Color="{StaticResource GraftButtonHover}" />
-                            <SolidColorBrush x:Key="TextControlBackground" Color="{StaticResource GraftField}" />
-                            <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="{StaticResource GraftField}" />
-                            <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="{StaticResource GraftField}" />
-                            <SolidColorBrush x:Key="ContentDialogBackground" Color="{StaticResource GraftCard}" />
-                            <SolidColorBrush x:Key="ContentDialogTopOverlay" Color="{StaticResource GraftCard}" />
-                            <SolidColorBrush x:Key="ContentDialogBorderBrush" Color="{StaticResource GraftDivider}" />
-                            <SolidColorBrush x:Key="FlyoutPresenterBackground" Color="{StaticResource GraftCard}" />
-                            <SolidColorBrush x:Key="MenuFlyoutPresenterBackground" Color="{StaticResource GraftCard}" />
-                            <SolidColorBrush x:Key="ComboBoxDropDownBackground" Color="{StaticResource GraftCard}" />
                         </ResourceDictionary>
                     </ResourceDictionary.ThemeDictionaries>
                 </ResourceDictionary>
@@ -170,26 +89,6 @@
 
             <!-- The ⓘ beside a label: no hover plate, as on the Mac, and set on the label's
                  capitals rather than centred on its box. -->
-            <!-- WinUI's box switches its fill on hover with no fade; every box gets a button's. -->
-            <Style TargetType="ComboBox" BasedOn="{StaticResource DefaultComboBoxStyle}">
-                <Setter Property="local:Fade.OnHover" Value="True" />
-            </Style>
-            <Style TargetType="ComboBoxItem" BasedOn="{StaticResource DefaultComboBoxItemStyle}">
-                <Setter Property="local:Fade.OnHover" Value="True" />
-            </Style>
-            <Style TargetType="MenuFlyoutItem" BasedOn="{StaticResource DefaultMenuFlyoutItemStyle}">
-                <Setter Property="local:Fade.OnHover" Value="True" />
-            </Style>
-            <Style TargetType="ToggleMenuFlyoutItem" BasedOn="{StaticResource DefaultToggleMenuFlyoutItemStyle}">
-                <Setter Property="local:Fade.OnHover" Value="True" />
-            </Style>
-            <Style TargetType="MenuFlyoutSubItem" BasedOn="{StaticResource DefaultMenuFlyoutSubItemStyle}">
-                <Setter Property="local:Fade.OnHover" Value="True" />
-            </Style>
-            <!-- WinUI keeps NavigationViewItem's style unnamed; the theme's still applies beneath this. -->
-            <Style TargetType="NavigationViewItem">
-                <Setter Property="local:Fade.OnHover" Value="True" />
-            </Style>
             <Style x:Key="InfoGlyphButton" TargetType="Button">
                 <Setter Property="Padding" Value="3" />
                 <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -203,6 +102,49 @@
                         </ControlTemplate>
                     </Setter.Value>
                 </Setter>
+            </Style>
+
+            <!-- The Community Toolkit's settings card, which WinUI Gallery uses, in its own measures. -->
+            <Style TargetType="local:SettingsCard">
+                <Setter Property="MinHeight" Value="68" />
+                <Setter Property="IsTabStop" Value="False" />
+                <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="16" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="local:SettingsCard">
+                            <Grid Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                                  CornerRadius="{ThemeResource ControlCornerRadius}" Padding="{TemplateBinding Padding}" MinHeight="{TemplateBinding MinHeight}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <FontIcon Glyph="{TemplateBinding Glyph}" FontSize="20" Margin="2,0,20,0" VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,24,0">
+                                    <TextBlock Text="{TemplateBinding Header}" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="DescriptionText" Text="{TemplateBinding Description}" FontSize="12" TextWrapping="Wrap" />
+                                </StackPanel>
+                                <ContentPresenter Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <!-- A switch without WinUI's words beside it, for a card that writes On or Off on its left
+                 as the Toolkit's does; the room the template keeps for the words hangs past it unclipped. -->
+            <x:Double x:Key="ToggleSwitchThemeMinWidth">0</x:Double>
+            <x:Double x:Key="ToggleSwitchPreContentMargin">0</x:Double>
+            <x:Double x:Key="ToggleSwitchPostContentMargin">0</x:Double>
+            <Style x:Key="CardSwitch" TargetType="ToggleSwitch">
+                <Setter Property="OnContent" Value="" />
+                <Setter Property="OffContent" Value="" />
+                <Setter Property="MinWidth" Value="0" />
+                <Setter Property="Margin" Value="0,0,-200,0" />
+                <Setter Property="HorizontalAlignment" Value="Left" />
+                <Setter Property="VerticalAlignment" Value="Center" />
             </Style>
 
             <!-- Claude's clay in place of the Windows accent, for switches and primary buttons. -->

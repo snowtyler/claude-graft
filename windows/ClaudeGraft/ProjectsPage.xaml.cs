@@ -124,7 +124,7 @@ public sealed partial class ProjectsPage : Page
         var open = new Button
         {
             Content = new FontIcon { Glyph = "", FontSize = 14 }, Padding = new Thickness(6), VerticalAlignment = VerticalAlignment.Center,
-            Background = Themed.Brush("GraftQuietBrush"), BorderThickness = new Thickness(0),
+            Style = (Style)Application.Current.Resources["SubtleButtonStyle"],
         };
         open.Click += (_, _) => Open(project);
         ToolTipService.SetToolTip(open, project.IsBeta ? "Open, signed in as its account" : "Open in the browser");

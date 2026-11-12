@@ -25,55 +25,13 @@ internal static class Theming
         ("LayerFillColorDefaultBrush", c => c.Content, Surface.Page),
         ("GraftTrackBrush", c => c.Track, Surface.Solid),
         ("NavigationViewContentGridBorderBrush", c => c.Divider, Surface.Edge),
-        ("GraftQuietBrush", c => c.ButtonHover, Surface.Clear),
         ("DividerStrokeColorDefaultBrush", c => c.Divider, Surface.Solid),
-        // Every clear control at rest, under the pointer and pressed, as a quiet button is.
-        ("NavigationViewItemBackground", c => c.ButtonHover, Surface.Clear),
-        ("NavigationViewItemBackgroundPointerOver", c => c.ButtonHover, Surface.Solid),
-        ("NavigationViewItemBackgroundPressed", c => c.ButtonPressed, Surface.Solid),
-        ("MenuFlyoutItemBackground", c => c.ButtonHover, Surface.Clear),
-        ("MenuFlyoutItemBackgroundPointerOver", c => c.ButtonHover, Surface.Solid),
-        ("MenuFlyoutItemBackgroundPressed", c => c.ButtonPressed, Surface.Solid),
-        ("ToggleMenuFlyoutItemBackground", c => c.ButtonHover, Surface.Clear),
-        ("ToggleMenuFlyoutItemBackgroundPointerOver", c => c.ButtonHover, Surface.Solid),
-        ("ToggleMenuFlyoutItemBackgroundPressed", c => c.ButtonPressed, Surface.Solid),
-        ("MenuFlyoutSubItemBackground", c => c.ButtonHover, Surface.Clear),
-        ("MenuFlyoutSubItemBackgroundPointerOver", c => c.ButtonHover, Surface.Solid),
-        ("MenuFlyoutSubItemBackgroundPressed", c => c.ButtonPressed, Surface.Solid),
-        ("ComboBoxItemBackground", c => c.ButtonHover, Surface.Clear),
-        ("ComboBoxItemBackgroundPointerOver", c => c.ButtonHover, Surface.Solid),
-        ("ComboBoxItemBackgroundPressed", c => c.ButtonPressed, Surface.Solid),
-        ("ListViewItemBackground", c => c.ButtonHover, Surface.Clear),
-        ("ListViewItemBackgroundPointerOver", c => c.ButtonHover, Surface.Solid),
-        ("ListViewItemBackgroundPressed", c => c.ButtonPressed, Surface.Solid),
-        ("NavigationViewButtonBackground", c => c.ButtonHover, Surface.Clear),
-        ("NavigationViewButtonBackgroundPointerOver", c => c.ButtonHover, Surface.Solid),
-        ("NavigationViewButtonBackgroundPressed", c => c.ButtonPressed, Surface.Solid),
-        ("ComboBoxBackgroundPressed", c => c.ButtonPressed, Surface.Solid),
-        ("NavigationViewItemBackgroundSelected", c => c.Selection, Surface.Solid),
-        ("NavigationViewItemBackgroundSelectedPointerOver", c => c.Selection, Surface.Solid),
-        ("NavigationViewItemBackgroundSelectedPressed", c => c.Selection, Surface.Solid),
         ("CardBackgroundFillColorDefaultBrush", c => c.Card, Surface.Solid),
         ("CardBackgroundFillColorSecondaryBrush", c => c.Header, Surface.Solid),
-        ("ButtonBackground", c => c.Button, Surface.Solid),
-        ("ButtonBackgroundPointerOver", c => c.ButtonHover, Surface.Solid),
-        ("ButtonBackgroundPressed", c => c.ButtonPressed, Surface.Solid),
-        ("ComboBoxBackground", c => c.Button, Surface.Solid),
-        ("ComboBoxBackgroundPointerOver", c => c.ButtonHover, Surface.Solid),
-        ("TextControlBackground", c => c.Field, Surface.Solid),
-        ("TextControlBackgroundPointerOver", c => c.Field, Surface.Solid),
-        ("TextControlBackgroundFocused", c => c.Field, Surface.Solid),
-        ("ContentDialogBackground", c => c.Card, Surface.Solid),
-        ("ContentDialogTopOverlay", c => c.Card, Surface.Solid),
-        ("ContentDialogBorderBrush", c => c.Divider, Surface.Solid),
-        ("FlyoutPresenterBackground", c => c.Card, Surface.Solid),
-        ("MenuFlyoutPresenterBackground", c => c.Card, Surface.Solid),
-        ("ComboBoxDropDownBackground", c => c.Card, Surface.Solid),
     ];
 
     // Edge: the lines framing the page, kept over a backdrop too, as WinUI Gallery keeps them.
-    // Clear: a rest colour at alpha 0, the hue its fade starts from rather than clear white.
-    private enum Surface { Solid, Behind, Page, Edge, Clear }
+    private enum Surface { Solid, Behind, Page, Edge }
 
     private const byte PageAlpha = 0x40;
 
@@ -93,7 +51,6 @@ internal static class Theming
                     // and the page wears only a light wash of its colour over it.
                     Paint(ours, key, slot(colors), kind switch
                     {
-                        Surface.Clear => 0,
                         Surface.Behind when behind => 0,
                         Surface.Page when behind => PageAlpha,
                         _ => 0xFF,

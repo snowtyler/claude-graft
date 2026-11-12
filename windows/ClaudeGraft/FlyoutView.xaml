@@ -13,12 +13,11 @@
          settings as checkboxes, then the actions as plain menu rows, a full-width
          rule between each part. -->
     <UserControl.Resources>
-        <Style x:Key="MenuRow" TargetType="Button">
+        <!-- WinUI's subtle button, in a menu item's measures. -->
+        <Style x:Key="MenuRow" TargetType="Button" BasedOn="{StaticResource SubtleButtonStyle}">
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="HorizontalContentAlignment" Value="Left" />
-            <Setter Property="Background" Value="{ThemeResource GraftQuietBrush}" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="Padding" Value="11,8,11,9" />
             <Setter Property="MinHeight" Value="0" />
         </Style>
         <Style x:Key="Rule" TargetType="Border">
@@ -39,7 +38,7 @@
     <Border x:Name="OpaqueSurface" Visibility="Collapsed" CornerRadius="8"
             Background="{ThemeResource SolidBackgroundFillColorBaseBrush}" />
     <Border x:Name="RootBorder" Background="Transparent"
-            BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+            BorderBrush="{ThemeResource SurfaceStrokeColorFlyoutBrush}"
             BorderThickness="1" CornerRadius="8">
         <StackPanel>
             <local:ClaudeUpdateLine Margin="16,10,12,4" RestartRequested="ClaudeRestart_Requested" />
@@ -62,7 +61,7 @@
                 <ProgressRing x:Name="GraftCheckBusy" Grid.Column="2" Width="16" Height="16" MinWidth="0" MinHeight="0" Margin="4"
                               Visibility="Collapsed" AutomationProperties.AccessibilityView="Raw" />
                 <Button x:Name="CheckButton" Grid.Column="2" Click="Check_Click" VerticalAlignment="Center"
-                        Width="24" Height="24" Padding="0" MinHeight="0" MinWidth="0" Background="{ThemeResource GraftQuietBrush}" BorderThickness="0"
+                        Width="24" Height="24" Padding="0" MinHeight="0" MinWidth="0" Style="{StaticResource SubtleButtonStyle}"
                         ToolTipService.ToolTip="Check for Claude Graft Updates" AutomationProperties.Name="Check for Claude Graft Updates"
                         AutomationProperties.AutomationId="flyout.checkUpdates">
                     <FontIcon Glyph="&#xE72C;" FontSize="14" />
@@ -95,7 +94,7 @@
                                          Fill="{x:Bind StatusBrush, Mode=OneWay}"
                                          AutomationProperties.Name="{x:Bind StatusLabel, Mode=OneWay}" />
                                 <TextBlock Grid.Column="1" Text="{x:Bind Name}" AutomationProperties.Name="{x:Bind SpokenName, Mode=OneWay}"
-                                           VerticalAlignment="Center" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Center" Style="{StaticResource BodyStrongTextBlockStyle}" TextTrimming="CharacterEllipsis"
                                            TextLineBounds="Tight" />
                                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                     <Border Background="Transparent" ToolTipService.ToolTip="{x:Bind StartTooltip, Mode=OneWay}"
@@ -189,7 +188,7 @@
                                 <TextBlock Grid.Column="1" Text="{x:Bind UsageStatusText, Mode=OneWay}" VerticalAlignment="Center"
                                            Visibility="{x:Bind UsageStatusVisibility, Mode=OneWay}" Style="{StaticResource Under}" />
                                 <Button Grid.Column="2" Click="Refresh_Click" Padding="4" MinHeight="0" MinWidth="0"
-                                        Background="{ThemeResource GraftQuietBrush}" BorderThickness="0"
+                                        Style="{StaticResource SubtleButtonStyle}"
                                         Foreground="{StaticResource GraftTextFillColorTertiaryBrush}"
                                         ToolTipService.ToolTip="Refresh Usage"
                                         AutomationProperties.Name="{x:Bind local:Spoken.Act('Refresh Usage for', Name)}"
