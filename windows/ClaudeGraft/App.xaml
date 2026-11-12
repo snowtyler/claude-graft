@@ -80,7 +80,7 @@
                  WinUI's cool ones. Light is the same warmth carried across. -->
 
 
-            <!-- As WinUI Gallery frames its page: one sheet ruled along its top and left, rounded where they meet. -->
+            <!-- Windows 11's framing of a page: one sheet ruled along its top and left, rounded where they meet. -->
             <Thickness x:Key="NavigationViewContentGridBorderThickness">1,1,0,0</Thickness>
             <CornerRadius x:Key="NavigationViewContentGridCornerRadius">8,0,0,0</CornerRadius>
             <Thickness x:Key="NavigationViewContentMargin">0</Thickness>
@@ -104,7 +104,7 @@
                 </Setter>
             </Style>
 
-            <!-- The Community Toolkit's settings card, which WinUI Gallery uses, in its own measures. -->
+            <!-- The Community Toolkit's settings card, in its own measures. -->
             <Style TargetType="local:SettingsCard">
                 <Setter Property="MinHeight" Value="68" />
                 <Setter Property="IsTabStop" Value="False" />

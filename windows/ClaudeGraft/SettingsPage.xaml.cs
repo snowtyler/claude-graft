@@ -8,7 +8,7 @@ namespace ClaudeGraft;
 
 /// <summary>
 /// The app's preferences as a page of their own, each applied the moment it changes,
-/// as WinUI Gallery's are. Auto-start is read from and written to the Startup folder
+/// as Windows 11's are. Auto-start is read from and written to the Startup folder
 /// rather than the settings file, so the switch shows the real state.
 /// </summary>
 public sealed partial class SettingsPage : Page

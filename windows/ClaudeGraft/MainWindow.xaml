@@ -110,7 +110,7 @@
                         </HyperlinkButton>
                     </Grid>
                 </StackPanel>
-                <!-- Settings below, as WinUI Gallery keeps it, ruled off from the rest. -->
+                <!-- Settings at the foot, ruled off from the rest, where Windows 11 apps keep it. -->
                 <Rectangle x:Name="SettingsRule" Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="12,0" />
                 </StackPanel>
             </NavigationView.PaneFooter>

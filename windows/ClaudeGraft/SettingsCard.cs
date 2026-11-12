@@ -3,7 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 
 namespace ClaudeGraft;
 
-/// One setting as WinUI Gallery shows it, after the Community Toolkit's card: an icon,
+/// One setting after the Community Toolkit's settings card: an icon,
 /// a name with a line under it, and the control on the right. Its look is in App.xaml.
 public sealed class SettingsCard : ContentControl
 {

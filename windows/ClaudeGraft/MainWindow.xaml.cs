@@ -89,7 +89,7 @@ public sealed partial class MainWindow : Window
         Title = heading.Title == "Claude Graft" ? heading.Title : $"{heading.Title} · Claude Graft";
     }
 
-    // Folded to an icon rail as WinUI Gallery's is.
+    // Folded to WinUI's icon rail.
     private const double PaneWidth = 240;
     private const double RailWidth = 48;
     private bool _paneMoving, _paneOpen = true;
@@ -131,7 +131,7 @@ public sealed partial class MainWindow : Window
         ClaudesHeader.Opacity = ShortcutsHeader.Opacity = PaneFooterPanel.Opacity = SettingsRule.Opacity = shown;
         PaneFooterPanel.IsHitTestVisible = shown > 0.99;
         Theming.SelectionFill(shown);
-        // The items narrow with the pane, so a highlight stops short of the page as Gallery's does;
+        // The items narrow with the pane, so a highlight stops short of the page as WinUI's does;
         // their headings and second lines fold away so the icons close up toward the top.
         if (_paneItems is not null) _paneItems.Width = width;
         if (_headerHeight == 0) _headerHeight = ClaudesHeader.ActualHeight;

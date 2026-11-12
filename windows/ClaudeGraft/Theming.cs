@@ -30,7 +30,7 @@ internal static class Theming
         ("CardBackgroundFillColorSecondaryBrush", c => c.Header, Surface.Solid),
     ];
 
-    // Edge: the lines framing the page, kept over a backdrop too, as WinUI Gallery keeps them.
+    // Edge: the lines framing the page, kept over a backdrop too, as WinUI keeps them.
     private enum Surface { Solid, Behind, Page, Edge }
 
     private const byte PageAlpha = 0x40;
