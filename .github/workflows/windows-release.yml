@@ -84,20 +84,6 @@ jobs:
           --framework vcredist143-x64
           -o windows/dist/velopack
 
-      # 1.x updaters run only an Inno setup; this one hands over to Velopack's.
-      - name: Install Inno Setup
-        shell: pwsh
-        run: choco install innosetup --yes --no-progress
-
-      - name: Build the bridge from 1.x
-        shell: pwsh
-        run: |
-          $iscc = Get-ChildItem "C:\Program Files*\Inno Setup*\ISCC.exe" -Recurse | Select-Object -First 1
-          & $iscc.FullName `
-            /DMyAppVersion="${{ steps.version.outputs.version }}" `
-            /O"windows/dist" `
-            "windows/installer/Bridge.iss"
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -110,4 +96,3 @@ jobs:
             windows/dist/velopack/ClaudeGraftApp-win-Setup.exe
             windows/dist/velopack/ClaudeGraftApp-${{ steps.version.outputs.version }}-*.nupkg
             windows/dist/velopack/releases.win.json
-            windows/dist/ClaudeGraft-${{ steps.version.outputs.version }}-x64-setup.exe

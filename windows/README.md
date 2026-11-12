@@ -83,9 +83,8 @@ channels a contributor does not have, so the port leaves them alone:
   folder it installed into. As on the Mac, a found update installs itself
   without a word, waiting only while a Graft window is open, since applying it
   closes Graft and starts it again. A 1.x install, whose updater only knows
-  Inno Setup, is carried across by a small Inno bridge published beside each
-  release under the name it looks for; the new app then points the old
-  folder's links at itself, leaves a junction where the folder stood, and
+  Inno Setup, is not offered 2.0; its owner runs the new setup over it, and
+  the new app then points the old folder's links at itself, leaves a junction where the folder stood, and
   removes its uninstall entry, without running the old uninstaller, which
   would have taken every Claude's sharing lines out. Turning on Hold Graft's updates in
   Settings makes it wait instead: the version lights the icon and the button, and
