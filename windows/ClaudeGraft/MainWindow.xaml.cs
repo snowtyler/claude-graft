@@ -27,6 +27,12 @@ public sealed partial class MainWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
         // Square over the rail's highlights, which sit 4 in from the edge; WinUI puts it at 2.
+        // WinUI rules off the footer only while the items above it overflow; the footer draws
+        // its own, always, and WinUI's would sit doubled on top of it.
+        Sections.Loaded += (_, _) =>
+        {
+            if (Named<FrameworkElement>(Sections, "VisualItemsSeparator", _ => true) is { } rule) rule.Opacity = 0;
+        };
         AppTitleBar.Loaded += (_, _) =>
         {
             if (Named<Button>(AppTitleBar, "PART_PaneToggleButton", _ => true) is { } toggle)
@@ -62,6 +68,13 @@ public sealed partial class MainWindow : Window
         var height = Math.Min((int)(670 * scale), (int)(work.Height * 0.9));
         AppWindow.MoveAndResize(new RectInt32(
             work.X + (work.Width - width) / 2, work.Y + (work.Height - height) / 2, width, height));
+        // No smaller than the size every page is laid out to fit; narrower, the heading and
+        // the page's rows folded into a column of single letters.
+        if (AppWindow.Presenter is OverlappedPresenter frame)
+        {
+            frame.PreferredMinimumWidth = Math.Min((int)(820 * scale), work.Width);
+            frame.PreferredMinimumHeight = Math.Min((int)(560 * scale), work.Height);
+        }
 
         // Closing hides to the tray instead of quitting; Window.Closed is too
         // late to cancel, so this is on AppWindow.Closing.

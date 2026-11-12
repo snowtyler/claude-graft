@@ -87,7 +87,7 @@
                 <StackPanel>
                 <StackPanel x:Name="PaneFooterPanel" Width="240" HorizontalAlignment="Left">
                     <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="12,0" />
-                    <local:ClaudeUpdateLine x:Name="UpdateLine" Stacked="True" Margin="16,10,12,8"
+                    <local:ClaudeUpdateLine x:Name="UpdateLine" Stacked="True" Margin="16,10,12,10"
                                             RestartRequested="ClaudeRestart_Requested" />
                     <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="12,0" />
                     <!-- Who made it and where it comes from, at the foot of the sidebar as on the Mac. -->
