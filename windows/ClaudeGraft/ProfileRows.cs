@@ -13,7 +13,7 @@ internal static class ProfileRows
     public static List<ShortcutRow> Build()
     {
         App.Store.Load();
-        var rows = new List<ShortcutRow> { ShortcutRow.Main() };
+        var rows = new List<ShortcutRow> { ShortcutRow.MainClaude() };
         rows.AddRange(App.Store.Shortcuts.Select(ShortcutRow.ForShortcut));
         return rows;
     }

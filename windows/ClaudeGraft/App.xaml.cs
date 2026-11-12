@@ -155,6 +155,7 @@ public partial class App : Application
         System.Threading.Tasks.Task.Run(() => { try { Installer.MigrateLegacyLauncher(); } catch { } });
         System.Threading.Tasks.Task.Run(LegacyInstall.MoveOff);
         new Thread(() => { while (Program.ShowRequest.WaitOne()) ShowManager(); }) { IsBackground = true, Name = "show-request" }.Start();
+        new Thread(() => { if (Program.QuitRequest.WaitOne()) Quit(); }) { IsBackground = true, Name = "quit-request" }.Start();
         // Links keep pointing at the same icon files; a Claude update redraws them.
         var shortcuts = Store.Shortcuts.ToList();
         System.Threading.Tasks.Task.Run(() => ShortcutIcons.Refresh(shortcuts));
@@ -687,7 +688,8 @@ public partial class App : Application
 /// A minimal ICommand for the tray's double- and right-click, which take no parameter.
 public sealed class RelayCommand(Action action) : System.Windows.Input.ICommand
 {
-    public event EventHandler? CanExecuteChanged;
+    // Always enabled, so never raised.
+    public event EventHandler? CanExecuteChanged { add { } remove { } }
     public bool CanExecute(object? parameter) => true;
     public void Execute(object? parameter) => action();
 }

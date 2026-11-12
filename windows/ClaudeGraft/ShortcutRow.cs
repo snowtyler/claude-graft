@@ -37,7 +37,7 @@ public sealed class ShortcutRow : INotifyPropertyChanged
         _signedIn = Onboarding.IsSignedIn(s.ProfileDir),
     };
 
-    public static ShortcutRow Main() => new()
+    public static ShortcutRow MainClaude() => new()
     {
         ProfileDir = GraftPaths.DefaultProfile, Name = "Claude",
         SourceLabel = "Main account", Folder = "Claude",

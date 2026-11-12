@@ -166,7 +166,8 @@ public static class Launcher
             : $"--user-data-dir=\"{profile}\"";
         if (SquirrelExe() is { } exe)
         {
-            try { Process.Start(new ProcessStartInfo(exe, args) { UseShellExecute = false }); }
+            // Started anywhere else, Claude holds Graft's install folder as its own and an update cannot replace it.
+            try { Process.Start(new ProcessStartInfo(exe, args) { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(exe)! }); }
             catch { }
         }
         else if (PackagedClaude.Locate() is { } package && !PackagedClaude.Activate(package, args))

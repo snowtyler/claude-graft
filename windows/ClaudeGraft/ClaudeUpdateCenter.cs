@@ -163,6 +163,8 @@ public static class ClaudeUpdateCenter
                     ArgumentList = { "--update", url },
                     UseShellExecute = false,
                     CreateNoWindow = true,
+                    // It restarts Claude, which keeps this as its working folder.
+                    WorkingDirectory = Path.GetDirectoryName(ClaudeDesktopUpdates.UpdateExe)!,
                 });
                 if (process is null) return -1;
                 return process.WaitForExit(TimeSpan.FromMinutes(10)) ? process.ExitCode : -2;

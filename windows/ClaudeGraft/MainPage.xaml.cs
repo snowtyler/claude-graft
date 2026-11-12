@@ -60,7 +60,7 @@ public sealed partial class MainPage : Page
     private void Release()
     {
         if (ClaudeFrame.Content is Page held && held.Content == PageContent) held.Content = null;
-        else if (ClaudeFrame.Content == PageContent) ClaudeFrame.Content = null;
+        else if (ReferenceEquals(ClaudeFrame.Content, PageContent)) ClaudeFrame.Content = null;
     }
 
     /// Coming back from another section opens the page as that section's pages open.
@@ -124,7 +124,6 @@ public sealed partial class MainPage : Page
     private readonly DispatcherTimer _clock = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _redrawAfterWake = new() { Interval = TimeSpan.FromSeconds(2) };
     private int _clockTicks;
-    private bool _loading;
 
     public MainPage()
     {
@@ -243,11 +242,7 @@ public sealed partial class MainPage : Page
         var rows = keep ? Rows.ToList() : built;
         if (!keep) Rows.Clear();
 
-        // Held while any row is still reaching for a figure, so Refresh Usage is
-        // not offered — nor a press swallowed — until every instance has an
-        // up-to-date reading in hand. LoadUsage owns its own failures, so the
-        // WhenAll only completes, never throws.
-        _loading = true;
+        // LoadUsage owns its own failures, so the WhenAll only completes, never throws.
         UpdateRefreshButton();
         var loads = new List<Task>();
         foreach (var row in rows)
@@ -262,11 +257,7 @@ public sealed partial class MainPage : Page
         // A kept list raises no change of its own, and a rename still needs the sidebar redrawn.
         SyncShown();
         try { await Task.WhenAll(loads); }
-        finally
-        {
-            if (generation == _reloadGeneration) _loading = false;
-            UpdateRefreshButton();
-        }
+        finally { UpdateRefreshButton(); }
     }
 
     /// The refresh buttons sit in each page's usage heading now; what they said
