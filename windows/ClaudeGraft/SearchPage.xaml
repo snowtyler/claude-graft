@@ -20,7 +20,7 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <FontIcon Glyph="&#xE721;" FontSize="16" Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.AccessibilityView="Raw" />
+            <FontIcon Glyph="&#xE721;" FontSize="16" Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" AutomationProperties.AccessibilityView="Raw" />
             <TextBlock Grid.Column="1" Text="Search Chats" Style="{StaticResource BodyStrongTextBlockStyle}" VerticalAlignment="Center" />
             <Button Style="{StaticResource InfoGlyphButton}" Grid.Column="2"
                     AutomationProperties.Name="About Search Chats" AutomationProperties.AutomationId="search.info"
@@ -68,26 +68,26 @@
                 </Grid>
             </Button>
             <TextBlock Grid.Column="3" x:Name="CountText" VerticalAlignment="Center" MinWidth="70" TextAlignment="Right"
-                       Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       Style="{StaticResource CaptionTextBlockStyle}" Foreground="{StaticResource GraftTextFillColorSecondaryBrush}"
                        AutomationProperties.AutomationId="search.count" />
         </Grid>
 
         <StackPanel Grid.Row="2" x:Name="SignedOutPanel" Spacing="10" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
-            <FontIcon Glyph="&#xE721;" FontSize="34" Foreground="{ThemeResource TextFillColorTertiaryBrush}" AutomationProperties.AccessibilityView="Raw" />
+            <FontIcon Glyph="&#xE721;" FontSize="34" Foreground="{StaticResource GraftTextFillColorTertiaryBrush}" AutomationProperties.AccessibilityView="Raw" />
             <TextBlock Text="Sign in to search chats" HorizontalAlignment="Center" AutomationProperties.AutomationId="search.signInNote" />
             <Button Content="Sign In…" HorizontalAlignment="Center" Click="AddAccount_Click" AutomationProperties.AutomationId="search.signIn" />
             <TextBlock x:Name="SignInHint" HorizontalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="search.signInHint" />
+                       Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" AutomationProperties.AutomationId="search.signInHint" />
         </StackPanel>
         <TextBlock Grid.Row="2" x:Name="EmptyText" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"
                    TextWrapping="Wrap" TextAlignment="Center" MaxWidth="420"
-                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="search.empty" />
+                   Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" AutomationProperties.AutomationId="search.empty" />
         <ListView Grid.Row="2" x:Name="HitList" SelectionMode="None" Padding="8,0" />
 
         <Grid Grid.Row="3" x:Name="TroubleBar" Padding="16,10" BorderThickness="0,1,0,0" Visibility="Collapsed"
               BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" Background="{ThemeResource LayerFillColorDefaultBrush}">
             <TextBlock x:Name="TroubleText" TextTrimming="CharacterEllipsis"
-                       Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       Style="{StaticResource CaptionTextBlockStyle}" Foreground="{StaticResource GraftTextFillColorSecondaryBrush}"
                        AutomationProperties.AutomationId="search.status" />
         </Grid>
     </Grid>

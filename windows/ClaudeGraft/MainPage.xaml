@@ -44,7 +44,7 @@
             <StackPanel Spacing="1" VerticalAlignment="Center">
                 <TextBlock x:Name="ClaudeTitle" Text="Claude" Style="{StaticResource SubtitleTextBlockStyle}"
                            TextTrimming="CharacterEllipsis" AutomationProperties.HeadingLevel="Level1" />
-                <TextBlock x:Name="ClaudeSubtitle" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                <TextBlock x:Name="ClaudeSubtitle" Foreground="{StaticResource GraftTextFillColorSecondaryBrush}"
                            TextTrimming="CharacterEllipsis" />
             </StackPanel>
 
@@ -78,7 +78,7 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <FontIcon Glyph="&#xE80F;" FontSize="20" Width="28" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        <FontIcon Glyph="&#xE80F;" FontSize="20" Width="28" Foreground="{StaticResource GraftTextFillColorSecondaryBrush}"
                                   AutomationProperties.AccessibilityView="Raw" />
                         <TextBlock Grid.Column="1" Text="Claude" VerticalAlignment="Center" AutomationProperties.AutomationId="manager.main.name" />
                         <Button Grid.Column="2" Style="{StaticResource InfoGlyphButton}"
@@ -93,7 +93,7 @@
                             </Button.Flyout>
                         </Button>
                         <TextBlock Grid.Column="4" x:Name="MainFolder" FontFamily="Cascadia Mono, Consolas" VerticalAlignment="Center"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" ToolTipService.ToolTip="Profile folder"
+                                   Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" ToolTipService.ToolTip="Profile folder"
                                    AutomationProperties.AutomationId="manager.main.folder" />
                         <Button Grid.Column="5" Click="ShowMainFolder_Click" Style="{StaticResource InfoGlyphButton}" Padding="6"
                                 ToolTipService.ToolTip="Show in File Explorer" AutomationProperties.Name="Show in File Explorer"
@@ -125,13 +125,13 @@
                                 </Border>
                                 <TextBlock Text="{x:Bind CopiedNote, Mode=OneWay}" Visibility="{x:Bind CopiedNoteVisibility, Mode=OneWay}"
                                            TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
-                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                           Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" />
                                 <TextBlock Text="{x:Bind SidebarStatus, Mode=OneWay}" Visibility="{x:Bind SidebarStatusVisibility, Mode=OneWay}"
                                            TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
-                                           Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                                           Foreground="{StaticResource GraftTextFillColorTertiaryBrush}" />
                                 <TextBlock Text="{x:Bind Problem, Mode=OneWay}" Visibility="{x:Bind ProblemVisibility, Mode=OneWay}"
                                            TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
-                                           Foreground="{ThemeResource SystemFillColorCautionBrush}" />
+                                           Foreground="{StaticResource GraftSystemFillColorCautionBrush}" />
 
                                 <!-- Plan usage: its heading carries when the figure is from and the button that asks again. -->
                                 <Grid ColumnSpacing="8" Margin="0,8,0,0">
@@ -157,10 +157,10 @@
                                         <ProgressRing IsActive="{x:Bind Fetching, Mode=OneWay}" Visibility="{x:Bind FetchingVisibility, Mode=OneWay}"
                                                       Width="12" Height="12" MinWidth="0" MinHeight="0" />
                                         <TextBlock Text="{x:Bind UsageStatusText, Mode=OneWay}" Visibility="{x:Bind UsageStatusVisibility, Mode=OneWay}"
-                                                   Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextTrimming="CharacterEllipsis" />
+                                                   Foreground="{StaticResource GraftTextFillColorTertiaryBrush}" TextTrimming="CharacterEllipsis" />
                                     </StackPanel>
                                     <Button Grid.Column="3" Click="Refresh_Click" Padding="6" Background="{ThemeResource GraftQuietBrush}" BorderThickness="0"
-                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"
+                                            Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" VerticalAlignment="Center"
                                             ToolTipService.ToolTip="Refresh Usage" AutomationProperties.Name="Refresh Usage"
                                             AutomationProperties.AutomationId="{x:Bind local:Spoken.Id('manager', Key, 'refresh')}">
                                         <FontIcon Glyph="&#xE72C;" FontSize="14" />
@@ -186,11 +186,11 @@
                                                          AutomationProperties.Name="{x:Bind FiveHourText, Mode=OneWay}"
                                                          AutomationProperties.AutomationId="{x:Bind local:Spoken.Id('manager', Key, 'fiveHour')}" />
                                             <TextBlock Grid.Column="1" Text="No five-hour limit" Visibility="{x:Bind FiveHourNoLimitVisibility, Mode=OneWay}"
-                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                       Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" />
                                             <TextBlock Grid.Column="2" Text="{x:Bind FiveHourPercent, Mode=OneWay}" HorizontalAlignment="Right"
                                                        Visibility="{x:Bind FiveHourBarVisibility, Mode=OneWay}" AutomationProperties.AccessibilityView="Raw" />
                                             <TextBlock Grid.Column="3" Text="{x:Bind FiveHourLeft, Mode=OneWay}" HorizontalAlignment="Right"
-                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.AccessibilityView="Raw" />
+                                                       Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" AutomationProperties.AccessibilityView="Raw" />
 
                                             <TextBlock Grid.Row="1" Text="Week" />
                                             <ProgressBar Grid.Row="1" Grid.Column="1" Style="{StaticResource UsageMeter}" Maximum="100" Value="{x:Bind Week, Mode=OneWay}"
@@ -199,7 +199,7 @@
                                             <TextBlock Grid.Row="1" Grid.Column="2" Text="{x:Bind WeekPercent, Mode=OneWay}" HorizontalAlignment="Right"
                                                        AutomationProperties.AccessibilityView="Raw" />
                                             <TextBlock Grid.Row="1" Grid.Column="3" Text="{x:Bind WeekLeft, Mode=OneWay}" HorizontalAlignment="Right"
-                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.AccessibilityView="Raw" />
+                                                       Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" AutomationProperties.AccessibilityView="Raw" />
 
                                             <TextBlock Grid.Row="2" Text="Fable" Visibility="{x:Bind FableVisibility, Mode=OneWay}" />
                                             <ProgressBar Grid.Row="2" Grid.Column="1" Style="{StaticResource UsageMeter}" Maximum="100" Value="{x:Bind Fable, Mode=OneWay}"
@@ -210,14 +210,14 @@
                                                        Visibility="{x:Bind FableVisibility, Mode=OneWay}" AutomationProperties.AccessibilityView="Raw" />
                                             <TextBlock Grid.Row="2" Grid.Column="3" Text="{x:Bind FableLeft, Mode=OneWay}" HorizontalAlignment="Right"
                                                        Visibility="{x:Bind FableVisibility, Mode=OneWay}"
-                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.AccessibilityView="Raw" />
+                                                       Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" AutomationProperties.AccessibilityView="Raw" />
                                         </Grid>
                                         <TextBlock Text="{x:Bind UsageStatusText, Mode=OneWay}" Visibility="{x:Bind UsageWarningVisibility, Mode=OneWay}"
-                                                   TextWrapping="Wrap" Foreground="{ThemeResource SystemFillColorCautionBrush}" />
+                                                   TextWrapping="Wrap" Foreground="{StaticResource GraftSystemFillColorCautionBrush}" />
                                         <TextBlock Text="{x:Bind SignInNote}" Visibility="{x:Bind SignInVisibility, Mode=OneWay}"
-                                                   TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                   TextWrapping="Wrap" Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" />
                                         <TextBlock Text="No usage reported yet" Visibility="{x:Bind NoUsageVisibility, Mode=OneWay}"
-                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                   Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" />
                                         <Grid ColumnSpacing="12" Visibility="{x:Bind SignedInVisibility, Mode=OneWay}">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
@@ -300,7 +300,7 @@
                                                                    VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                                                    Style="{StaticResource CaptionTextBlockStyle}" AutomationProperties.AccessibilityView="Raw" />
                                                         <TextBlock Grid.Column="2" Text="{x:Bind Figures}" VerticalAlignment="Center"
-                                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                                   Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" />
                                                         <Button Grid.Column="3" Click="RemoveLender_Click" Tag="{x:Bind}" Padding="4"
                                                                 Background="{ThemeResource GraftQuietBrush}" BorderThickness="0"
                                                                 ToolTipService.ToolTip="Stop drawing on this account"
@@ -312,7 +312,7 @@
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
                                         <TextBlock Text="No accounts added" Visibility="{x:Bind NoLendersVisibility, Mode=OneWay}" Margin="0,8"
-                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                   Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" />
                                         <TextBlock Text="{x:Bind SharingNote, Mode=OneWay}" Visibility="{x:Bind SharingNoteVisibility, Mode=OneWay}"
                                                    Foreground="{x:Bind SharingNoteBrush, Mode=OneWay}" Margin="0,8" TextWrapping="Wrap" />
                                     </StackPanel>
@@ -325,7 +325,7 @@
                 <TextBlock x:Name="EmptyState" Visibility="Collapsed"
                            Text="Add a Claude from the sidebar to run a second account alongside this one."
                            Margin="16,8,16,0" Style="{StaticResource CaptionTextBlockStyle}"
-                           Foreground="{ThemeResource TextFillColorTertiaryBrush}" HorizontalAlignment="Center" />
+                           Foreground="{StaticResource GraftTextFillColorTertiaryBrush}" HorizontalAlignment="Center" />
             </StackPanel>
             </Frame>
         </ScrollViewer>

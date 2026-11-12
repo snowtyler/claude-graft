@@ -21,7 +21,7 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <FontIcon Glyph="&#xE8A9;" FontSize="16" Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.AccessibilityView="Raw" />
+            <FontIcon Glyph="&#xE8A9;" FontSize="16" Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" AutomationProperties.AccessibilityView="Raw" />
             <TextBlock Grid.Column="1" Text="Artifacts" Style="{StaticResource BodyStrongTextBlockStyle}" VerticalAlignment="Center" />
             <Button Style="{StaticResource InfoGlyphButton}" Grid.Column="2" x:Name="InfoButton"
                     AutomationProperties.Name="About Artifacts" AutomationProperties.AutomationId="artifacts.info"
@@ -71,19 +71,19 @@
             <TextBox Grid.Column="1" x:Name="SearchBox" PlaceholderText="Search" TextChanged="Search_Changed"
                      AutomationProperties.Name="Search Artifacts" AutomationProperties.AutomationId="artifacts.search" />
             <TextBlock Grid.Column="2" x:Name="CountText" HorizontalAlignment="Right" VerticalAlignment="Center"
-                       Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       Style="{StaticResource CaptionTextBlockStyle}" Foreground="{StaticResource GraftTextFillColorSecondaryBrush}"
                        AutomationProperties.AutomationId="artifacts.count" />
         </Grid>
 
         <StackPanel Grid.Row="2" x:Name="SignedOutPanel" Spacing="10" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
-            <FontIcon Glyph="&#xE8A9;" FontSize="34" Foreground="{ThemeResource TextFillColorTertiaryBrush}" AutomationProperties.AccessibilityView="Raw" />
+            <FontIcon Glyph="&#xE8A9;" FontSize="34" Foreground="{StaticResource GraftTextFillColorTertiaryBrush}" AutomationProperties.AccessibilityView="Raw" />
             <TextBlock Text="Sign in to see artifacts" HorizontalAlignment="Center" AutomationProperties.AutomationId="artifacts.signInNote" />
             <Button Content="Sign In…" HorizontalAlignment="Center" Click="AddAccount_Click" AutomationProperties.AutomationId="artifacts.signIn" />
             <TextBlock x:Name="SignInHint" HorizontalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="artifacts.signInHint" />
+                       Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" AutomationProperties.AutomationId="artifacts.signInHint" />
         </StackPanel>
         <TextBlock Grid.Row="2" x:Name="EmptyText" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"
-                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="artifacts.empty" />
+                   Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" AutomationProperties.AutomationId="artifacts.empty" />
         <ListView Grid.Row="2" x:Name="ArtifactList" SelectionMode="None" Padding="8,0" />
 
         <Grid Grid.Row="3" Padding="16,10" ColumnSpacing="8" BorderThickness="0,1,0,0" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
@@ -93,7 +93,7 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <TextBlock x:Name="StatusLine" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                       Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       Style="{StaticResource CaptionTextBlockStyle}" Foreground="{StaticResource GraftTextFillColorSecondaryBrush}"
                        AutomationProperties.AutomationId="artifacts.status" />
             <Button Grid.Column="1" x:Name="GroupsButton" Click="Groups_Click" AutomationProperties.Name="Groups"
                     AutomationProperties.AutomationId="artifacts.groups"

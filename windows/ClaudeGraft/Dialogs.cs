@@ -15,7 +15,17 @@ public static class Dialogs
         dialog.RequestedTheme = Appearance.ToElementTheme(App.Settings.Theme);
         dialog.CornerRadius = new CornerRadius(8);
         dialog.Resources["OverlayCornerRadius"] = new CornerRadius(8);
-        dialog.Loaded += (_, _) => Enter(dialog);
+        dialog.Loaded += (_, _) => { Enter(dialog); Dim(root); };
+        dialog.Opened += (_, _) => Dim(root);
+    }
+
+    // The dimming behind a dialog is a popup of its own at the window's root, which keeps the
+    // mode the app launched in; after a switch it washed the window light in dark mode.
+    private static void Dim(XamlRoot root)
+    {
+        foreach (var popup in VisualTreeHelper.GetOpenPopupsForXamlRoot(root))
+            if (popup.Child is Microsoft.UI.Xaml.Shapes.Rectangle smoke)
+                smoke.Fill = Themed.Brush("SmokeFillColorDefaultBrush");
     }
 
     // WinUI animates a dialog in only on its way to DialogShowing, and in this window most open

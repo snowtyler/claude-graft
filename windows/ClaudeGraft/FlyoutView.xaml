@@ -26,7 +26,7 @@
             <Setter Property="Background" Value="{ThemeResource DividerStrokeColorDefaultBrush}" />
         </Style>
         <Style x:Key="Under" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}">
-            <Setter Property="Foreground" Value="{ThemeResource TextFillColorTertiaryBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource GraftTextFillColorTertiaryBrush}" />
         </Style>
     </UserControl.Resources>
 
@@ -56,7 +56,7 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <FontIcon x:Name="GraftGlyph" Glyph="&#xE895;" FontSize="14" Width="16" Height="16" VerticalAlignment="Center"
-                          Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.AccessibilityView="Raw" />
+                          Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" AutomationProperties.AccessibilityView="Raw" />
                 <TextBlock x:Name="GraftWords" Grid.Column="1" TextWrapping="Wrap" MaxLines="2" VerticalAlignment="Center"
                            Style="{StaticResource CaptionTextBlockStyle}" AutomationProperties.AutomationId="graftUpdate.status" />
                 <ProgressRing x:Name="GraftCheckBusy" Grid.Column="2" Width="16" Height="16" MinWidth="0" MinHeight="0" Margin="4"
@@ -122,7 +122,7 @@
                             <TextBlock Text="{x:Bind SignInNote}" TextWrapping="Wrap"
                                        Visibility="{x:Bind SignInVisibility, Mode=OneWay}"
                                        Style="{StaticResource CaptionTextBlockStyle}"
-                                       Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                                       Foreground="{StaticResource GraftTextFillColorTertiaryBrush}" />
 
                             <!-- Always in the layout once signed in, so the row is its full
                                  height from the first frame rather than growing as the usage
@@ -143,19 +143,19 @@
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
 
-                                <TextBlock Text="5 hours" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock Text="5 hours" Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" />
                                 <ProgressBar Grid.Column="1" Style="{StaticResource UsageMeter}" Maximum="100" Value="{x:Bind FiveHour, Mode=OneWay}"
                                              Visibility="{x:Bind FiveHourBarVisibility, Mode=OneWay}" local:BarPulse.Key="{x:Bind Pulse, Mode=OneWay}"
                                              AutomationProperties.Name="{x:Bind FiveHourText, Mode=OneWay}"
                                              AutomationProperties.AutomationId="{x:Bind local:Spoken.Id('flyout', Key, 'fiveHour')}" />
                                 <TextBlock Grid.Column="1" Text="No five-hour limit" Visibility="{x:Bind FiveHourNoLimitVisibility, Mode=OneWay}"
-                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                           Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" />
                                 <TextBlock Grid.Column="2" Text="{x:Bind FiveHourPercent, Mode=OneWay}" HorizontalAlignment="Right"
                                            Visibility="{x:Bind FiveHourBarVisibility, Mode=OneWay}" AutomationProperties.AccessibilityView="Raw" />
                                 <TextBlock Grid.Row="1" Grid.Column="1" Text="{x:Bind FiveHourResets, Mode=OneWay}" Style="{StaticResource Under}"
                                            Visibility="{x:Bind FiveHourResetsVisibility, Mode=OneWay}" Margin="0,0,0,6" />
 
-                                <TextBlock Grid.Row="2" Text="Week" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock Grid.Row="2" Text="Week" Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" />
                                 <ProgressBar Grid.Row="2" Grid.Column="1" Style="{StaticResource UsageMeter}" Maximum="100" Value="{x:Bind Week, Mode=OneWay}"
                                              local:BarPulse.Key="{x:Bind Pulse, Mode=OneWay}"
                                              AutomationProperties.Name="{x:Bind WeekText, Mode=OneWay}"
@@ -166,7 +166,7 @@
                                            Visibility="{x:Bind WeekResetsVisibility, Mode=OneWay}" Margin="0,0,0,6" />
 
                                 <TextBlock Grid.Row="4" Text="Fable" Visibility="{x:Bind FableVisibility, Mode=OneWay}"
-                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                           Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" />
                                 <ProgressBar Grid.Row="4" Grid.Column="1" Style="{StaticResource UsageMeter}" Maximum="100" Value="{x:Bind Fable, Mode=OneWay}"
                                              Visibility="{x:Bind FableVisibility, Mode=OneWay}" local:BarPulse.Key="{x:Bind Pulse, Mode=OneWay}"
                                              AutomationProperties.Name="{x:Bind FableText, Mode=OneWay}"
@@ -190,7 +190,7 @@
                                            Visibility="{x:Bind UsageStatusVisibility, Mode=OneWay}" Style="{StaticResource Under}" />
                                 <Button Grid.Column="2" Click="Refresh_Click" Padding="4" MinHeight="0" MinWidth="0"
                                         Background="{ThemeResource GraftQuietBrush}" BorderThickness="0"
-                                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                        Foreground="{StaticResource GraftTextFillColorTertiaryBrush}"
                                         ToolTipService.ToolTip="Refresh Usage"
                                         AutomationProperties.Name="{x:Bind local:Spoken.Act('Refresh Usage for', Name)}"
                                         AutomationProperties.AutomationId="{x:Bind local:Spoken.Id('flyout', Key, 'refresh')}">
@@ -200,14 +200,14 @@
                             <TextBlock Text="{x:Bind UsageStatusText, Mode=OneWay}"
                                        Visibility="{x:Bind UsageWarningVisibility, Mode=OneWay}"
                                        TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
-                                       Foreground="{ThemeResource SystemFillColorCautionBrush}" />
+                                       Foreground="{StaticResource GraftSystemFillColorCautionBrush}" />
 
                             <!-- Why the last Start Session could not open a window,
                                  shown only when there is one to report. -->
                             <TextBlock Text="{x:Bind Problem, Mode=OneWay}"
                                        Visibility="{x:Bind ProblemVisibility, Mode=OneWay}"
                                        TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
-                                       Foreground="{ThemeResource SystemFillColorCautionBrush}" />
+                                       Foreground="{StaticResource GraftSystemFillColorCautionBrush}" />
                         </StackPanel>
                         <Border Style="{StaticResource Rule}" />
                         </StackPanel>
@@ -221,7 +221,7 @@
             <StackPanel x:Name="Conversations" Visibility="Collapsed">
                 <StackPanel Padding="16,10,16,10" Spacing="6">
                     <TextBlock Text="Claude Code" Style="{StaticResource CaptionTextBlockStyle}"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               Foreground="{StaticResource GraftTextFillColorSecondaryBrush}"
                                AutomationProperties.HeadingLevel="Level2"
                                AutomationProperties.AutomationId="flyout.conversations" />
                     <StackPanel x:Name="ChatList" Spacing="6" />

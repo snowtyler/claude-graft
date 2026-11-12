@@ -43,7 +43,7 @@ public sealed class ArtifactSignInWindow
         root.Children.Add(hint);
         Grid.SetRow(web, 1);
         root.Children.Add(web);
-        root.Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["ApplicationPageBackgroundThemeBrush"];
+        root.Background = Themed.Brush("ApplicationPageBackgroundThemeBrush");
         var window = new Window { Title = "Sign In to claude.ai", Content = root };
         window.AppWindow.Resize(new SizeInt32(560, 760));
         window.Closed += (_, _) =>

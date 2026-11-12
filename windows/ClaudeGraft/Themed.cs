@@ -13,24 +13,39 @@ internal static class Themed
     public static Brush Brush(string key)
     {
         if (Brushes.TryGetValue(key, out var held)) return held;
-        if (Find(key) is not SolidColorBrush source) return (Brush)Application.Current.Resources[key];
-        return Brushes[key] = new SolidColorBrush(source.Color) { Opacity = source.Opacity };
+        if (Colour(key) is not { } colour) return (Brush)Application.Current.Resources[key];
+        return Brushes[key] = new SolidColorBrush(colour.Color) { Opacity = colour.Opacity };
+    }
+
+    // XAML reaches the same brushes as Graft<key>: a {ThemeResource} inside an item template
+    // kept the mode it was drawn in when the mode changed from Settings.
+    private static readonly string[] Published =
+        ["TextFillColorPrimaryBrush", "TextFillColorSecondaryBrush", "TextFillColorTertiaryBrush", "SystemFillColorCautionBrush"];
+
+    public static void Publish()
+    {
+        foreach (var key in Published) Application.Current.Resources["Graft" + key] = Brush(key);
     }
 
     public static void Refresh()
     {
         foreach (var (key, brush) in Brushes)
-            if (Find(key) is SolidColorBrush source)
+            if (Colour(key) is { } colour)
             {
-                brush.Color = source.Color;
-                brush.Opacity = source.Opacity;
+                brush.Color = colour.Color;
+                brush.Opacity = colour.Opacity;
             }
     }
 
-    private static object? Find(string key)
+    // The colour a brush is named after before the brush: WinUI's other-mode brushes carry the
+    // launch mode's colour for some keys, while the colours themselves are right for each mode.
+    private static (Windows.UI.Color Color, double Opacity)? Colour(string key)
     {
         var dark = Appearance.ToElementTheme(App.Settings.Theme) == ElementTheme.Dark;
-        return Search(Application.Current.Resources, dark ? ["Dark", "Default"] : ["Light"], key);
+        string[] themes = dark ? ["Dark", "Default"] : ["Light"];
+        if (key.EndsWith("Brush") && Search(Application.Current.Resources, themes, key[..^5]) is Windows.UI.Color plain)
+            return (plain, 1);
+        return Search(Application.Current.Resources, themes, key) is SolidColorBrush brush ? (brush.Color, brush.Opacity) : null;
     }
 
     // A dictionary's own entries before its merged ones, and later merged ones first, as XAML looks.

@@ -44,7 +44,7 @@
                                 </GridView>
                                 <TextBlock Text="Used for the desktop shortcut and for this Claude's own button on the taskbar."
                                            TextWrapping="Wrap" Style="{ThemeResource CaptionTextBlockStyle}"
-                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                           Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" />
                             </StackPanel>
                         </Flyout>
                     </Button.Flyout>
@@ -95,7 +95,7 @@
                     </StackPanel>
                     <StackPanel x:Name="MergeNote" Orientation="Horizontal" Spacing="6" Visibility="Collapsed">
                         <TextBlock x:Name="MergeText" Style="{ThemeResource CaptionTextBlockStyle}" VerticalAlignment="Center"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                   Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" />
                         <Button Style="{StaticResource InfoGlyphButton}"
                                 ToolTipService.ToolTip="About merging histories" AutomationProperties.Name="About merging histories"
                                 AutomationProperties.AutomationId="profile.mergeInfo">

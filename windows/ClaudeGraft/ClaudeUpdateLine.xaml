@@ -18,7 +18,7 @@
             <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
         <FontIcon x:Name="Glyph" Glyph="&#xE895;" FontSize="14" Width="16" Height="16" VerticalAlignment="Center"
-                  Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.AccessibilityView="Raw" />
+                  Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" AutomationProperties.AccessibilityView="Raw" />
         <TextBlock Grid.Column="1" x:Name="Words" TextWrapping="Wrap" MaxLines="2" VerticalAlignment="Center"
                        Style="{StaticResource CaptionTextBlockStyle}"
                        AutomationProperties.AutomationId="claudeUpdate.status" />

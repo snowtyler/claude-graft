@@ -144,6 +144,7 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+        Themed.Publish();
         _ui = DispatcherQueue.GetForCurrentThread();
 
         // Shortcuts made before the launcher moved in beside the app still point

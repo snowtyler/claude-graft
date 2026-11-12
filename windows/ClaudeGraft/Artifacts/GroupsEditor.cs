@@ -73,7 +73,7 @@ public sealed class GroupsEditor
         {
             Text = "Each person is invited with the role beside them", Margin = new Thickness(0, 10, 0, 0),
             Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
-            Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+            Foreground = Themed.Brush("TextFillColorSecondaryBrush"),
         };
         ToolTipService.SetToolTip(note, ArtifactsPage.Note);
         AutomationProperties.SetAutomationId(note, "groups.note");
@@ -112,7 +112,7 @@ public sealed class GroupsEditor
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             row.Children.Add(new TextBlock { Text = group.Name, TextTrimming = TextTrimming.CharacterEllipsis });
-            var count = new TextBlock { Text = group.Emails.Count.ToString(), Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"] };
+            var count = new TextBlock { Text = group.Emails.Count.ToString(), Foreground = Themed.Brush("TextFillColorSecondaryBrush") };
             Grid.SetColumn(count, 1);
             row.Children.Add(count);
             var item = new ListViewItem { Content = row, Tag = group.Id };
@@ -142,7 +142,7 @@ public sealed class GroupsEditor
             {
                 Text = _center.Groups.Count == 0 ? "No groups yet" : "Select a group",
                 HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
-                Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+                Foreground = Themed.Brush("TextFillColorSecondaryBrush"),
             };
             return;
         }

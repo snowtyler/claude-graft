@@ -21,7 +21,7 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <FontIcon Glyph="&#xE8B7;" FontSize="16" Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.AccessibilityView="Raw" />
+            <FontIcon Glyph="&#xE8B7;" FontSize="16" Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" AutomationProperties.AccessibilityView="Raw" />
             <TextBlock Grid.Column="1" Text="Projects" Style="{StaticResource BodyStrongTextBlockStyle}" VerticalAlignment="Center" />
             <Button Style="{StaticResource InfoGlyphButton}" Grid.Column="2"
                     AutomationProperties.Name="About Projects" AutomationProperties.AutomationId="projects.info"
@@ -64,25 +64,25 @@
             <TextBox x:Name="FilterBox" PlaceholderText="Filter" TextChanged="Filter_Changed"
                      AutomationProperties.Name="Filter Projects" AutomationProperties.AutomationId="projects.filter" />
             <TextBlock Grid.Column="1" x:Name="CountText" HorizontalAlignment="Right" VerticalAlignment="Center"
-                       Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       Style="{StaticResource CaptionTextBlockStyle}" Foreground="{StaticResource GraftTextFillColorSecondaryBrush}"
                        AutomationProperties.AutomationId="projects.count" />
         </Grid>
 
         <StackPanel Grid.Row="2" x:Name="SignedOutPanel" Spacing="10" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
-            <FontIcon Glyph="&#xE8B7;" FontSize="34" Foreground="{ThemeResource TextFillColorTertiaryBrush}" AutomationProperties.AccessibilityView="Raw" />
+            <FontIcon Glyph="&#xE8B7;" FontSize="34" Foreground="{StaticResource GraftTextFillColorTertiaryBrush}" AutomationProperties.AccessibilityView="Raw" />
             <TextBlock Text="Sign in to see projects" HorizontalAlignment="Center" AutomationProperties.AutomationId="projects.signInNote" />
             <Button Content="Sign In…" HorizontalAlignment="Center" Click="AddAccount_Click" AutomationProperties.AutomationId="projects.signIn" />
             <TextBlock x:Name="SignInHint" HorizontalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="projects.signInHint" />
+                       Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" AutomationProperties.AutomationId="projects.signInHint" />
         </StackPanel>
         <TextBlock Grid.Row="2" x:Name="EmptyText" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"
-                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="projects.empty" />
+                   Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" AutomationProperties.AutomationId="projects.empty" />
         <ListView Grid.Row="2" x:Name="ProjectList" SelectionMode="None" Padding="8,0" />
 
         <Grid Grid.Row="3" x:Name="TroubleBar" Padding="16,10" BorderThickness="0,1,0,0" Visibility="Collapsed"
               BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" Background="{ThemeResource LayerFillColorDefaultBrush}">
             <TextBlock x:Name="TroubleText" TextTrimming="CharacterEllipsis"
-                       Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       Style="{StaticResource CaptionTextBlockStyle}" Foreground="{StaticResource GraftTextFillColorSecondaryBrush}"
                        AutomationProperties.AutomationId="projects.status" />
         </Grid>
     </Grid>

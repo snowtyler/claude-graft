@@ -159,7 +159,7 @@
                             <StackPanel VerticalAlignment="Center" Spacing="2">
                                 <TextBlock x:Name="VersionText" />
                                 <TextBlock x:Name="UpdateStatus" Style="{ThemeResource CaptionTextBlockStyle}"
-                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Foreground="{StaticResource GraftTextFillColorSecondaryBrush}"
                                            TextWrapping="Wrap" Visibility="Collapsed" />
                             </StackPanel>
                             <Button x:Name="CheckButton" Grid.Column="1" Content="Check for Updates" AutomationProperties.AutomationId="settings.checkUpdates"
@@ -171,7 +171,7 @@
         </Grid>
 
         <TextBlock Text="Graft keeps reporting usage in the notification area after its window is closed. Quit it from the notification area icon."
-                   Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                   Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{StaticResource GraftTextFillColorSecondaryBrush}"
                    TextWrapping="Wrap" Margin="4,2,4,0" />
     </StackPanel>
 </ContentDialog>
