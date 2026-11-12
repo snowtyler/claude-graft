@@ -10,6 +10,9 @@ using ClaudeGraft.Core;
 // is, which is the half a shortcut needs first.
 // Run by the uninstaller while Graft is still there to run it from: nothing
 // else puts back what a borrowing Claude's environment held before sharing.
+// Before anything reaches the network or opens a Claude that would inherit them.
+PoolEnvironment.ForgetInheritedLines();
+
 if (args.Length == 1 && args[0] == "--stop-sharing")
 {
     foreach (var path in PoolEnvironment.TakeOutLines(null, ClaudeProcesses.IsRunning))

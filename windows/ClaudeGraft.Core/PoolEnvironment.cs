@@ -29,6 +29,20 @@ public static class PoolEnvironment
         [CertificateName] = CertificateValue,
     };
 
+    /// <summary>
+    /// Drops the lines from this process when they hold exactly Graft's values, as
+    /// they do in anything started from a borrowing Claude's terminal. Graft's own
+    /// requests would otherwise go into its own relay, which no .NET client trusts,
+    /// and a Claude it opened would borrow without having been given the lines.
+    /// </summary>
+    public static void ForgetInheritedLines()
+    {
+        foreach (var (name, value) in Lines)
+            foreach (var spelling in new[] { name, name.ToLowerInvariant() })
+                if (string.Equals(Environment.GetEnvironmentVariable(spelling), value, StringComparison.OrdinalIgnoreCase))
+                    Environment.SetEnvironmentVariable(spelling, null);
+    }
+
     public static string JournalFile => Path.Combine(UsagePool.Directory, "environment.json");
 
     public sealed record Journal

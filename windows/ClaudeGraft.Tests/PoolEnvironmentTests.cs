@@ -235,3 +235,25 @@ public sealed class RelayRemovalTests : IDisposable
         return dir!.FullName;
     }
 }
+
+public class InheritedLinesTests
+{
+    [Fact(DisplayName = "a process started from a borrowing Claude drops Graft's lines and keeps a person's own proxy")]
+    public void DropsOnlyGraftsOwnValues()
+    {
+        var saved = (Environment.GetEnvironmentVariable("HTTPS_PROXY"), Environment.GetEnvironmentVariable("NODE_EXTRA_CA_CERTS"));
+        try
+        {
+            Environment.SetEnvironmentVariable("HTTPS_PROXY", PoolEnvironment.ProxyValue);
+            Environment.SetEnvironmentVariable("NODE_EXTRA_CA_CERTS", @"C:\certs\mine.pem");
+            PoolEnvironment.ForgetInheritedLines();
+            Assert.Null(Environment.GetEnvironmentVariable("HTTPS_PROXY"));
+            Assert.Equal(@"C:\certs\mine.pem", Environment.GetEnvironmentVariable("NODE_EXTRA_CA_CERTS"));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("HTTPS_PROXY", saved.Item1);
+            Environment.SetEnvironmentVariable("NODE_EXTRA_CA_CERTS", saved.Item2);
+        }
+    }
+}

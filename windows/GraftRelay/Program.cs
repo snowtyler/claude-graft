@@ -306,6 +306,7 @@ public static class Program
 {
     public static async Task<int> Main(string[] args)
     {
+        PoolEnvironment.ForgetInheritedLines();
         var options = new Relay.Options();
         for (var i = 0; i < args.Length; i++)
         {

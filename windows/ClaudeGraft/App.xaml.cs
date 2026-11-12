@@ -77,6 +77,8 @@ public partial class App : Application
 
     public App()
     {
+        // Before any HttpClient reads the proxy from the environment.
+        PoolEnvironment.ForgetInheritedLines();
         // Wired before InitializeComponent and before OnLaunched build any window,
         // because the crash this catches is a managed throw on the XAML startup
         // path: it surfaces to the Windows event log as a stowed exception in
