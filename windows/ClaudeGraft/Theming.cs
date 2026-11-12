@@ -25,7 +25,6 @@ internal static class Theming
         ("LayerFillColorDefaultBrush", c => c.Content, Surface.Page),
         ("GraftTrackBrush", c => c.Track, Surface.Solid),
         ("NavigationViewContentGridBorderBrush", c => c.Divider, Surface.Edge),
-        ("GraftTitleBrush", c => c.Header, Surface.Title),
         ("GraftQuietBrush", c => c.ButtonHover, Surface.Clear),
         ("DividerStrokeColorDefaultBrush", c => c.Divider, Surface.Solid),
         // Every clear control at rest, under the pointer and pressed, as a quiet button is.
@@ -72,10 +71,9 @@ internal static class Theming
         ("ComboBoxDropDownBackground", c => c.Card, Surface.Solid),
     ];
 
-    // Edge: the lines framing the page, gone over a backdrop so the page reads as one sheet.
-    // Title: the strip over the page, which over a backdrop joins the page beneath it.
+    // Edge: the lines framing the page, kept over a backdrop too, as WinUI Gallery keeps them.
     // Clear: a rest colour at alpha 0, the hue its fade starts from rather than clear white.
-    private enum Surface { Solid, Behind, Page, Edge, Title, Clear }
+    private enum Surface { Solid, Behind, Page, Edge, Clear }
 
     private const byte PageAlpha = 0x40;
 
@@ -93,11 +91,11 @@ internal static class Theming
                 foreach (var (key, slot, kind) in Surfaces)
                     // Over Mica or Acrylic the sidebar and title bar let the material through,
                     // and the page wears only a light wash of its colour over it.
-                    Paint(ours, key, kind == Surface.Title && behind ? colors.Content : slot(colors), kind switch
+                    Paint(ours, key, slot(colors), kind switch
                     {
                         Surface.Clear => 0,
-                        Surface.Behind or Surface.Edge when behind => 0,
-                        Surface.Page or Surface.Title when behind => PageAlpha,
+                        Surface.Behind when behind => 0,
+                        Surface.Page when behind => PageAlpha,
                         _ => 0xFF,
                     });
             // The accent goes in by its app-wide colours alone: a brush written into WinUI's own
@@ -127,6 +125,14 @@ internal static class Theming
         }
     }
 
+    /// How much of the selected sidebar item's fill shows: on the icon rail only its bar marks it.
+    public static void SelectionFill(double shown)
+    {
+        foreach (var theme in new[] { "Default", "Dark", "Light" })
+            if (Own(Application.Current.Resources)?.ThemeDictionaries.TryGetValue(theme, out var own) == true && own is ResourceDictionary ours
+                && ours.TryGetValue("NavigationViewItemBackgroundSelected", out var b) && b is SolidColorBrush brush)
+                brush.Opacity = shown;
+    }
     private static Rgb SystemAccent()
     {
         var c = System.GetColorValue(UIColorType.Accent);

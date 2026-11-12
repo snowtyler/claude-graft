@@ -26,6 +26,12 @@ public sealed partial class MainWindow : Window
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
+        // Square over the rail's highlights, which sit 4 in from the edge; WinUI puts it at 2.
+        AppTitleBar.Loaded += (_, _) =>
+        {
+            if (Named<Button>(AppTitleBar, "PART_PaneToggleButton", _ => true) is { } toggle)
+                toggle.Margin = new Thickness(4, toggle.Margin.Top, 0, toggle.Margin.Bottom);
+        };
         // The icon ships packed as an app resource, not a loose file, so this
         // path is absent in an unpackaged install — and SetIcon throwing on it
         // used to abort the rest of the constructor, navigation included, which
@@ -79,9 +85,12 @@ public sealed partial class MainWindow : Window
         Title = heading.Title == "Claude Graft" ? heading.Title : $"{heading.Title} · Claude Graft";
     }
 
-    // Hidden outright, as the Mac's is: folded to WinUI's icon rail, the two-line items stretched it into a scroll.
+    // Folded to an icon rail as WinUI Gallery's is.
     private const double PaneWidth = 240;
+    private const double RailWidth = 48;
     private bool _paneMoving, _paneOpen = true;
+    private FrameworkElement? _paneItems;
+    private double _headerHeight;
 
     // The sidebar's width is walked frame by frame, both ways, so the page and the title
     // reflow with it; WinUI's own show slid the pane alone and dropped it on hide.
@@ -90,46 +99,64 @@ public sealed partial class MainWindow : Window
         if (_paneMoving) return;
         _paneMoving = true;
         var opening = !_paneOpen;
-        // The items keep their full width and slide with the edge; squeezed, they wrapped and
-        // moved up and down. The pane itself never hides, since hiding redrew the whole window.
         if (Named<FrameworkElement>(Sections, "PaneContentGrid", _ => true) is { } items)
         {
-            items.Width = PaneWidth;
-            items.HorizontalAlignment = HorizontalAlignment.Right;
+            items.HorizontalAlignment = HorizontalAlignment.Left;
+            _paneItems = items;
         }
-        if (opening) SetPane(true, 0);
         var started = DateTime.UtcNow;
         void Step(object? _, object __)
         {
             var t = Math.Min(1, (DateTime.UtcNow - started).TotalMilliseconds / 220);
             var eased = 1 - Math.Pow(1 - t, 3);
-            SetPane(true, PaneWidth * (opening ? eased : 1 - eased));
+            SetPane(RailWidth + (PaneWidth - RailWidth) * (opening ? eased : 1 - eased));
             if (t < 1) return;
             CompositionTarget.Rendering -= Step;
-            SetPane(opening, PaneWidth);
+            _paneOpen = opening;
             _paneMoving = false;
         }
         CompositionTarget.Rendering += Step;
     }
 
-    private void SetPane(bool open, double width)
+    private void SetPane(double width)
     {
-        _paneOpen = open;
-        Sections.OpenPaneLength = open ? width : 0;
-        SidebarColumn.Width = new GridLength(open ? width : 0);
-        SidebarSpacer.Width = open ? Math.Max(0, width - 48) : 0;
-        SettingsButton.Visibility = open && width > 60 ? Visibility.Visible : Visibility.Collapsed;
-        // The page's rounded, ruled left edge is where it meets the sidebar; with the sidebar
-        // gone it meets the window's own edge, and a curve and a line there read as a gap.
-        TitleOverPage.CornerRadius = new CornerRadius(open ? 14 : 0, 0, 0, 0);
-        TitleOverPage.BorderThickness = new Thickness(open ? 1 : 0, 0, 0, 0);
+        Sections.OpenPaneLength = width;
+        SidebarSpacer.Width = Math.Max(0, width - 48);
+        // Headings and the footer would show cut off beside the icons, so they fade with the width.
+        var shown = Math.Clamp((width - RailWidth) / (PaneWidth - RailWidth), 0, 1);
+        ClaudesHeader.Opacity = ShortcutsHeader.Opacity = PaneFooterPanel.Opacity = SettingsRule.Opacity = shown;
+        PaneFooterPanel.IsHitTestVisible = shown > 0.99;
+        Theming.SelectionFill(shown);
+        // The items narrow with the pane, so a highlight stops short of the page as Gallery's does;
+        // their headings and second lines fold away so the icons close up toward the top.
+        if (_paneItems is not null) _paneItems.Width = width;
+        if (_headerHeight == 0) _headerHeight = ClaudesHeader.ActualHeight;
+        ClaudesHeader.MaxHeight = ShortcutsHeader.MaxHeight = _headerHeight * shown;
+        foreach (var item in Sections.MenuItems.Concat(Sections.FooterMenuItems).OfType<NavigationViewItem>())
+        {
+            // WinUI's own fold drops the item's right-hand margin so the icon fills the highlight;
+            // this fold never changes its state, so the margin goes with the width instead.
+            if (Named<Grid>(item, "ContentGrid", _ => true) is { } inner) inner.Margin = new Thickness(0, 0, 14 * shown, 0);
+            if (item.Content is StackPanel { Children.Count: > 1 } words)
+            {
+                words.Margin = new Thickness(0, 6 * shown, 0, 6 * shown);
+                foreach (var line in words.Children.OfType<TextBlock>())
+                {
+                    line.TextWrapping = TextWrapping.NoWrap;
+                    line.TextTrimming = TextTrimming.CharacterEllipsis;
+                }
+                var second = (FrameworkElement)words.Children[1];
+                second.MaxHeight = 20 * shown;
+                second.Opacity = shown;
+            }
+        }
         ShapePageEdge();
     }
 
     private Grid? _contentGrid;
 
-    // WinUI resets the frame's corner itself as the pane shows or hides, after this has run,
-    // so the frame is held to the sidebar's state whenever its corner changes.
+    // WinUI resets the frame's corner itself as the pane changes, after this has run,
+    // so the frame is held to its shape whenever its corner changes.
     private void ShapePageEdge()
     {
         // The page's frame, not a sidebar item's part of the same name: the one holding the page.
@@ -139,13 +166,11 @@ public sealed partial class MainWindow : Window
             grid.RegisterPropertyChangedCallback(Grid.CornerRadiusProperty, (_, _) => ShapePageEdge());
         }
         if (_contentGrid is null) return;
-        var open = _paneOpen;
-        var corner = new CornerRadius(0, 0, 0, open ? 14 : 0);
+        var corner = new CornerRadius(8, 0, 0, 0);
         if (_contentGrid.CornerRadius != corner) _contentGrid.CornerRadius = corner;
-        var edge = new Thickness(open ? 1 : 0, 0, 0, 0);
+        var edge = new Thickness(1, 1, 0, 0);
         if (_contentGrid.BorderThickness != edge) _contentGrid.BorderThickness = edge;
     }
-
     private static IEnumerable<Button> Buttons(DependencyObject root)
     {
         for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
@@ -165,11 +190,6 @@ public sealed partial class MainWindow : Window
             if (Named(child, name, which) is { } deeper) return deeper;
         }
         return null;
-    }
-
-    private async void Settings_Click(object sender, RoutedEventArgs e)
-    {
-        if (RootFrame.Content is MainPage page) await page.OpenSettingsAsync();
     }
 
     private bool _rebuilding;
@@ -244,8 +264,14 @@ public sealed partial class MainWindow : Window
 
     private async void Sections_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
     {
+        SnapSelection();
         var tag = (args.InvokedItemContainer as NavigationViewItem)?.Tag as string;
         if (RootFrame.Content is not MainPage page) return;
+        if (tag == "settings")
+        {
+            await page.OpenSettingsAsync();
+            return;
+        }
         if (tag == "new")
         {
             ShowClaudes();
@@ -258,8 +284,20 @@ public sealed partial class MainWindow : Window
         if (RootFrame.Content is MainPage page) await page.ConfirmRestartClaudesAsync();
     }
 
+    // A selection moves at once, as WinUI's does: faded, the item let go of flashed its fill
+    // on the way out. Hover keeps its fade, which comes back once the move has drawn.
+    private async void SnapSelection()
+    {
+        var parts = Sections.MenuItems.OfType<NavigationViewItem>()
+            .Select(i => Named<Grid>(i, "LayoutRoot", _ => true)).OfType<Grid>().ToList();
+        foreach (var part in parts) part.BackgroundTransition = null;
+        await Task.Delay(300);
+        foreach (var part in parts) part.BackgroundTransition ??= new BrushTransition();
+    }
+
     private void Sections_SelectionChanged(Microsoft.UI.Xaml.Controls.NavigationView sender, Microsoft.UI.Xaml.Controls.NavigationViewSelectionChangedEventArgs args)
     {
+        SnapSelection();
         var tag = (args.SelectedItem as Microsoft.UI.Xaml.Controls.NavigationViewItem)?.Tag as string;
         var claudes = tag is null || tag.StartsWith("claude:");
         DispatcherQueue.TryEnqueue(ShowHeading);
@@ -391,6 +429,7 @@ public sealed partial class MainWindow : Window
     {
         var settings = App.Settings;
         Theming.Apply(settings);
+        Theming.SelectionFill(_paneOpen ? 1 : 0);
         Theming.Refresh(ThemeRoot, Appearance.ToElementTheme(settings.Theme));
 
         // Only when the material actually changes: assigning SystemBackdrop

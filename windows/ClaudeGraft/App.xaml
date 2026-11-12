@@ -25,7 +25,6 @@
                             <Color x:Key="GraftMeter">#68CE67</Color>
                             <Color x:Key="GraftTrack">#484644</Color>
                             <SolidColorBrush x:Key="GraftHeaderBrush" Color="{StaticResource GraftHeader}" />
-                            <SolidColorBrush x:Key="GraftTitleBrush" Color="{StaticResource GraftHeader}" />
                             <!-- A clear button's rest colour: its hover colour, unseen. Plain Transparent is clear
                                  white, and the hover fade ran through white on its way to grey. -->
                             <SolidColorBrush x:Key="GraftQuietBrush" Color="#004F4D4B" />
@@ -100,7 +99,6 @@
                             <Color x:Key="GraftMeter">#34C759</Color>
                             <Color x:Key="GraftTrack">#DDDAD6</Color>
                             <SolidColorBrush x:Key="GraftHeaderBrush" Color="{StaticResource GraftHeader}" />
-                            <SolidColorBrush x:Key="GraftTitleBrush" Color="{StaticResource GraftHeader}" />
                             <SolidColorBrush x:Key="GraftQuietBrush" Color="#00F2F0ED" />
                             <SolidColorBrush x:Key="GraftSidebarBrush" Color="{StaticResource GraftSidebar}" />
                             <SolidColorBrush x:Key="GraftMeterBrush" Color="{StaticResource GraftMeter}" />
@@ -163,12 +161,9 @@
                  WinUI's cool ones. Light is the same warmth carried across. -->
 
 
-            <!-- One divider between the sidebar and the page, as the Mac draws it,
-                 in place of WinUI's rounded, outlined content frame. -->
-            <Thickness x:Key="NavigationViewContentGridBorderThickness">1,0,0,0</Thickness>
-            <!-- Rounded on the sidebar's side only, with the title strip's corner above, so the
-                 page reads as one sheet the sidebar flows around. -->
-            <CornerRadius x:Key="NavigationViewContentGridCornerRadius">0,0,0,14</CornerRadius>
+            <!-- As WinUI Gallery frames its page: one sheet ruled along its top and left, rounded where they meet. -->
+            <Thickness x:Key="NavigationViewContentGridBorderThickness">1,1,0,0</Thickness>
+            <CornerRadius x:Key="NavigationViewContentGridCornerRadius">8,0,0,0</CornerRadius>
             <Thickness x:Key="NavigationViewContentMargin">0</Thickness>
             <!-- The pane's toggle lives in the title bar, so its empty row in the pane goes. -->
             <x:Double x:Key="NavigationViewPaneHeaderRowMinHeight">0</x:Double>

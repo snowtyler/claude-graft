@@ -10,7 +10,7 @@
     mc:Ignorable="d">
     <!-- A control, not the Grid alone: plain text takes its colour from the nearest control,
          and with none above it kept the mode the app launched in. -->
-    <UserControl x:Name="ThemeRoot" Foreground="{ThemeResource TextFillColorPrimaryBrush}">
+    <UserControl x:Name="ThemeRoot" Foreground="{StaticResource GraftTextFillColorPrimaryBrush}">
     <!-- Painted whatever the backdrop: the Mac's window is solid, and a material showing through tinted the sidebar and title bar cool. -->
     <Grid x:Name="RootGrid" Background="{ThemeResource GraftSidebarBrush}">
         <Grid.RowDefinitions>
@@ -20,37 +20,18 @@
 
         <!-- The logo and wordmark live in the page header, so the title bar is
              just a drag region: no icon, no title text, only the caption buttons. -->
-        <!-- The strip over the page wears the page header's colour and the part
-             over the sidebar the sidebar's, so the two read as one piece each. -->
-        <Grid IsHitTestVisible="False">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition x:Name="SidebarColumn" Width="240" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <Border Grid.Column="1" x:Name="TitleOverPage" Background="{ThemeResource GraftTitleBrush}" CornerRadius="14,0,0,0"
-                    BorderThickness="1,0,0,0" BorderBrush="{ThemeResource NavigationViewContentGridBorderBrush}" />
-        </Grid>
         <!-- The page's title and state sit in the title bar, as the Mac's do, rather
              than in a header of their own under an empty one. -->
         <TitleBar x:Name="AppTitleBar" Height="52" IsPaneToggleButtonVisible="True" PaneToggleRequested="AppTitleBar_PaneToggleRequested">
             <!-- Left, not the centred Content slot: the heading starts at the page's edge, as on the Mac. -->
-            <!-- Left, not the centred Content slot: the heading starts at the page's edge, as on the Mac.
-                 Settings sits at the sidebar's right edge, across from the toggle; New Shortcut is in the list itself. -->
             <TitleBar.LeftHeader>
                 <StackPanel Orientation="Horizontal">
-                    <Grid x:Name="SidebarSpacer" Width="192">
-                        <Button x:Name="SettingsButton" Click="Settings_Click" Width="34" Height="30" CornerRadius="6" Padding="0"
-                                HorizontalAlignment="Right" Margin="0,0,6,0" Background="{ThemeResource GraftQuietBrush}" BorderThickness="0"
-                                ToolTipService.ToolTip="Settings" AutomationProperties.Name="Settings"
-                                AutomationProperties.AutomationId="sidebar.settings">
-                            <FontIcon Glyph="&#xE713;" FontSize="14" />
-                        </Button>
-                    </Grid>
+                    <Grid x:Name="SidebarSpacer" Width="192" />
                     <StackPanel VerticalAlignment="Center" Margin="26,0,0,0">
                         <TextBlock x:Name="HeadingTitle" Text="Claude" Style="{StaticResource BodyStrongTextBlockStyle}" FontSize="15"
                                    TextTrimming="CharacterEllipsis" AutomationProperties.HeadingLevel="Level1" />
                         <TextBlock x:Name="HeadingSubtitle" Style="{StaticResource CaptionTextBlockStyle}" TextTrimming="CharacterEllipsis"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="manager.state" />
+                                   Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" AutomationProperties.AutomationId="manager.state" />
                     </StackPanel>
                 </StackPanel>
             </TitleBar.LeftHeader>
@@ -74,7 +55,7 @@
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xF0E2;" /></NavigationViewItem.Icon>
                     <StackPanel Spacing="1" Margin="0,6">
                         <TextBlock Text="Artifacts" />
-                        <TextBlock Text="Every account" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="Every account" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" />
                     </StackPanel>
                 </NavigationViewItem>
                 <NavigationViewItem Tag="projects" AutomationProperties.Name="Projects, every account"
@@ -82,7 +63,7 @@
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE8B7;" /></NavigationViewItem.Icon>
                     <StackPanel Spacing="1" Margin="0,6">
                         <TextBlock Text="Projects" />
-                        <TextBlock Text="Every account" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="Every account" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" />
                     </StackPanel>
                 </NavigationViewItem>
                 <NavigationViewItem Tag="search" AutomationProperties.Name="Search Chats, every account"
@@ -90,7 +71,7 @@
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE721;" /></NavigationViewItem.Icon>
                     <StackPanel Spacing="1" Margin="0,6">
                         <TextBlock Text="Search Chats" />
-                        <TextBlock Text="Every account" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="Every account" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" />
                     </StackPanel>
                 </NavigationViewItem>
                 <NavigationViewItemHeader x:Name="ShortcutsHeader" Content="Shortcuts" />
@@ -102,14 +83,16 @@
             <NavigationView.PaneFooter>
                 <!-- Claude's own version, here rather than across the top of a
                      page, where one line took the full width above every Claude. -->
+                <!-- Its full width kept as the pane folds, so the lines fade rather than wrap. -->
                 <StackPanel>
+                <StackPanel x:Name="PaneFooterPanel" Width="240" HorizontalAlignment="Left">
                     <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="12,0" />
                     <local:ClaudeUpdateLine x:Name="UpdateLine" Stacked="True" Margin="16,10,12,8"
                                             RestartRequested="ClaudeRestart_Requested" />
                     <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="12,0" />
                     <!-- Who made it and where it comes from, at the foot of the sidebar as on the Mac. -->
-                    <Grid Margin="8,10,8,2">
-                        <HyperlinkButton Click="Support_Click" Padding="8,4" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    <Grid Margin="8,6">
+                        <HyperlinkButton Click="Support_Click" Padding="8,4" Foreground="{StaticResource GraftTextFillColorSecondaryBrush}"
                                          ToolTipService.ToolTip="Claude Graft is free. A tip on Ko-fi is what keeps it worked on."
                                          AutomationProperties.Name="Support" AutomationProperties.AutomationId="support">
                             <StackPanel Orientation="Horizontal" Spacing="6">
@@ -118,7 +101,7 @@
                             </StackPanel>
                         </HyperlinkButton>
                         <HyperlinkButton x:Name="SourceLink" Click="Source_Click" HorizontalAlignment="Right" Padding="8,4"
-                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                         Foreground="{StaticResource GraftTextFillColorSecondaryBrush}"
                                          AutomationProperties.Name="Source" AutomationProperties.AutomationId="source">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <FontIcon Glyph="&#xE943;" FontSize="12" />
@@ -127,7 +110,16 @@
                         </HyperlinkButton>
                     </Grid>
                 </StackPanel>
+                <!-- Settings below, as WinUI Gallery keeps it, ruled off from the rest. -->
+                <Rectangle x:Name="SettingsRule" Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="12,0" />
+                </StackPanel>
             </NavigationView.PaneFooter>
+            <NavigationView.FooterMenuItems>
+                <NavigationViewItem x:Name="SettingsItem" Content="Settings" Tag="settings" SelectsOnInvoked="False"
+                                    AutomationProperties.AutomationId="sidebar.settings">
+                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE713;" /></NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.FooterMenuItems>
             <Grid>
                 <Frame x:Name="RootFrame" />
                 <!-- The same transition the Claudes' frame names, so every page opens alike. -->
