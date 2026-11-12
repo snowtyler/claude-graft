@@ -92,7 +92,7 @@
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
-                        <TextBlock Grid.Column="4" x:Name="MainFolder" FontFamily="Consolas" VerticalAlignment="Center"
+                        <TextBlock Grid.Column="4" x:Name="MainFolder" FontFamily="Cascadia Mono, Consolas" VerticalAlignment="Center"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" ToolTipService.ToolTip="Profile folder"
                                    AutomationProperties.AutomationId="manager.main.folder" />
                         <Button Grid.Column="5" Click="ShowMainFolder_Click" Style="{StaticResource InfoGlyphButton}" Padding="6"

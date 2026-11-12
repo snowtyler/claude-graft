@@ -51,7 +51,7 @@
                 </Button>
                 <TextBox x:Name="NameBox" Grid.Column="1" AutomationProperties.Name="Name" AutomationProperties.AutomationId="profile.name"
                          PlaceholderText="Work Account" TextChanged="NameBox_TextChanged" VerticalAlignment="Center" />
-                <TextBox x:Name="FolderBox" Grid.Column="2" FontFamily="Consolas" TextAlignment="Right" VerticalAlignment="Center"
+                <TextBox x:Name="FolderBox" Grid.Column="2" FontFamily="Cascadia Mono, Consolas" Padding="10,7,6,4" VerticalAlignment="Center"
                          AutomationProperties.Name="Profile folder" AutomationProperties.AutomationId="profile.folder"
                          TextChanged="FolderBox_TextChanged" ToolTipService.ToolTip="Profile folder" />
                 <Button Grid.Column="3" x:Name="ShowFolderButton" Click="ShowFolder_Click" Padding="6" Background="{ThemeResource GraftQuietBrush}" BorderThickness="0"
