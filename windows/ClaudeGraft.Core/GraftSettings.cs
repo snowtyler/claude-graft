@@ -38,6 +38,11 @@ public sealed class GraftSettings
     /// installing on its own as before.
     [JsonPropertyName("holdUpdates")] public bool HoldUpdates { get; set; }
 
+    /// The Claude in front, its usage and the conversation on screen, on the
+    /// taskbar beside the notification area. Off unless turned on: the strip
+    /// follows a taskbar Windows gives apps no place in.
+    [JsonPropertyName("taskbarStrip")] public bool TaskbarStrip { get; set; }
+
     /// Shared usage was explained, and agreed to, before the first account was added.
     [JsonPropertyName("sharingExplained")] public bool SharingExplained { get; set; }
 

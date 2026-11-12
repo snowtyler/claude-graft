@@ -51,13 +51,15 @@ public partial class App : Application
             && updated.Backdrop == Settings.Backdrop
             && updated.Palette == Settings.Palette
             && updated.StartHidden == Settings.StartHidden
-            && updated.HoldUpdates == Settings.HoldUpdates) return;
+            && updated.HoldUpdates == Settings.HoldUpdates
+            && updated.TaskbarStrip == Settings.TaskbarStrip) return;
 
         // Only a change of look redraws the windows; a redraw resets the backdrop, which flashes.
         var looks = updated.Theme != Settings.Theme || updated.Backdrop != Settings.Backdrop || updated.Palette != Settings.Palette;
         Settings = updated;
         updated.Save();
         if (looks) SettingsChanged?.Invoke();
+        (Current as App)?.ShowTray();
     }
 
     private TaskbarIcon? _tray;
@@ -393,14 +395,48 @@ public partial class App : Application
 
     /// Another account answering the conversation on screen, by name; null
     /// when it is this Claude's own or nothing says.
-    private static string? AnsweredBy(string front, Shortcut? shortcut)
+    private static string? AnsweredBy(string front, Shortcut? shortcut) =>
+        AnsweringKey(front, shortcut) is string by && by != (shortcut?.Id.ToString() ?? UsageSharing.MainKey) ? SharingName(by) : null;
+
+    private static string? AnsweringKey(string front, Shortcut? shortcut)
     {
         var key = shortcut?.Id.ToString() ?? UsageSharing.MainKey;
         var cli = ChatOnScreen.OnScreenSession(front);
-        if (cli is null || SharingResult?.Status?.Sessions.FirstOrDefault(s => s.Id == cli) is not { } session) return null;
+        if (cli is null || SharingResult?.Status?.Sessions.FirstOrDefault(s => s.Id == cli) is null) return null;
         var chat = SharedChats.Build(SharingResult.Status, UsageSharing.Load(), _ => null, key, cli).FirstOrDefault(c => c.Id == cli);
-        if (chat is null || SharedChats.AnsweringKey(chat) is not string by || by == key) return null;
-        return SharingName(by);
+        return chat is null ? null : SharedChats.AnsweringKey(chat);
+    }
+
+    private TaskbarStrip? _strip;
+    private string? _stripProfile;
+
+    /// The taskbar strip, when it is wanted: the Claude in front and every account
+    /// it draws on, the one answering ringed, its headline figure and the conversation.
+    private void ShowStrip(string? front, Shortcut? shortcut)
+    {
+        if (!Settings.TaskbarStrip)
+        {
+            _strip?.Dispose();
+            _strip = null;
+            return;
+        }
+        _strip ??= new TaskbarStrip(centre => ToggleFlyout(centre));
+        // Like the Mac's item it stays put while another app is in front, on the last
+        // Claude that was, and on Claude's own before any has been.
+        if (front is not null) _stripProfile = front;
+        front = _stripProfile ??= GraftPaths.DefaultProfile;
+        shortcut = Store.Shortcuts.FirstOrDefault(s => Fs.SamePath(s.ProfileDir, front));
+        if (!_frontUsage.ContainsKey(front)) { _frontUsage[front] = null; _ = RefreshFront(front); }
+        var key = shortcut?.Id.ToString() ?? UsageSharing.MainKey;
+        var lenders = UsageSharing.Load().Lenders.GetValueOrDefault(key) ?? new List<string>();
+        var answering = lenders.Count == 0 ? null : AnsweringKey(front, shortcut) ?? key;
+        var accounts = PoolAccounts.Load();
+        var marks = new[] { key }.Concat(lenders.Where(l => l != key))
+            .Select(k => new TaskbarStrip.Mark(ShortcutIcons.Preview(MainPage.PresetOf(k, accounts)), k == answering)).ToList();
+        var usage = _frontUsage.GetValueOrDefault(front) is { } u ? UsageStatus.Rolled(u, DateTimeOffset.UtcNow) : null;
+        // No five-hour limit is not 0%: such an account shows its week, marked as one.
+        var figure = usage is null ? null : usage.FiveHour is int five ? $"{five}%" : $"W {usage.Week}%";
+        _strip.Show(new TaskbarStrip.Face(marks, figure, ChatOnScreen.TitleFor(front)));
     }
 
     /// The tray says which Claude is in front and what its account has spent,
@@ -419,6 +455,7 @@ public partial class App : Application
         else
             _tray.ToolTipText = AvailableUpdate is { } ready ? $"Claude Graft — update {ready.Version} ready" : "Claude Graft";
 
+        ShowStrip(front, shortcut);
         var icon = shortcut is null ? null : ShortcutIcons.LinkIcon(shortcut).File;
         if (icon is not null && !icon.EndsWith(".ico", StringComparison.OrdinalIgnoreCase)) icon = null;
         if (icon == _trayIconFile) return;
@@ -463,7 +500,11 @@ public partial class App : Application
         return profiles;
     }
 
-    private void ToggleFlyout()
+    private void ToggleFlyout() => ToggleFlyout(null);
+
+    /// <paramref name="from"/>: the centre of what was clicked on the taskbar, for a
+    /// flyout to stand over; the tray icon's own click leaves it in the corner.
+    private void ToggleFlyout(Windows.Graphics.PointInt32? from)
     {
         // Read on this thread, the click's own, before hopping to the UI thread:
         // the pointer is on the icon now and will have moved by the time the
@@ -471,12 +512,12 @@ public partial class App : Application
         // as early as the click allows, so the flyout can hand focus back to the
         // app the person was in when it dismisses — before the click has had a
         // chance to move it to the shell.
-        var anchor = TrayAnchor.CursorNow();
+        var anchor = from ?? TrayAnchor.CursorNow();
         var priorForeground = GetForegroundWindow();
         OnUi(() =>
         {
             _flyout ??= new FlyoutWindow(ShowManager, ShowSupport, Quit);
-            _flyout.Toggle(anchor, priorForeground);
+            _flyout.Toggle(anchor, priorForeground, centred: from is not null);
         });
     }
 

@@ -99,6 +99,13 @@
                     <TextBlock Text="Start hidden in the notification area" VerticalAlignment="Center" />
                     <Grid Grid.Column="1" Width="40"><ToggleSwitch x:Name="StartHiddenSwitch" Style="{StaticResource SettingsSwitch}" AutomationProperties.Name="Start hidden in the notification area" AutomationProperties.AutomationId="settings.startHidden" /></Grid>
                 </Grid>
+                <Border Style="{StaticResource SettingsRule}" />
+                <Grid Style="{StaticResource SettingsRow}">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                    <TextBlock Text="Show usage on the taskbar" VerticalAlignment="Center"
+                               ToolTipService.ToolTip="The Claude in front, its usage and the conversation on screen, beside the notification area. Hidden while the taskbar hides itself, sits on a side, or a full-screen app is up." />
+                    <Grid Grid.Column="1" Width="40"><ToggleSwitch x:Name="TaskbarStripSwitch" Style="{StaticResource SettingsSwitch}" AutomationProperties.Name="Show usage on the taskbar" AutomationProperties.AutomationId="settings.taskbarStrip" /></Grid>
+                </Grid>
                 <Border Style="{StaticResource SettingsGroupRule}" />
                 <StackPanel x:Name="ManualClaudeRow">
                     <Grid Style="{StaticResource SettingsRow}">

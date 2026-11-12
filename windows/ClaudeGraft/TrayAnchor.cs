@@ -48,7 +48,9 @@ internal static class TrayAnchor
     /// tucks into the corner of that monitor's work area nearest the notification
     /// area: the far end of the taskbar — bottom-right for the usual bottom bar,
     /// top-right for a top one, and the near bottom corner for a side bar.
-    public static PointInt32 Place(SizeInt32 size, PointInt32 anchor, out FlyoutEdge edge)
+    /// Opened from something on the taskbar itself, such as the strip, a bottom
+    /// flyout stands centred over it, and a top one under it, instead (<paramref name="centred"/>).
+    public static PointInt32 Place(SizeInt32 size, PointInt32 anchor, out FlyoutEdge edge, bool centred = false)
     {
         var point = new POINT { X = anchor.X, Y = anchor.Y };
         var monitor = MonitorFromPoint(point, MONITOR_DEFAULTTONEAREST);
@@ -71,7 +73,7 @@ internal static class TrayAnchor
         if (work.top > full.top)             // taskbar on top — notification area top-right
         {
             edge = FlyoutEdge.Top;
-            x = work.right - size.Width - margin;
+            x = centred ? anchor.X - size.Width / 2 : work.right - size.Width - margin;
             y = work.top + margin;
         }
         else if (work.left > full.left)      // taskbar on the left — tray at its foot
@@ -89,7 +91,7 @@ internal static class TrayAnchor
         else                                 // taskbar on the bottom
         {
             edge = FlyoutEdge.Bottom;
-            x = work.right - size.Width - margin;
+            x = centred ? anchor.X - size.Width / 2 : work.right - size.Width - margin;
             y = work.bottom - size.Height - margin;
         }
 

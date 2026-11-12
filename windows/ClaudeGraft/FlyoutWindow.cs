@@ -88,8 +88,11 @@ public sealed class FlyoutWindow : Window
         };
     }
 
-    public void Toggle(PointInt32 anchor, nint priorForeground)
+    private bool _centred, _pendingCentred;
+
+    public void Toggle(PointInt32 anchor, nint priorForeground, bool centred = false)
     {
+        _pendingCentred = centred;
         if (_shown) Hide();
         else Show(anchor, priorForeground);
     }
@@ -97,6 +100,7 @@ public sealed class FlyoutWindow : Window
     private void Show(PointInt32 anchor, nint priorForeground)
     {
         _anchor = anchor;
+        _centred = _pendingCentred;
         _shown = true;
         _hiding = false;
         // Whatever held focus before is handed it back on dismiss. Captured at the
@@ -260,7 +264,7 @@ public sealed class FlyoutWindow : Window
             (int)Math.Ceiling(_view.DesiredSize.Height * scale));
         if (size.Width <= 0 || size.Height <= 0) return;
 
-        var at = TrayAnchor.Place(size, _anchor, out _edge);
+        var at = TrayAnchor.Place(size, _anchor, out _edge, _centred);
         _rect = new RectInt32(at.X, at.Y, size.Width, size.Height);
         if (_animating) { _refitPending = true; return; }
         AppWindow.MoveAndResize(_rect);

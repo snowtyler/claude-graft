@@ -442,7 +442,7 @@ public sealed partial class MainPage : Page
 
     // A Claude wears its own colour, Claude's own being the original; an account wears the
     // colour of a Claude signed in to it, or the one it was given, and graphite before that.
-    private static string PresetOf(string key, IReadOnlyList<PoolAccount> accounts)
+    internal static string PresetOf(string key, IReadOnlyList<PoolAccount> accounts)
     {
         if (key == UsageSharing.MainKey) return IconPreset.Original;
         if (App.Store.Shortcuts.FirstOrDefault(s => s.Id.ToString() == key) is { } shortcut) return shortcut.IconPreset;
