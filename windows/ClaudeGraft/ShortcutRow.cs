@@ -420,6 +420,9 @@ public sealed class LenderLine
     public string State { get; init; } = "";
     public bool Attention { get; init; }
     public string Figures { get; init; } = "";
+    /// Lines go between rows, so the first has none above it and the last none below.
+    public bool First { get; init; }
+    public Thickness Rule => new(0, First ? 0 : 1, 0, 0);
     /// The account's colour, as its Claude's icon wears it, so a row reads as the same account the sidebar shows.
     public Microsoft.UI.Xaml.Media.ImageSource? Icon { get; init; }
     public Visibility IconVisibility => Icon is null ? Visibility.Collapsed : Visibility.Visible;

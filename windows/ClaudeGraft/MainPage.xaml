@@ -282,7 +282,7 @@
                                         <ItemsControl ItemsSource="{x:Bind Lenders, Mode=OneWay}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate x:DataType="local:LenderLine">
-                                                    <Grid ColumnSpacing="10" Padding="0,10" BorderThickness="0,0,0,1"
+                                                    <Grid ColumnSpacing="10" Padding="0,10" BorderThickness="{x:Bind Rule}"
                                                           BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}">
                                                         <Grid.ColumnDefinitions>
                                                             <ColumnDefinition Width="Auto" />

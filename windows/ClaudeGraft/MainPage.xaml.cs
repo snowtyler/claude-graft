@@ -420,7 +420,7 @@ public sealed partial class MainPage : Page
             row.SetSharing(SharingText.Label(lenders, NameOf),
                 SharingText.Note(lenders, result?.Environment.GetValueOrDefault(row.SharingKey), result?.Problem));
             var own = Graft.Account(row.ProfileDir);
-            row.SetLenders(lenders.Select(key =>
+            row.SetLenders(lenders.Select((key, index) =>
             {
                 var profile = ProfileOf(key);
                 var same = own is not null && (profile is not null ? Graft.Account(profile) == own
@@ -428,7 +428,7 @@ public sealed partial class MainPage : Page
                 var state = SharingText.Condition(key, result, same, DateTimeOffset.UtcNow);
                 return new LenderLine
                 {
-                    Claude = row, Key = key, Name = NameOf(key),
+                    Claude = row, Key = key, Name = NameOf(key), First = index == 0,
                     State = state.Length == 0 ? "Checking its login…" : char.ToUpper(state[0]) + state[1..],
                     Attention = same || state.Contains("refused") || state.Contains("expired") || state.Contains("not signed in") || state.Contains("unreadable"),
                     Icon = PresetIcon(PresetOf(key, accounts)),
