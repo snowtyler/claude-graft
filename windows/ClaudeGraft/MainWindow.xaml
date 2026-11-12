@@ -23,19 +23,19 @@
         <!-- The page's title and state sit in the title bar, as the Mac's do, rather
              than in a header of their own under an empty one. -->
         <TitleBar x:Name="AppTitleBar" Height="52" IsPaneToggleButtonVisible="True" PaneToggleRequested="AppTitleBar_PaneToggleRequested">
-            <!-- Left, not the centred Content slot: the heading starts at the page's edge, as on the Mac. -->
-            <TitleBar.LeftHeader>
-                <StackPanel Orientation="Horizontal">
-                    <Grid x:Name="SidebarSpacer" Width="192" />
-                    <StackPanel VerticalAlignment="Center" Margin="26,0,0,0">
-                        <TextBlock x:Name="HeadingTitle" Text="Claude" Style="{StaticResource BodyStrongTextBlockStyle}" FontSize="15"
-                                   TextTrimming="CharacterEllipsis" AutomationProperties.HeadingLevel="Level1" />
-                        <TextBlock x:Name="HeadingSubtitle" Style="{StaticResource CaptionTextBlockStyle}" TextTrimming="CharacterEllipsis"
-                                   Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" AutomationProperties.AutomationId="manager.state" />
-                    </StackPanel>
-                </StackPanel>
-            </TitleBar.LeftHeader>
+            <!-- Empty slots put WinUI's bar in its compact row, too short for the button that sits over the rail. -->
+            <TitleBar.Resources>
+                <x:Double x:Key="TitleBarCompactHeight">52</x:Double>
+            </TitleBar.Resources>
         </TitleBar>
+        <!-- Over the title bar rather than in it: anything in the bar's own slots is kept from
+             dragging the window, and the whole bar drags. Its left edge follows the page's. -->
+        <StackPanel x:Name="Heading" IsHitTestVisible="False" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="262,0,140,0">
+            <TextBlock x:Name="HeadingTitle" Text="Claude" Style="{StaticResource BodyStrongTextBlockStyle}" FontSize="15"
+                       TextTrimming="CharacterEllipsis" AutomationProperties.HeadingLevel="Level1" />
+            <TextBlock x:Name="HeadingSubtitle" Style="{StaticResource CaptionTextBlockStyle}" TextTrimming="CharacterEllipsis"
+                       Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" AutomationProperties.AutomationId="manager.state" />
+        </StackPanel>
 
         <!--
             The Frame hosts pages for your application content. Add your UI to
@@ -115,7 +115,7 @@
                 </StackPanel>
             </NavigationView.PaneFooter>
             <NavigationView.FooterMenuItems>
-                <NavigationViewItem x:Name="SettingsItem" Content="Settings" Tag="settings" SelectsOnInvoked="False"
+                <NavigationViewItem x:Name="SettingsItem" Content="Settings" Tag="settings"
                                     AutomationProperties.AutomationId="sidebar.settings">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE713;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>

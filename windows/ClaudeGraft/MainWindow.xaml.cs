@@ -30,7 +30,13 @@ public sealed partial class MainWindow : Window
         AppTitleBar.Loaded += (_, _) =>
         {
             if (Named<Button>(AppTitleBar, "PART_PaneToggleButton", _ => true) is { } toggle)
-                toggle.Margin = new Thickness(4, toggle.Margin.Top, 0, toggle.Margin.Bottom);
+            {
+                toggle.Margin = new Thickness(4, 0, 0, 0);
+                // The rail's highlight in size; it once took its height from the heading beside it.
+                toggle.Width = 40;
+                toggle.Height = 36;
+                toggle.VerticalAlignment = VerticalAlignment.Center;
+            }
         };
         // The icon ships packed as an app resource, not a loose file, so this
         // path is absent in an unpackaged install — and SetIcon throwing on it
@@ -60,9 +66,6 @@ public sealed partial class MainWindow : Window
         // Closing hides to the tray instead of quitting; Window.Closed is too
         // late to cancel, so this is on AppWindow.Closing.
         AppWindow.Closing += (sender, args) => { args.Cancel = true; sender.Hide(); };
-
-        // The title bar's pane button is WinUI's, with no fade of its own.
-        AppTitleBar.Loaded += (_, _) => { foreach (var b in Buttons(AppTitleBar)) Fade.Add(b); };
         RootFrame.Navigate(typeof(MainPage));
         if (RootFrame.Content is MainPage page) page.ClaudesChanged += RebuildClaudes;
         RebuildClaudes();
@@ -78,6 +81,7 @@ public sealed partial class MainWindow : Window
             "artifacts" => ("Artifacts", "Every account"),
             "projects" => ("Projects", "Every account"),
             "search" => ("Search Chats", "Every account"),
+            "settings" => ("Settings", "Claude Graft"),
             _ => RootFrame.Content is MainPage page ? page.Heading : ("Claude", ""),
         };
         HeadingTitle.Text = heading.Title;
@@ -121,7 +125,7 @@ public sealed partial class MainWindow : Window
     private void SetPane(double width)
     {
         Sections.OpenPaneLength = width;
-        SidebarSpacer.Width = Math.Max(0, width - 48);
+        Heading.Margin = new Thickness(width + 22, 0, 140, 0);
         // Headings and the footer would show cut off beside the icons, so they fade with the width.
         var shown = Math.Clamp((width - RailWidth) / (PaneWidth - RailWidth), 0, 1);
         ClaudesHeader.Opacity = ShortcutsHeader.Opacity = PaneFooterPanel.Opacity = SettingsRule.Opacity = shown;
@@ -170,15 +174,6 @@ public sealed partial class MainWindow : Window
         if (_contentGrid.CornerRadius != corner) _contentGrid.CornerRadius = corner;
         var edge = new Thickness(1, 1, 0, 0);
         if (_contentGrid.BorderThickness != edge) _contentGrid.BorderThickness = edge;
-    }
-    private static IEnumerable<Button> Buttons(DependencyObject root)
-    {
-        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
-        {
-            var child = VisualTreeHelper.GetChild(root, i);
-            if (child is Button button) yield return button;
-            else foreach (var inner in Buttons(child)) yield return inner;
-        }
     }
 
     private static T? Named<T>(DependencyObject root, string name, Func<T, bool> which) where T : FrameworkElement
@@ -264,14 +259,8 @@ public sealed partial class MainWindow : Window
 
     private async void Sections_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
     {
-        SnapSelection();
         var tag = (args.InvokedItemContainer as NavigationViewItem)?.Tag as string;
         if (RootFrame.Content is not MainPage page) return;
-        if (tag == "settings")
-        {
-            await page.OpenSettingsAsync();
-            return;
-        }
         if (tag == "new")
         {
             ShowClaudes();
@@ -284,29 +273,21 @@ public sealed partial class MainWindow : Window
         if (RootFrame.Content is MainPage page) await page.ConfirmRestartClaudesAsync();
     }
 
-    // A selection moves at once, as WinUI's does: faded, the item let go of flashed its fill
-    // on the way out. Hover keeps its fade, which comes back once the move has drawn.
-    private async void SnapSelection()
-    {
-        var parts = Sections.MenuItems.OfType<NavigationViewItem>()
-            .Select(i => Named<Grid>(i, "LayoutRoot", _ => true)).OfType<Grid>().ToList();
-        foreach (var part in parts) part.BackgroundTransition = null;
-        await Task.Delay(300);
-        foreach (var part in parts) part.BackgroundTransition ??= new BrushTransition();
-    }
-
     private void Sections_SelectionChanged(Microsoft.UI.Xaml.Controls.NavigationView sender, Microsoft.UI.Xaml.Controls.NavigationViewSelectionChangedEventArgs args)
     {
-        SnapSelection();
         var tag = (args.SelectedItem as Microsoft.UI.Xaml.Controls.NavigationViewItem)?.Tag as string;
         var claudes = tag is null || tag.StartsWith("claude:");
         DispatcherQueue.TryEnqueue(ShowHeading);
         if (claudes && !_rebuilding && tag is not null && RootFrame.Content is MainPage page) page.Focus(tag["claude:".Length..]);
-        RootFrame.Visibility = claudes ? Visibility.Visible : Visibility.Collapsed;
+        // Hidden, not collapsed: brought back from collapsed, the Claudes' page was laid out
+        // afresh in the frames the sidebar's indicator was sliding through, and it stuttered.
+        RootFrame.Opacity = claudes ? 1 : 0;
+        RootFrame.IsHitTestVisible = RootFrame.IsEnabled = claudes;
+        AutomationProperties.SetAccessibilityView(RootFrame, claudes ? Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Content : Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
         SectionFrame.Visibility = claudes ? Visibility.Collapsed : Visibility.Visible;
         // Navigated every time, to pages the Frame keeps, so each visit plays the opening
         // transition and a page comes back as it was left; loading again refreshes it.
-        var section = tag switch { "artifacts" => typeof(ArtifactsPage), "projects" => typeof(ProjectsPage), "search" => typeof(SearchPage), _ => null };
+        var section = tag switch { "artifacts" => typeof(ArtifactsPage), "projects" => typeof(ProjectsPage), "search" => typeof(SearchPage), "settings" => typeof(SettingsPage), _ => null };
         if (section is not null)
         {
             SectionFrame.Navigate(section, null, new Microsoft.UI.Xaml.Media.Animation.EntranceNavigationTransitionInfo());
@@ -403,8 +384,6 @@ public sealed partial class MainWindow : Window
         if (RootFrame.Content is MainPage page) page.OnShown();
     }
 
-    /// Brings the window up and opens the settings dialog on it — the tray's
-    /// Settings entry has no window of its own to show one in.
     public void ConfirmRestartClaudes()
     {
         Show();
@@ -412,11 +391,11 @@ public sealed partial class MainWindow : Window
         if (RootFrame.Content is MainPage page) _ = page.ConfirmRestartClaudesAsync();
     }
 
+    /// The window, open on the Settings page, for the tray's Settings entry.
     public void ShowSettings()
     {
         Show();
-        ShowClaudes();
-        if (RootFrame.Content is MainPage page) _ = page.OpenSettingsAsync();
+        Sections.SelectedItem = SettingsItem;
     }
 
     /// Dresses the window from the current settings: theme on the content root,

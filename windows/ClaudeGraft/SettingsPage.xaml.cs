@@ -2,23 +2,37 @@ using System.Reflection;
 using ClaudeGraft.Core;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Navigation;
 
 namespace ClaudeGraft;
 
 /// <summary>
-/// The app's preferences: how it looks, and how it starts. Reads the current
-/// settings in and, once Done is pressed, hands back what was chosen for the
-/// caller to apply and persist. Auto-start is read from and written to the
-/// Startup folder rather than the settings file, so this shows the real state.
+/// The app's preferences as a page of their own, each applied the moment it changes,
+/// as WinUI Gallery's are. Auto-start is read from and written to the Startup folder
+/// rather than the settings file, so the switch shows the real state.
 /// </summary>
-public sealed partial class SettingsDialog : ContentDialog
+public sealed partial class SettingsPage : Page
 {
-    public SettingsDialog(GraftSettings current)
+    private const string AboutLine = "Keeps reporting usage in the notification area after its window is closed; quit it from there";
+    private bool _loading;
+    private Updater.Release? _update;
+
+    public SettingsPage()
     {
         InitializeComponent();
+        NavigationCacheMode = NavigationCacheMode.Required;
+        var version = Assembly.GetExecutingAssembly().GetName().Version;
+        AboutCard.Header = version is null ? "Claude Graft" : $"Claude Graft {version.Major}.{version.Minor}.{version.Build}";
+        Loaded += (_, _) => App.UpdateProgressChanged += ReflectDownload;
+        Unloaded += (_, _) => App.UpdateProgressChanged -= ReflectDownload;
+    }
 
-        // The combo order matches the enum order, so the choice round-trips
-        // through the selected index without a lookup table.
+    // Read again on every visit: the tray, the main card and Windows itself change some of these.
+    protected override void OnNavigatedTo(NavigationEventArgs e)
+    {
+        _loading = true;
+        var current = App.Settings;
+        // The combo order matches the enum order, so the choice round-trips through the index.
         ThemeBox.SelectedIndex = (int)current.Theme;
         BackdropBox.SelectedIndex = (int)current.Backdrop;
         DrawPalettes();
@@ -29,31 +43,74 @@ public sealed partial class SettingsDialog : ContentDialog
         TaskbarStripSwitch.IsOn = current.TaskbarStrip;
         ChimeSwitch.IsOn = current.Chime;
         // Only an install Graft can update by hand can safely stop updating itself.
-        ManualClaudeRow.Visibility = ClaudeDesktopUpdates.IsSquirrel ? Visibility.Visible : Visibility.Collapsed;
-        try { ManualClaudeSwitch.IsOn = ManualUpdates.Enabled; }
+        ManualClaudeCard.Visibility = ClaudeDesktopUpdates.IsSquirrel ? Visibility.Visible : Visibility.Collapsed;
+        try { ManualClaudeSwitch.IsOn = ManualUpdates.Enabled; ManualClaudeSwitch.IsEnabled = true; }
         catch (IOException) { ManualClaudeSwitch.IsEnabled = false; }
-        _current = current;
-
-        var version = Assembly.GetExecutingAssembly().GetName().Version;
-        VersionText.Text = version is null
-            ? "Claude Graft"
-            : $"Claude Graft {version.Major}.{version.Minor}.{version.Build}";
-
+        _loading = false;
         ReflectUpdate();
-        App.UpdateProgressChanged += ReflectDownload;
-        Closed += (_, _) => App.UpdateProgressChanged -= ReflectDownload;
         ReflectDownload();
     }
 
-    private readonly GraftSettings _current;
-    private Updater.Release? _update;
+    private void Changed(object sender, object e)
+    {
+        if (_loading) return;
+        var current = App.Settings;
+        App.ApplySettings(new GraftSettings
+        {
+            Theme = (AppTheme)Math.Max(0, ThemeBox.SelectedIndex),
+            Backdrop = (BackdropMaterial)Math.Max(0, BackdropBox.SelectedIndex),
+            Palette = (AppPalette)Math.Max(0, PaletteGrid.SelectedIndex),
+            StartHidden = StartHiddenSwitch.IsOn,
+            HoldUpdates = HoldUpdatesSwitch.IsOn,
+            TaskbarStrip = TaskbarStripSwitch.IsOn,
+            Chime = ChimeSwitch.IsOn,
+            // Set elsewhere, but a save must not drop them.
+            KeepMainWarm = current.KeepMainWarm,
+            SharingExplained = current.SharingExplained,
+        });
+    }
+
+    // The tiles show the mode that will be in effect, so changing it repaints them.
+    private void ThemeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (PaletteGrid.Items.Count > 0)
+        {
+            var chosen = PaletteGrid.SelectedIndex;
+            var was = _loading;
+            _loading = true;
+            DrawPalettes();
+            PaletteGrid.SelectedIndex = chosen;
+            _loading = was;
+        }
+        Changed(sender, e);
+    }
+
+    private void AutoStart_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (!_loading) AutoStart.Set(AutoStartSwitch.IsOn);
+    }
+
+    private async void ManualClaude_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        var wanted = ManualClaudeSwitch.IsOn;
+        try { await Task.Run(() => ManualUpdates.SetEnabled(wanted)); }
+        catch (IOException)
+        {
+            _loading = true;
+            ManualClaudeSwitch.IsOn = !wanted;
+            _loading = false;
+            ManualClaudeCard.Description = "Claude's updates were left as they were: its settings could not be written.";
+        }
+        ClaudeUpdateCenter.Redraw();
+    }
 
     private void ReflectUpdate()
     {
         _update = App.AvailableUpdate;
         CheckButton.IsEnabled = true;
         CheckButton.Content = _update is null ? "Check for Updates" : $"Install Update {_update.Version}";
-        if (_update is not null) ShowStatus($"Version {_update.Version} is available.");
+        ShowStatus(_update is null ? null : $"Version {_update.Version} is available.");
     }
 
     private void ReflectDownload()
@@ -63,9 +120,8 @@ public sealed partial class SettingsDialog : ContentDialog
         CheckButton.Content = $"Downloading… {(int)Math.Round(fraction * 100)}%";
     }
 
-    // Unlike the flyout, which stays quiet like the Mac dropdown, the settings
-    // page reports the outcome in words: a person who opened it and pressed is
-    // owed an answer.
+    // Unlike the flyout, which stays quiet like the Mac dropdown, this page reports the
+    // outcome in words: a person who pressed is owed an answer.
     private async void Check_Click(object sender, RoutedEventArgs e)
     {
         if (_update is not null)
@@ -96,21 +152,7 @@ public sealed partial class SettingsDialog : ContentDialog
         }
     }
 
-    private void Pages_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
-    {
-        AppearancePage.Visibility = sender.SelectedItem == AppearanceTab ? Visibility.Visible : Visibility.Collapsed;
-        GeneralPage.Visibility = sender.SelectedItem == GeneralTab ? Visibility.Visible : Visibility.Collapsed;
-        UpdatesPage.Visibility = sender.SelectedItem == UpdatesTab ? Visibility.Visible : Visibility.Collapsed;
-    }
-
-    // The tiles show the mode that will be in effect, so changing it repaints them.
-    private void ThemeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (PaletteGrid is null || PaletteGrid.Items.Count == 0) return;
-        var chosen = PaletteGrid.SelectedIndex;
-        DrawPalettes();
-        PaletteGrid.SelectedIndex = chosen;
-    }
+    private void ShowStatus(string? text) => AboutCard.Description = text ?? AboutLine;
 
     /// Each scheme as Windows shows a theme: a small window in its own colours, its
     /// sidebar, a card on its content and a bar of its accent.
@@ -157,33 +199,4 @@ public sealed partial class SettingsDialog : ContentDialog
         var c = new Windows.UI.ViewManagement.UISettings().GetColorValue(Windows.UI.ViewManagement.UIColorType.Accent);
         return new Rgb(c.R, c.G, c.B);
     }
-
-    private void ShowStatus(string? text)
-    {
-        UpdateStatus.Text = text ?? "";
-        UpdateStatus.Visibility = text is null ? Visibility.Collapsed : Visibility.Visible;
-    }
-
-    /// The settings as chosen. Read after the dialog closes on Done.
-    public GraftSettings Result => new()
-    {
-        Theme = (AppTheme)ThemeBox.SelectedIndex,
-        Backdrop = (BackdropMaterial)BackdropBox.SelectedIndex,
-        Palette = (AppPalette)Math.Max(0, PaletteGrid.SelectedIndex),
-        StartHidden = StartHiddenSwitch.IsOn,
-        HoldUpdates = HoldUpdatesSwitch.IsOn,
-        TaskbarStrip = TaskbarStripSwitch.IsOn,
-        Chime = ChimeSwitch.IsOn,
-        // Set from the main card rather than here, but a save must not drop it.
-        KeepMainWarm = _current.KeepMainWarm,
-        SharingExplained = _current.SharingExplained,
-    };
-
-    /// Manual Claude updates as chosen, or null where the switch was not offered.
-    public bool? ManualClaudeUpdates =>
-        ManualClaudeRow.Visibility == Visibility.Visible && ManualClaudeSwitch.IsEnabled ? ManualClaudeSwitch.IsOn : null;
-
-    /// Whether the person asked to start with Windows — applied to the Startup
-    /// folder separately from the settings file.
-    public bool AutoStartEnabled => AutoStartSwitch.IsOn;
 }

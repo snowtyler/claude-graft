@@ -377,23 +377,6 @@ public sealed partial class MainPage : Page
 
     /// Opens the settings dialog and, once Done is pressed, writes the auto-start
     /// shortcut and hands the rest to the app to save and apply everywhere.
-    public async Task OpenSettingsAsync()
-    {
-        var dialog = new SettingsDialog(App.Settings);
-        PrepareDialog(dialog);
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-        {
-            AutoStart.Set(dialog.AutoStartEnabled);
-            App.ApplySettings(dialog.Result);
-            if (dialog.ManualClaudeUpdates is bool manual && manual != ManualUpdates.Enabled)
-            {
-                try { await Task.Run(() => ManualUpdates.SetEnabled(manual)); }
-                catch (IOException e) { await Warn("Claude's updates were left as they were", e.Message); }
-                ClaudeUpdateCenter.Redraw();
-            }
-        }
-    }
-
     // MARK: - Shared usage
 
     /// Every Claude Graft knows, by sharing key, with its name.
@@ -671,6 +654,9 @@ public sealed partial class MainPage : Page
     {
         // A binding setting the switch to what is already saved also raises
         // Toggled, and must not write it again.
+        // The word beside it follows the switch itself, which runs ahead of the saved row.
+        if (sender is ToggleSwitch { Parent: FrameworkElement { Parent: StackPanel { Children: [TextBlock words, ..] } } } moved)
+            words.Text = SettingsCard.OnOff(moved.IsOn);
         if (sender is not ToggleSwitch { Tag: ShortcutRow row } box || box.IsOn == row.KeepWarm) return;
         // A reused row's binding can flip the switch before its Tag follows; only a
         // person's toggle, which focuses it, is saved.
