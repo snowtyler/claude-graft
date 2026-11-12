@@ -56,24 +56,47 @@ jobs:
             throw "Electron was staged without default_app.asar"
           }
 
-      - name: Download VC++ Redistributable
-        shell: pwsh
-        run: |
-          Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" `
-            -OutFile "windows/installer/vc_redist.x64.exe"
+      - name: Install vpk
+        # The same version as the Velopack package ClaudeGraft.csproj references.
+        run: dotnet tool install -g vpk --version 1.2.161
 
+      # A delta is made against the last Windows release's package; the first has none to fetch.
+      - name: Fetch the previous release
+        continue-on-error: true
+        run: >
+          vpk download github
+          --repoUrl https://github.com/${{ github.repository }}
+          --token ${{ secrets.GITHUB_TOKEN }}
+          -o windows/dist/velopack
+
+      - name: Pack
+        run: >
+          vpk pack
+          --packId ClaudeGraftApp
+          --packVersion ${{ steps.version.outputs.version }}
+          --packDir windows/dist/ClaudeGraft
+          --mainExe ClaudeGraft.exe
+          --packTitle "Claude Graft"
+          --packAuthors "Claude Graft"
+          --icon windows/ClaudeGraft/Assets/AppIcon.ico
+          --releaseNotes windows/release-notes/${{ steps.version.outputs.version }}.md
+          --shortcuts StartMenuRoot
+          --framework vcredist143-x64
+          -o windows/dist/velopack
+
+      # 1.x updaters run only an Inno setup; this one hands over to Velopack's.
       - name: Install Inno Setup
         shell: pwsh
         run: choco install innosetup --yes --no-progress
 
-      - name: Build installer
+      - name: Build the bridge from 1.x
         shell: pwsh
         run: |
           $iscc = Get-ChildItem "C:\Program Files*\Inno Setup*\ISCC.exe" -Recurse | Select-Object -First 1
           & $iscc.FullName `
             /DMyAppVersion="${{ steps.version.outputs.version }}" `
             /O"windows/dist" `
-            "windows/installer/ClaudeGraft.iss"
+            "windows/installer/Bridge.iss"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -82,5 +105,9 @@ jobs:
           draft: false
           prerelease: false
           body_path: windows/release-notes/${{ steps.version.outputs.version }}.md
+          # Only this version's packages: the feed names each against the release that carries it.
           files: |
+            windows/dist/velopack/ClaudeGraftApp-win-Setup.exe
+            windows/dist/velopack/ClaudeGraftApp-${{ steps.version.outputs.version }}-*.nupkg
+            windows/dist/velopack/releases.win.json
             windows/dist/ClaudeGraft-${{ steps.version.outputs.version }}-x64-setup.exe

@@ -73,12 +73,21 @@ channels a contributor does not have, so the port leaves them alone:
 - **Distribution and updates.** A full-trust utility that reaches across profile
   directories and reads another app's credentials fits an unpackaged installer
   better than a sandboxed package — the same shape Claude Desktop itself uses on
-  Windows. So a release is an Inno Setup installer, built and published to the
+  Windows. So a release is a Velopack package, built and published to the
   repository's GitHub releases by the tag-driven workflow, and the app updates
-  itself from that feed: it polls the releases API for the newest full release
-  carrying a setup asset, checked hourly. As on the Mac, a found update installs
-  itself without a word, waiting only while a Graft window is open, since the
-  installer closes Graft and starts it again. Turning on Hold Graft's updates in
+  itself from that feed: it reads the `releases.win.json` each Windows release
+  carries, checked hourly, and fetches a delta where one is published. It
+  installs per user, without administrator rights, under
+  `%LOCALAPPDATA%\ClaudeGraftApp` — not `ClaudeGraft`, the folder that holds the
+  relay and the artifact sign-ins, since Velopack's uninstall deletes the
+  folder it installed into. As on the Mac, a found update installs itself
+  without a word, waiting only while a Graft window is open, since applying it
+  closes Graft and starts it again. A 1.x install, whose updater only knows
+  Inno Setup, is carried across by a small Inno bridge published beside each
+  release under the name it looks for; the new app then points the old
+  folder's links at itself, leaves a junction where the folder stood, and
+  removes its uninstall entry, without running the old uninstaller, which
+  would have taken every Claude's sharing lines out. Turning on Hold Graft's updates in
   Settings makes it wait instead: the version lights the icon and the button, and
   nothing is downloaded until the person presses Install. Whether a
   release is signed at all is still the maintainer's call; the feed is the

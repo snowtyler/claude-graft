@@ -76,9 +76,17 @@ public sealed partial class MainWindow : Window
             frame.PreferredMinimumHeight = Math.Min((int)(560 * scale), work.Height);
         }
 
-        // Closing hides to the tray instead of quitting; Window.Closed is too
-        // late to cancel, so this is on AppWindow.Closing.
-        AppWindow.Closing += (sender, args) => { args.Cancel = true; sender.Hide(); };
+        // WinUI empties the window before Windows animates it out, so the close
+        // animation plays over the real content first and the window goes after.
+        AppWindow.Closing += async (sender, args) =>
+        {
+            if (_closing) return;
+            args.Cancel = true;
+            _closing = true;
+            sender.Hide();
+            await Task.Delay(300);
+            Close();
+        };
         RootFrame.Navigate(typeof(MainPage));
         if (RootFrame.Content is MainPage page) page.ClaudesChanged += RebuildClaudes;
         RebuildClaudes();
@@ -386,10 +394,18 @@ public sealed partial class MainWindow : Window
             ?? Sections.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => ((string?)i.Tag)?.StartsWith("claude:") == true);
     }
 
+    private bool _closing, _shown;
+    public bool IsClosing => _closing;
+
     public void Show()
     {
-        AppWindow.Show();
-        Activate();
+        // A new window is shown only once its page has been built, or it opens on an empty frame.
+        if (!_shown)
+        {
+            _shown = true;
+            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, Activate);
+        }
+        else Activate();
         // The page loads its usage once, when it is first built; every reopen
         // after that has to ask for a fresh read itself, or a first read that
         // came up empty would never be retried. Harmless on the first show, when

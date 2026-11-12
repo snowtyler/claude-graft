@@ -121,6 +121,8 @@ public partial class App : Application
 
         InitializeComponent();
         RequestedTheme = ModeInEffect();
+        // The manager closes for real, and the tray app outlives it.
+        DispatcherShutdownMode = DispatcherShutdownMode.OnExplicitShutdown;
     }
 
     // Nothing is swallowed — the exception is written down and left to take the
@@ -151,9 +153,17 @@ public partial class App : Application
         // at the old per-user copy; carried over in the background, since the
         // folder being cleared out holds a whole Electron.
         System.Threading.Tasks.Task.Run(() => { try { Installer.MigrateLegacyLauncher(); } catch { } });
+        System.Threading.Tasks.Task.Run(LegacyInstall.MoveOff);
+        new Thread(() => { while (Program.ShowRequest.WaitOne()) ShowManager(); }) { IsBackground = true, Name = "show-request" }.Start();
         // Links keep pointing at the same icon files; a Claude update redraws them.
         var shortcuts = Store.Shortcuts.ToList();
         System.Threading.Tasks.Task.Run(() => ShortcutIcons.Refresh(shortcuts));
+        // Shortcuts made before they went in the Start menu as well.
+        System.Threading.Tasks.Task.Run(() =>
+        {
+            foreach (var s in shortcuts.Where(s => Installer.InstalledLink(s) is not null))
+                Installer.AddToStartMenu(s);
+        });
         // Recovery listens before the first windows are identified, or a
         // shortcut's Claude already open at start would never be watched.
         UpdateRecovery.StrayOpened += UpdateToast.StrayClaude;
@@ -231,8 +241,9 @@ public partial class App : Application
             _ => _ = SweepWarmProfiles(), null, TimeSpan.FromSeconds(20), TimeSpan.FromMinutes(5));
 
         // A minute in, so a login-time launch is not on the network before it is
-        // up; hourly after, as the Mac checks, and well inside GitHub's
-        // unauthenticated rate limit.
+        // up; hourly after, as the Mac checks. A check is at most eleven of
+        // GitHub's sixty unauthenticated requests an hour: the list, and each
+        // of the last ten releases' feed.
         _updateTimer = new Timer(
             _ => _ = CheckForUpdates(), null, TimeSpan.FromSeconds(60), TimeSpan.FromHours(1));
 
@@ -319,9 +330,10 @@ public partial class App : Application
 
     private async Task CheckForUpdates()
     {
+        if (!GraftUpdates.IsInstalled) return;
         try
         {
-            var found = await Updater.CheckAsync();
+            var found = await GraftUpdates.CheckAsync();
             OnUi(() =>
             {
                 SetAvailableUpdate(found);
@@ -338,7 +350,7 @@ public partial class App : Application
     {
         try
         {
-            var found = await Updater.CheckAsync();
+            var found = await GraftUpdates.CheckAsync();
             SetAvailableUpdate(found);
             return found;
         }
@@ -371,8 +383,8 @@ public partial class App : Application
     private Task<bool>? _installing;
     private ClaudeQuitWatch? _quitWatch;
 
-    /// Fetches the installer and hands off to it, then quits — the installer
-    /// cannot replace a running exe, so the process that holds it open has to go.
+    /// Fetches the package and hands off to Velopack, then quits — the folder
+    /// cannot be swapped while this process holds it open.
     /// A second press while one is under way joins it rather than starting
     /// another download. False when the download failed and nothing was handed off.
     internal Task<bool> InstallUpdateAsync(Updater.Release release, bool quiet = false) =>
@@ -391,8 +403,7 @@ public partial class App : Application
             SetUpdateDownload(fraction);
             if (!quiet) UpdateToast.Report(fraction);
         });
-        string path;
-        try { path = await Updater.DownloadAsync(release, progress); }
+        try { await GraftUpdates.DownloadAsync(release, progress); }
         catch (Exception e)
         {
             Record("update.download", e);
@@ -406,13 +417,18 @@ public partial class App : Application
         if (!quiet) UpdateToast.Installing();
         Diagnostics.Note("update.install", new Dictionary<string, object?>
         {
-            ["version"] = release.Version.ToString(), ["path"] = path, ["onItsOwn"] = quiet,
+            ["version"] = release.Version.ToString(), ["onItsOwn"] = quiet,
         });
-        Updater.LaunchInstaller(path);
-        _tray?.Dispose();
-        WindowIdentity.Stop();
-        FrontClaude.Stop();
-        Exit();
+        try { GraftUpdates.ApplyOnExit(release); }
+        catch (Exception e)
+        {
+            Record("update.apply", e);
+            _installing = null;
+            SetUpdateDownload(null);
+            if (!quiet) UpdateToast.Failed(release);
+            return false;
+        }
+        await ShutDown();
         return true;
     }
 
@@ -608,37 +624,56 @@ public partial class App : Application
     internal static void ConfirmRestartClaudes() => (Current as App)?.OnUi(() =>
     {
         var app = (App)Current;
-        app._window ??= new MainWindow();
-        app._window.ConfirmRestartClaudes();
+        app.Manager().ConfirmRestartClaudes();
     });
+
+    /// Built afresh for each open and closed for real: Windows plays the opening
+    /// animation only for a new window, and a hidden one re-shown flashes black first.
+    // One closing out is let go rather than shown again halfway through.
+    private MainWindow Manager() => _window is { IsClosing: false } open ? open : _window = NewManager();
+
+    private MainWindow NewManager()
+    {
+        var window = new MainWindow();
+        window.Closed += (_, _) => { if (_window == window) _window = null; };
+        return window;
+    }
 
     private void ShowManager() => OnUi(() =>
     {
-        _window ??= new MainWindow();
-        _window.Show();
+        Manager().Show();
     });
 
     /// Settings live in a dialog on the manager window, so opening them from the
     /// tray brings the window up first — a dialog needs a window to sit in.
     private void ShowSettings() => OnUi(() =>
     {
-        _window ??= new MainWindow();
-        _window.ShowSettings();
+        Manager().ShowSettings();
     });
 
     private void ShowSupport() => OnUi(() =>
     {
-        _window ??= new MainWindow();
-        _window.ShowSupport();
+        Manager().ShowSupport();
     });
 
-    private void Quit() => OnUi(() =>
+    private void Quit() => OnUi(() => _ = ShutDown());
+
+    // The strip is a child of Explorer's taskbar: one whose process just ends stalls
+    // Explorer until Windows notices. The manager goes as a close does, hidden first.
+    private async Task ShutDown()
     {
+        _strip?.Dispose();
+        _strip = null;
+        if (_window is { } window && window.AppWindow.IsVisible)
+        {
+            window.AppWindow.Hide();
+            await Task.Delay(300);
+        }
         _tray?.Dispose();
         WindowIdentity.Stop();
         FrontClaude.Stop();
         Exit();
-    });
+    }
 
     /// Runs on the UI thread whether the caller is already there or on the
     /// tray's message-window thread.

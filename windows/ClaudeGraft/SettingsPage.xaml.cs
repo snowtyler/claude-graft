@@ -145,6 +145,11 @@ public sealed partial class SettingsPage : Page
             ReflectUpdate();
             if (found is null) ShowStatus("You’re up to date.");
         }
+        catch (GraftUpdates.NotInstalledException)
+        {
+            ReflectUpdate();
+            ShowStatus("This copy wasn’t installed by Claude Graft’s setup, so it can’t update itself.");
+        }
         catch
         {
             ReflectUpdate();

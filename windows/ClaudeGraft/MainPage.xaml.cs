@@ -134,9 +134,9 @@ public sealed partial class MainPage : Page
         Editor.Discarded += Editor_Discarded;
         Editor.DeleteRequested += Editor_DeleteRequested;
         Editor.StateChanged += UpdateBottomBar;
-        App.SharingChanged += ShowSharing;
         Loaded += (_, _) =>
         {
+            App.SharingChanged += ShowSharing;
             Reload();
             _processTimer.Start();
             _usageTimer.Start();
@@ -144,6 +144,7 @@ public sealed partial class MainPage : Page
         };
         Unloaded += (_, _) =>
         {
+            App.SharingChanged -= ShowSharing;
             _processTimer.Stop();
             _usageTimer.Stop();
             _clock.Stop();

@@ -57,8 +57,12 @@ public sealed partial class ProfileEditor : UserControl
         _shortcut = existing?.Copy() ?? Shortcut.New(App.Store.UniqueName());
         if (_isNew) _shortcut.IconPreset = App.Store.NextIconPreset();
         _folderEdited = !_isNew;
+        // Something outside Graft can take the link away; saving unchanged writes it back.
+        _linkMissing = existing is not null && Installer.InstalledLink(existing) is null;
         Fill();
     }
+
+    private bool _linkMissing;
 
     private void Fill()
     {
@@ -113,7 +117,7 @@ public sealed partial class ProfileEditor : UserControl
 
     private void Changed()
     {
-        IsDirty = _isNew || _original is null
+        IsDirty = _isNew || _original is null || _linkMissing
             || NameBox.Text.Trim() != _original.Name || FolderBox.Text.Trim() != _original.Folder
             || !_shortcut.Source.Equals(_original.Source) || _shortcut.IconPreset != _original.IconPreset;
         StateChanged?.Invoke();

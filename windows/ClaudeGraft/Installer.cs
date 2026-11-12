@@ -22,13 +22,16 @@ public static class Installer
     private static readonly Lazy<string?> launcherExe = new(FindLauncher);
     internal static string? LauncherExe => launcherExe.Value;
 
-    /// Where earlier versions copied the stub, and where their shortcuts point.
-    private static string LegacyLauncherDir => Path.Combine(
+    /// Where earlier versions copied the stub, now a junction onto it. An
+    /// installed copy's links go through it: Velopack's uninstall deletes every
+    /// link whose target is inside its folder, and does not follow a junction.
+    private static string StableLauncherDir => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ClaudeGraft", "launcher");
-    private static string LegacyLauncherExe => Path.Combine(LegacyLauncherDir, "GraftLaunch.exe");
 
     private static string DesktopDir => Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
     private static string LinkPath(string name) => Path.Combine(DesktopDir, name + ".lnk");
+    private static string StartMenuPath(string name) =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), name + ".lnk");
 
     public enum InstallError { ReservedName, NameTaken, MissingLauncher, WriteFailed }
 
@@ -43,7 +46,7 @@ public static class Installer
         if (ReservedNames.Contains(shortcut.Name.Trim().TrimEnd('.'), StringComparer.OrdinalIgnoreCase))
             throw new InstallException(InstallError.ReservedName, $"“{shortcut.Name}” is the name of Claude itself. Pick another.");
 
-        if (LauncherExe is not { } launcher)
+        if (LinkTarget() is not { } launcher)
             throw new InstallException(InstallError.MissingLauncher, "This copy of Claude Graft is missing its launcher.");
 
         var path = LinkPath(shortcut.Name);
@@ -55,6 +58,7 @@ public static class Installer
         {
             WriteLink(path, launcher, shortcut.Folder, ShortcutIcons.LinkIcon(shortcut),
                       $"Open {shortcut.Name} — a Claude Desktop profile");
+            AddToStartMenu(shortcut, launcher);
             RefreshPinnedCopies(shortcut, launcher);
         }
         catch (Exception e)
@@ -71,8 +75,24 @@ public static class Installer
     /// the new one has just been written and is the shortcut's only way in.
     public static void RemoveLink(string name)
     {
-        var path = LinkPath(name);
-        if (File.Exists(path) && IsOurs(path)) try { File.Delete(path); } catch { }
+        foreach (var path in new[] { LinkPath(name), StartMenuPath(name) })
+            if (File.Exists(path) && IsOurs(path)) try { File.Delete(path); } catch { }
+    }
+
+    /// The Start menu copy of an installed shortcut's link. Another app's link at
+    /// that name is left alone, and the desktop one is enough.
+    public static void AddToStartMenu(Shortcut shortcut) { if (LinkTarget() is { } launcher) AddToStartMenu(shortcut, launcher); }
+
+    private static void AddToStartMenu(Shortcut shortcut, string launcher)
+    {
+        var path = StartMenuPath(shortcut.Name);
+        if (File.Exists(path) && !IsOurs(path)) return;
+        try
+        {
+            WriteLink(path, launcher, shortcut.Folder, ShortcutIcons.LinkIcon(shortcut),
+                      $"Open {shortcut.Name} — a Claude Desktop profile");
+        }
+        catch { }
     }
 
     /// The .lnk this app installed for a shortcut, or null if there is none of
@@ -111,8 +131,30 @@ public static class Installer
     {
         if (LauncherExe is not { } launcher) return;
         var current = Path.GetDirectoryName(launcher)!;
-        var legacy = LegacyLauncherDir;
+        MoveOff(StableLauncherDir, current);
+        if (GraftUpdates.IsInstalled && LinkTarget() is not null)
+            Retarget(current, StableLauncherDir, IsLauncher);
+    }
 
+    /// What a profile's link points at: through the junction in an installed
+    /// copy, made here if an uninstall or a first install left none.
+    private static string? LinkTarget()
+    {
+        if (LauncherExe is not { } launcher || !GraftUpdates.IsInstalled) return LauncherExe;
+        try
+        {
+            if (!Fs.Exists(StableLauncherDir)) Junction.Create(StableLauncherDir, Path.GetDirectoryName(launcher)!);
+            var stable = Path.Combine(StableLauncherDir, "GraftLaunch.exe");
+            return File.Exists(stable) ? stable : launcher;
+        }
+        catch { return launcher; }
+    }
+
+    /// Points every link into <paramref name="legacy"/> at the same file in
+    /// <paramref name="current"/>, then leaves a junction where the folder stood.
+    /// False while something still holds the old folder open.
+    public static bool MoveOff(string legacy, string current)
+    {
         if (Junction.IsLink(legacy))
         {
             // A dev build and an installed one take turns running here.
@@ -122,28 +164,38 @@ public static class Installer
                 Junction.Remove(legacy);
                 Junction.Create(legacy, current);
             }
-            return;
+            return true;
         }
-        if (!Directory.Exists(legacy)) return;
+        if (!Directory.Exists(legacy)) return true;
 
+        Retarget(legacy, current, _ => true);
+
+        // A launcher or its Electron still running holds files open; the next
+        // start tries again, and the shortcuts already point at the new stub.
+        try { Directory.Delete(legacy, recursive: true); } catch { return false; }
+        Junction.Create(legacy, current);
+        return true;
+    }
+
+    /// Points each link whose target is inside <paramref name="from"/> at the same file in <paramref name="to"/>.
+    private static void Retarget(string from, string to, Func<string, bool> which)
+    {
         foreach (var link in LinksToRetarget())
         {
             try
             {
                 dynamic shell = Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell")!)!;
                 var lnk = shell.CreateShortcut(link);
-                if (!string.Equals((string)lnk.TargetPath, LegacyLauncherExe, StringComparison.OrdinalIgnoreCase)) continue;
-                lnk.TargetPath = launcher;
-                lnk.WorkingDirectory = current;
+                if (!which((string)lnk.TargetPath) || Updater.Moved((string)lnk.TargetPath, from, to) is not { } target) continue;
+                lnk.TargetPath = target;
+                lnk.WorkingDirectory = Path.GetDirectoryName(target);
+                var icon = ((string)lnk.IconLocation).Split(',');
+                if (Updater.Moved(icon[0], from, to) is { } moved)
+                    lnk.IconLocation = moved + (icon.Length > 1 ? "," + icon[^1] : "");
                 lnk.Save();
             }
             catch { }
         }
-
-        // A launcher or its Electron still running holds files open; the next
-        // start tries again, and the shortcuts already point at the new stub.
-        try { Directory.Delete(legacy, recursive: true); } catch { return; }
-        Junction.Create(legacy, current);
     }
 
     /// A copy of the link pinned to the taskbar or Start menu is a separate
