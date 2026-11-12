@@ -33,6 +33,9 @@ public partial class App : Application
     /// flyout can show it the moment it opens rather than waiting on a fresh check.
     public static Updater.Release? AvailableUpdate { get; private set; }
 
+    /// Whether a check has answered since launch, so "Up to date" is never said before one has.
+    public static bool UpdateChecked { get; private set; }
+
     /// How far the update's download has got, 0 to 1, or null when none is
     /// running. The flyout draws it; the tray tooltip and the notification are
     /// kept in step from here.
@@ -47,11 +50,14 @@ public partial class App : Application
         if (updated.Theme == Settings.Theme
             && updated.Backdrop == Settings.Backdrop
             && updated.Palette == Settings.Palette
-            && updated.StartHidden == Settings.StartHidden) return;
+            && updated.StartHidden == Settings.StartHidden
+            && updated.HoldUpdates == Settings.HoldUpdates) return;
 
+        // Only a change of look redraws the windows; a redraw resets the backdrop, which flashes.
+        var looks = updated.Theme != Settings.Theme || updated.Backdrop != Settings.Backdrop || updated.Palette != Settings.Palette;
         Settings = updated;
         updated.Save();
-        SettingsChanged?.Invoke();
+        if (looks) SettingsChanged?.Invoke();
     }
 
     private TaskbarIcon? _tray;
@@ -166,7 +172,7 @@ public partial class App : Application
 
         // Built now, hidden, so the first left click shows it rather than paying
         // to construct a window and its backdrop before anything appears.
-        _flyout = new FlyoutWindow(ShowManager, Quit);
+        _flyout = new FlyoutWindow(ShowManager, ShowSupport, Quit);
         SessionEnd.Watch(_flyout, Quit);
 
         // A tray app comes up hidden by default — the notification-area icon is
@@ -308,6 +314,8 @@ public partial class App : Application
     private void SetAvailableUpdate(Updater.Release? release)
     {
         AvailableUpdate = release;
+        UpdateChecked = true;
+        UpdateProgressChanged?.Invoke();
 
         // The notify half of the feature: the icon a person is not looking at
         // still says an update is waiting. Once per version, so a check every six
@@ -460,7 +468,7 @@ public partial class App : Application
         var priorForeground = GetForegroundWindow();
         OnUi(() =>
         {
-            _flyout ??= new FlyoutWindow(ShowManager, Quit);
+            _flyout ??= new FlyoutWindow(ShowManager, ShowSupport, Quit);
             _flyout.Toggle(anchor, priorForeground);
         });
     }
@@ -526,6 +534,12 @@ public partial class App : Application
     {
         _window ??= new MainWindow();
         _window.ShowSettings();
+    });
+
+    private void ShowSupport() => OnUi(() =>
+    {
+        _window ??= new MainWindow();
+        _window.ShowSupport();
     });
 
     private void Quit() => OnUi(() =>

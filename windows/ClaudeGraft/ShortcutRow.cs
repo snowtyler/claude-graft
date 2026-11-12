@@ -114,6 +114,7 @@ public sealed class ShortcutRow : INotifyPropertyChanged
         {
             nameof(FiveHour), nameof(FiveHourBarVisibility), nameof(Week), nameof(FiveHourText), nameof(WeekText),
             nameof(Fable), nameof(FableText), nameof(FableVisibility), nameof(FiveHourPercent), nameof(FiveHourLeft), nameof(WeekPercent), nameof(WeekLeft), nameof(FablePercent), nameof(FableLeft), nameof(FiveHourNoLimitVisibility),
+            nameof(FiveHourResets), nameof(WeekResets), nameof(FableResets), nameof(FiveHourResetsVisibility), nameof(WeekResetsVisibility), nameof(FableResetsVisibility),
             nameof(BarsVisibility), nameof(NoUsageVisibility), nameof(BarsOpacity),
         }) Notify(name);
         NotifyStatus();
@@ -210,6 +211,14 @@ public sealed class ShortcutRow : INotifyPropertyChanged
     public string WeekLeft => Left(Current?.WeekReset);
     public string FablePercent => $"{Fable}%";
     public string FableLeft => Left(Current?.FableReset);
+    // The dropdown's rows: the time left under the bar, as the Mac's menu has it.
+    public string FiveHourResets => Resets(FiveHourLeft);
+    public string WeekResets => Resets(WeekLeft);
+    public string FableResets => Resets(FableLeft);
+    public Visibility FiveHourResetsVisibility => FiveHourLeft.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility WeekResetsVisibility => WeekLeft.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility FableResetsVisibility => FableLeft.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+    private static string Resets(string left) => left.Length > 0 ? $"Resets in {left}" : "";
     private static string Left(DateTimeOffset? reset) => reset is DateTimeOffset r && Graft.Countdown(r) is string left ? left : "";
 
     /// Created or not, and running or not, under the page's title, as the Mac's subtitle.

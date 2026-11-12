@@ -288,8 +288,11 @@ public sealed partial class MainWindow : Window
     private bool _leftClaudes;
 
     // Graft is one author's app carried to Windows by another; a tip can go to either.
-    private async void Support_Click(object sender, RoutedEventArgs e)
+    private void Support_Click(object sender, RoutedEventArgs e) => ShowSupport();
+
+    public async void ShowSupport()
     {
+        Show();
         var dialog = new ContentDialog
         {
             XamlRoot = Content.XamlRoot,

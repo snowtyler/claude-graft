@@ -32,7 +32,7 @@ public static class ClaudeUpdateCenter
     {
         _ui = ui;
         // At start and hourly, as the Mac checks; whether a Claude is open or not.
-        _timer = new Timer(_ => _ = CheckAsync(), null, TimeSpan.FromSeconds(20), TimeSpan.FromHours(1));
+        _timer = new Timer(_ => _ = CheckAsync(), null, TimeSpan.FromSeconds(2), TimeSpan.FromHours(1));
         Set(Phase.Checking);
     }
 

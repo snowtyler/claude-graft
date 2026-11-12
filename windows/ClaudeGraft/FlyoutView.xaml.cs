@@ -20,6 +20,7 @@ public sealed partial class FlyoutView : UserControl
     /// wants them, not how the app carries them out.
     public event Action? OpenManagerRequested;
     public event Action? QuitRequested;
+    public event Action? SupportRequested;
     public event Action? DismissRequested;
 
     /// The content changed size — a row added, an account's bars arriving — so
@@ -215,19 +216,31 @@ public sealed partial class FlyoutView : UserControl
         App.Instance.SyncSharingSoon();
     }
 
+    private bool _checking;
+
+    private static string Shown(Version v) => v.Build < 0 ? v.ToString(2) : v.ToString(3);
+
     private void ReflectUpdate()
     {
         _update = App.AvailableUpdate;
-        CheckButton.IsEnabled = true;
-        CheckButton.Content = "Check for Updates…";
         var downloading = App.UpdateDownload;
-        AvailableButton.IsEnabled = downloading is null;
-        AvailableButton.Content = _update is null
-            ? null
-            : downloading is { } f
-                ? $"Downloading version {_update.Version}… {(int)Math.Round(f * 100)}%"
-                : $"Version {_update.Version} is available";
-        AvailableButton.Visibility = _update is null ? Visibility.Collapsed : Visibility.Visible;
+        GraftWords.Inlines.Clear();
+        GraftWords.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = "Claude Graft", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+        GraftWords.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run
+        {
+            Text = " " + (_update is null
+                ? $"{Shown(Updater.Current)}" + (_checking ? " · checking" : App.UpdateChecked ? " · Up to date" : "")
+                : downloading is { } f
+                    ? $"{_update.Version} · downloading {(int)Math.Round(f * 100)}%"
+                    : $"{_update.Version} is available · you have {Shown(Updater.Current)}"),
+            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+        });
+        GraftGlyph.Glyph = _update is not null ? "" : _checking || !App.UpdateChecked ? "" : "";
+        var busy = _checking || downloading is not null;
+        GraftCheckBusy.IsActive = busy;
+        GraftCheckBusy.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
+        CheckButton.Visibility = busy ? Visibility.Collapsed : Visibility.Visible;
+        AvailableButton.Visibility = _update is not null && downloading is null ? Visibility.Visible : Visibility.Collapsed;
         var showBar = downloading is not null && _update is not null;
         if (showBar) UpdateProgress.Value = downloading!.Value;
         if ((UpdateProgress.Visibility == Visibility.Visible) != showBar)
@@ -239,13 +252,16 @@ public sealed partial class FlyoutView : UserControl
 
     private async void Check_Click(object sender, RoutedEventArgs e)
     {
-        CheckButton.IsEnabled = false;
-        CheckButton.Content = "Checking for Updates…";
+        _checking = true;
+        ReflectUpdate();
+        // Long enough to be seen, since an unchanged answer otherwise looks like nothing happened.
+        var shown = Task.Delay(800);
         // A failed check is left silent, the way the Mac's is; the reason is in diagnostics.
         try { await App.Instance.RunUpdateCheckAsync(); }
         catch { }
+        await shown;
+        _checking = false;
         ReflectUpdate();
-        LayoutChanged?.Invoke();
     }
 
     /// The flyout stays up so the download can be watched; the progress itself
@@ -358,6 +374,12 @@ public sealed partial class FlyoutView : UserControl
     }
 
     private void Quit_Click(object sender, RoutedEventArgs e) => QuitRequested?.Invoke();
+
+    private void Support_Click(object sender, RoutedEventArgs e)
+    {
+        SupportRequested?.Invoke();
+        DismissRequested?.Invoke();
+    }
 
     private void ClaudeRestart_Requested()
     {

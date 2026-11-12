@@ -29,7 +29,9 @@ public sealed partial class ClaudeUpdateLine : UserControl
             Grid.SetRow(ActionButton, value ? 1 : 0);
             ActionButton.HorizontalAlignment = value ? HorizontalAlignment.Left : HorizontalAlignment.Stretch;
             ActionButton.Margin = new Thickness(0, value ? 6 : 0, 0, 0);
-            Glyph.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
+            Glyph.FontSize = value ? 16 : 14;
+            // A fixed box, since the state glyphs differ in width and would nudge the words.
+            Glyph.Width = Glyph.Height = value ? 18 : 16;
             Words.Style = value ? null : (Style)Application.Current.Resources["CaptionTextBlockStyle"];
         }
     }
@@ -49,29 +51,41 @@ public sealed partial class ClaudeUpdateLine : UserControl
         var line = ClaudeUpdateCenter.Line;
         Words.Inlines.Clear();
         const string name = "Claude Desktop";
-        // In the sidebar the name stands on a line of its own, as on the Mac, rather
-        // than the status breaking wherever the narrow width runs out.
-        if (Stacked && line.StartsWith(name + " ", StringComparison.Ordinal))
+        // The name leads in its own weight, as on the Mac: on a line of its own in the sidebar,
+        // and the hold on updates is the tooltip's to say, so the line keeps to the version.
+        if (line.StartsWith(name + " ", StringComparison.Ordinal))
         {
-            Words.MaxLines = 3;
+            Words.MaxLines = Stacked ? 3 : 2;
             Words.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = name, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
-            Words.Inlines.Add(new Microsoft.UI.Xaml.Documents.LineBreak());
-            // The hold on updates is the tooltip's to say; the line keeps to the version.
+            if (Stacked) Words.Inlines.Add(new Microsoft.UI.Xaml.Documents.LineBreak());
             var rest = line[(name.Length + 1)..].TrimStart('·', ' ');
             var held = rest.IndexOf(" · updates when you ask", StringComparison.Ordinal);
-            Words.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = held < 0 ? rest : rest[..held] });
+            Words.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run
+            {
+                Text = (Stacked ? "" : " ") + (held < 0 ? rest : rest[..held]),
+                Foreground = ClaudeUpdateCenter.Alarming ? null : (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+            });
         }
         else Words.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = line });
         ToolTipService.SetToolTip(Words, line);
         Words.Foreground = (Brush)Application.Current.Resources[ClaudeUpdateCenter.Alarming
-            ? "SystemFillColorCriticalBrush" : _stacked ? "TextFillColorPrimaryBrush" : "TextFillColorSecondaryBrush"];
+            ? "SystemFillColorCriticalBrush" : "TextFillColorPrimaryBrush"];
         var busy = phase is ClaudeUpdateCenter.Phase.Installing or ClaudeUpdateCenter.Phase.Restarting or ClaudeUpdateCenter.Phase.Checking;
-        // In the sidebar the spinner takes the check button's place rather than pushing the words over.
-        Busy.IsActive = busy && !_stacked;
-        Busy.Visibility = busy && !_stacked ? Visibility.Visible : Visibility.Collapsed;
-        CheckBusy.IsActive = busy && _stacked;
-        CheckBusy.Visibility = busy && _stacked ? Visibility.Visible : Visibility.Collapsed;
-        CheckButton.Visibility = _stacked && !busy && phase is not ClaudeUpdateCenter.Phase.Store ? Visibility.Visible : Visibility.Collapsed;
+        // The spinner takes the check button's place rather than pushing the words over.
+        CheckBusy.IsActive = busy;
+        CheckBusy.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
+        CheckButton.Visibility = !busy && phase is not ClaudeUpdateCenter.Phase.Store ? Visibility.Visible : Visibility.Collapsed;
+        Glyph.Glyph = phase switch
+        {
+            ClaudeUpdateCenter.Phase.UpToDate => "",
+            ClaudeUpdateCenter.Phase.Available => "",
+            ClaudeUpdateCenter.Phase.NeedsRestart => "",
+            ClaudeUpdateCenter.Phase.Failed => "",
+            ClaudeUpdateCenter.Phase.Store => "",
+            _ => "",
+        };
+        Glyph.Foreground = (Brush)Application.Current.Resources[ClaudeUpdateCenter.Alarming
+            ? "SystemFillColorCriticalBrush" : "TextFillColorSecondaryBrush"];
         var action = ClaudeUpdateCenter.Action;
         ActionButton.Content = action;
         ActionButton.Visibility = action is null ? Visibility.Collapsed : Visibility.Visible;
