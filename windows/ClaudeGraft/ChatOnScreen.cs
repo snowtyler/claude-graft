@@ -18,6 +18,9 @@ public static class ChatOnScreen
     private static Dictionary<string, SharedChats.Record> _byCli = new();
     private static readonly Dictionary<string, string?> OnScreenCli = new(StringComparer.OrdinalIgnoreCase);
     private static readonly Dictionary<string, (ChatFocus.Turn Turn, long? EndedAt)> Turns = new(StringComparer.OrdinalIgnoreCase);
+    private static Dictionary<string, (string Profile, ChatFocus.Record Record)> _byCliRecord = new();
+    // Permissions the hook reported waiting, by Claude Code session, and when.
+    private static readonly Dictionary<string, long> Asking = new();
     private static readonly List<FileSystemWatcher> Watchers = new();
     private static Timer? _debounce;
 
@@ -76,6 +79,26 @@ public static class ChatOnScreen
         lock (Gate) return Turns.GetValueOrDefault(Path.GetFullPath(profile));
     }
 
+    /// The profile a Claude Code session's conversation lives in, and where its turn stands.
+    public static (string? Profile, ChatFocus.Turn Turn) SessionState(string cliSession)
+    {
+        lock (Gate)
+            return _byCliRecord.TryGetValue(cliSession, out var r)
+                ? (r.Profile, ChatFocus.TurnOf(r.Record, Asking.TryGetValue(cliSession, out var at) ? at : null))
+                : (null, ChatFocus.Turn.None);
+    }
+
+    /// A permission the hook says a session now waits on, or null once it no longer does.
+    public static void SetAsking(string cliSession, long? at)
+    {
+        lock (Gate)
+        {
+            if (at is long when) Asking[cliSession] = when;
+            else if (!Asking.Remove(cliSession)) return;
+        }
+        _debounce?.Change(0, Timeout.Infinite);
+    }
+
     /// The Claude Code session of the conversation on screen in a profile.
     public static string? OnScreenSession(string profile)
     {
@@ -102,8 +125,13 @@ public static class ChatOnScreen
                 changed = false;
                 var byCli = new Dictionary<string, SharedChats.Record>();
                 // Under two accounts a session has two records; the newest focus speaks for it.
-                foreach (var r in stores.Values.SelectMany(r => r).Where(r => r.Cli is not null).OrderBy(r => r.FocusedAt ?? 0))
+                var byCliRecord = new Dictionary<string, (string, ChatFocus.Record)>();
+                foreach (var (profile, r) in stores.SelectMany(s => s.Value.Select(r => (s.Key, r))).Where(p => p.r.Cli is not null).OrderBy(p => p.r.FocusedAt ?? 0))
+                {
                     byCli[r.Cli!] = new SharedChats.Record(r.Title, r.Archived);
+                    byCliRecord[r.Cli!] = (profile, r);
+                }
+                _byCliRecord = byCliRecord;
                 if (byCli.Count != _byCli.Count || byCli.Any(b => _byCli.GetValueOrDefault(b.Key) != b.Value)) changed = true;
                 _byCli = byCli;
                 foreach (var (profile, records) in stores)
@@ -112,7 +140,7 @@ public static class ChatOnScreen
                     var shown = Focus.ShownSession(profile);
                     var record = records.FirstOrDefault(r => r.Session == shown);
                     var cli = record?.Cli;
-                    var turn = record is null || title is null ? (ChatFocus.Turn.None, null) : (ChatFocus.TurnOf(record), record.TurnEdgeAt);
+                    var turn = record is null || title is null ? (ChatFocus.Turn.None, null) : (ChatFocus.TurnOf(record, record.Cli is string c && Asking.TryGetValue(c, out var asked) ? asked : null), record.TurnEdgeAt);
                     if (Turns.GetValueOrDefault(profile) != turn) { Turns[profile] = turn; changed = true; }
                     if (OnScreenCli.GetValueOrDefault(profile) != cli) { OnScreenCli[profile] = cli; changed = true; }
                     if (Titles.GetValueOrDefault(profile) == title) continue;

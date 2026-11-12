@@ -106,6 +106,13 @@
                                ToolTipService.ToolTip="The Claude in front, its usage and the conversation on screen, beside the notification area. Hidden while the taskbar hides itself, sits on a side, or a full-screen app is up." />
                     <Grid Grid.Column="1" Width="40"><ToggleSwitch x:Name="TaskbarStripSwitch" Style="{StaticResource SettingsSwitch}" AutomationProperties.Name="Show usage on the taskbar" AutomationProperties.AutomationId="settings.taskbarStrip" /></Grid>
                 </Grid>
+                <Border Style="{StaticResource SettingsRule}" />
+                <Grid Style="{StaticResource SettingsRow}">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                    <TextBlock Text="Chime when a Claude is ready" VerticalAlignment="Center"
+                               ToolTipService.ToolTip="A sound when a Claude that is not in front finishes a turn, and a stronger one when it waits on a permission or a question. Adds an entry to Claude Code's settings, taken out again when this is turned off." />
+                    <Grid Grid.Column="1" Width="40"><ToggleSwitch x:Name="ChimeSwitch" Style="{StaticResource SettingsSwitch}" AutomationProperties.Name="Chime when a Claude is ready" AutomationProperties.AutomationId="settings.chime" /></Grid>
+                </Grid>
                 <Border Style="{StaticResource SettingsGroupRule}" />
                 <StackPanel x:Name="ManualClaudeRow">
                     <Grid Style="{StaticResource SettingsRow}">

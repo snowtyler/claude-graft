@@ -22,9 +22,11 @@ public sealed class ChatFocus
     /// Where a conversation's last turn stands. A prompt newer than the last turn's
     /// end is one still being answered; an ended turn that left a question, or broke
     /// after the prompt, waits on the person. A permission asked mid-turn is never
-    /// written down, so it reads as working.
-    public static Turn TurnOf(Record r)
+    /// written down, so only the hook's report of one (<paramref name="askedAt"/>) says so.
+    public static Turn TurnOf(Record r, long? askedAt = null)
     {
+        // A permission the hook reported, newer than the turn's end, holds the turn up.
+        if (askedAt is long asking && asking > (r.TurnEdgeAt ?? 0) && asking > (r.PromptedAt ?? 0)) return Turn.NeedsPerson;
         if (r.PromptedAt is long asked && (r.TurnEdgeAt is not long ended || asked > ended)) return Turn.Working;
         if (r.TurnEdgeAt is null) return Turn.None;
         if (r.AsksPerson || (r.ErrorAt is long broke && broke >= (r.PromptedAt ?? 0))) return Turn.NeedsPerson;

@@ -13,8 +13,19 @@ using ClaudeGraft.Core;
 // Before anything reaches the network or opens a Claude that would inherit them.
 PoolEnvironment.ForgetInheritedLines();
 
+// Run by Claude Code's hook at a turn's end and a permission it waits on. It must
+// return at once, so it only leaves the event for Graft and never fails the hook.
+if (args.Length == 1 && args[0] == ChimeHook.Flag)
+{
+    try { HookSignal.File(Console.In.ReadToEnd()); }
+    catch (Exception e) { Diagnostics.Note("launcher.signal-failed", new Dictionary<string, object?> { ["error"] = e.Message }); }
+    return 0;
+}
+
 if (args.Length == 1 && args[0] == "--stop-sharing")
 {
+    // Graft going takes its hook out of Claude Code's settings with it.
+    ChimeHook.Remove(ChimeHook.SettingsFile);
     foreach (var path in PoolEnvironment.TakeOutLines(null, ClaudeProcesses.IsRunning))
         Console.WriteLine($"still open, or changed since Graft read it: {path}");
     return 0;

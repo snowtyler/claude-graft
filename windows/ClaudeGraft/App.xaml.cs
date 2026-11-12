@@ -52,14 +52,26 @@ public partial class App : Application
             && updated.Palette == Settings.Palette
             && updated.StartHidden == Settings.StartHidden
             && updated.HoldUpdates == Settings.HoldUpdates
-            && updated.TaskbarStrip == Settings.TaskbarStrip) return;
+            && updated.TaskbarStrip == Settings.TaskbarStrip
+            && updated.Chime == Settings.Chime) return;
 
         // Only a change of look redraws the windows; a redraw resets the backdrop, which flashes.
         var looks = updated.Theme != Settings.Theme || updated.Backdrop != Settings.Backdrop || updated.Palette != Settings.Palette;
+        var chimeChanged = updated.Chime != Settings.Chime;
         Settings = updated;
         updated.Save();
+        if (chimeChanged) _ = Task.Run(SyncChimeHook);
         if (looks) SettingsChanged?.Invoke();
         (Current as App)?.ShowTray();
+    }
+
+    private static void SyncChimeHook()
+    {
+        var launcher = Path.Combine(AppContext.BaseDirectory, "GraftLaunch.exe");
+        var done = Settings.Chime
+            ? File.Exists(launcher) && ChimeHook.Install(ChimeHook.SettingsFile, launcher)
+            : ChimeHook.Remove(ChimeHook.SettingsFile);
+        if (!done) Diagnostics.Note("chime.hook-unchanged", new Dictionary<string, object?> { ["wanted"] = Settings.Chime, ["launcher"] = launcher });
     }
 
     private TaskbarIcon? _tray;
@@ -169,6 +181,9 @@ public partial class App : Application
         ChatOnScreen.Changed += ShowTray;
         SharingChanged += ShowTray;
         ChatOnScreen.Start(_ui);
+        Chime.Start(_ui);
+        // An update can move the launcher the entry names; it is put right at every start.
+        if (Settings.Chime) _ = Task.Run(SyncChimeHook);
         FrontClaude.Activated += profile => _ = RefreshFront(profile);
         FrontClaude.Start(_ui);
         // A Claude in front is spending its figure, so it is asked after more

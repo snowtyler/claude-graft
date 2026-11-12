@@ -38,6 +38,7 @@ public sealed partial class SettingsDialog : ContentDialog
         StartHiddenSwitch.IsOn = current.StartHidden;
         HoldUpdatesSwitch.IsOn = current.HoldUpdates;
         TaskbarStripSwitch.IsOn = current.TaskbarStrip;
+        ChimeSwitch.IsOn = current.Chime;
         // Only an install Graft can update by hand can safely stop updating itself.
         ManualClaudeRow.Visibility = ClaudeDesktopUpdates.IsSquirrel ? Visibility.Visible : Visibility.Collapsed;
         try { ManualClaudeSwitch.IsOn = ManualUpdates.Enabled; }
@@ -127,6 +128,7 @@ public sealed partial class SettingsDialog : ContentDialog
         StartHidden = StartHiddenSwitch.IsOn,
         HoldUpdates = HoldUpdatesSwitch.IsOn,
         TaskbarStrip = TaskbarStripSwitch.IsOn,
+        Chime = ChimeSwitch.IsOn,
         // Set from the main card rather than here, but a save must not drop it.
         KeepMainWarm = _current.KeepMainWarm,
         SharingExplained = _current.SharingExplained,
