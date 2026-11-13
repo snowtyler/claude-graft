@@ -237,7 +237,7 @@ public sealed partial class FlyoutView : UserControl
         var busy = _checking || downloading is not null;
         GraftCheckBusy.IsActive = busy;
         GraftCheckBusy.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
-        CheckButton.Visibility = busy ? Visibility.Collapsed : Visibility.Visible;
+        CheckButton.Visibility = busy || _update is not null ? Visibility.Collapsed : Visibility.Visible;
         AvailableButton.Visibility = _update is not null && downloading is null ? Visibility.Visible : Visibility.Collapsed;
         var showBar = downloading is not null && _update is not null;
         if (showBar) UpdateProgress.Value = downloading!.Value;

@@ -60,11 +60,10 @@ public sealed partial class ClaudeUpdateLine : UserControl
             if (Stacked) Words.Inlines.Add(new Microsoft.UI.Xaml.Documents.LineBreak());
             var rest = line[(name.Length + 1)..].TrimStart('·', ' ');
             var held = rest.IndexOf(" · updates when you ask", StringComparison.Ordinal);
-            Words.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run
-            {
-                Text = (Stacked ? "" : " ") + (held < 0 ? rest : rest[..held]),
-                Foreground = ClaudeUpdateCenter.Alarming ? null : Themed.Brush("TextFillColorSecondaryBrush"),
-            });
+            var version = new Microsoft.UI.Xaml.Documents.Run { Text = (Stacked ? "" : " ") + (held < 0 ? rest : rest[..held]) };
+            // Left unset when alarming so it takes the line's red: a null brush draws nothing.
+            if (!ClaudeUpdateCenter.Alarming) version.Foreground = Themed.Brush("TextFillColorSecondaryBrush");
+            Words.Inlines.Add(version);
         }
         else Words.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = line });
         ToolTipService.SetToolTip(Words, line);
@@ -74,7 +73,9 @@ public sealed partial class ClaudeUpdateLine : UserControl
         // The spinner takes the check button's place rather than pushing the words over.
         CheckBusy.IsActive = busy;
         CheckBusy.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
-        CheckButton.Visibility = !busy && phase is not ClaudeUpdateCenter.Phase.Store ? Visibility.Visible : Visibility.Collapsed;
+        var action = ClaudeUpdateCenter.Action;
+        // Checking again says nothing new while an action waits, and beside its button the check fell out of line with Graft's.
+        CheckButton.Visibility = !busy && action is null && phase is not ClaudeUpdateCenter.Phase.Store ? Visibility.Visible : Visibility.Collapsed;
         Glyph.Glyph = phase switch
         {
             ClaudeUpdateCenter.Phase.UpToDate => "",
@@ -86,7 +87,6 @@ public sealed partial class ClaudeUpdateLine : UserControl
         };
         Glyph.Foreground = Themed.Brush(ClaudeUpdateCenter.Alarming
             ? "SystemFillColorCriticalBrush" : "TextFillColorSecondaryBrush");
-        var action = ClaudeUpdateCenter.Action;
         ActionButton.Content = action;
         ActionButton.Visibility = action is null ? Visibility.Collapsed : Visibility.Visible;
         AutomationProperties.SetName(ActionButton, action is null ? "" : action.TrimEnd('…') + " Claude Desktop");
