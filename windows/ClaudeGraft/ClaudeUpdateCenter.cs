@@ -79,7 +79,7 @@ public static class ClaudeUpdateCenter
     {
         if (!ClaudeDesktopUpdates.IsSquirrel)
         {
-            Set(PackagedClaude.Locate() is null ? Phase.Hidden : Phase.Store);
+            Set(ClaudeInstallation.Current?.Package is null ? Phase.Hidden : Phase.Store);
             return;
         }
         Installed = ClaudeDesktopUpdates.InstalledVersion();
@@ -142,7 +142,7 @@ public static class ClaudeUpdateCenter
         finally { Interlocked.Exchange(ref _busy, 0); }
     }
 
-    private static void ReadLocalOnly() => Set(PackagedClaude.Locate() is null ? Phase.Hidden : Phase.Store);
+    private static void ReadLocalOnly() => Set(ClaudeInstallation.Current?.Package is null ? Phase.Hidden : Phase.Store);
 
     /// Runs Claude's own updater against the feed. It installs beside the
     /// running version and closes nothing; the open Claudes move to it when

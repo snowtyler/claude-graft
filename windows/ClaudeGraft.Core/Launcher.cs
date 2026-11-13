@@ -19,9 +19,9 @@ public static class Launcher
     /// ordinal sort puts app-2.2553.1 above app-2.2553.13 — the path separator
     /// after the "1" outranks the "3" — so Graft launched a stale build and left
     /// Claude asking for an update its own updater had already installed.
-    public static string? ClaudeExe() => SquirrelExe() ?? PackagedClaude.Locate()?.Exe;
+    public static string? ClaudeExe() => ClaudeInstallation.Current?.Exe;
 
-    private static string? SquirrelExe()
+    internal static string? SquirrelExe()
     {
         var root = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AnthropicClaude");
@@ -174,13 +174,14 @@ public static class Launcher
         var args = Fs.SamePath(profile, GraftPaths.DefaultProfile)
             ? ""
             : $"--user-data-dir=\"{profile}\"";
-        if (SquirrelExe() is { } exe)
+        var claude = ClaudeInstallation.Current;
+        if (claude is { Package: null, Exe: var exe })
         {
             // Started anywhere else, Claude holds Graft's install folder as its own and an update cannot replace it.
             try { Process.Start(new ProcessStartInfo(exe, args) { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(exe)! }); }
             catch { }
         }
-        else if (PackagedClaude.Locate() is { } package && !PackagedClaude.Activate(package, args))
+        else if (claude?.Package is { } package && !PackagedClaude.Activate(package, args))
         {
             Diagnostics.Note("launch.activationFailed", new Dictionary<string, object?>
             {

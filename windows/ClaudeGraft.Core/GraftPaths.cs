@@ -4,7 +4,8 @@ namespace ClaudeGraft.Core;
 /// Where Claude Desktop keeps its profiles on Windows. The Mac build reads
 /// these out of <c>~/Library/Application Support</c>; on Windows every profile
 /// — the default one and each graft beside it — is a folder directly under
-/// <c>%APPDATA%</c> (Roaming), the same store folder for folder. Verified on a
+/// <c>%APPDATA%</c> (Roaming), or for packaged Claude the copy of it Windows
+/// keeps in the package (<see cref="ClaudeInstallation"/>), the same store folder for folder. Verified on a
 /// real install carrying the same <c>config.json</c>, <c>claude-code-sessions</c>,
 /// <c>local-agent-mode-sessions</c> and <c>plan-usage-history.json</c> the Mac
 /// layout has.
@@ -20,6 +21,7 @@ public static class GraftPaths
     /// Application Support on the Mac.
     public static string ProfilesRoot =>
         ProfilesRootOverride
+        ?? ClaudeInstallation.Current?.ProfilesRoot
         ?? Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
 
     /// The profile Claude opens with no --user-data-dir. Its absence of a flag
