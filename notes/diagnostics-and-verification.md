@@ -207,7 +207,7 @@ the state of live usage instead of reading numbers off the screen.
 On Windows, seven taps on the About card's icon in Settings, each within two
 seconds of the last, open a debug window that stages Claude's and Graft's update
 states, setup, the link handler, a busy or unreadable state pass, and each
-profile's sign-in, open dot and usage. It is held in `Staging`, in memory only,
+profile's sign-in, open dot, usage and Fable limit. It is held in `Staging`, in memory only,
 so quitting Graft or Reset puts everything back, and a stage only ever makes Graft
 show more or do less: a Claude can be staged open but never closed, and a staged
 update is never fetched, installed or restarted onto. Sign In and Open still

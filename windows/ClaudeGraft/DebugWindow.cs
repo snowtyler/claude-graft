@@ -110,24 +110,47 @@ internal sealed class DebugWindow : Window
         "No five-hour limit", "Rate limited", "Login refused", "Unreachable", "No usage yet",
     ];
 
+    private static readonly string[] FableStates = ["No Fable limit", "Fable low", "Fable high", "At the Fable limit"];
+
+    /// Each profile's two choices, read together since a Fable figure rides on the staged usage.
+    private readonly Dictionary<string, (int State, int Fable)> _chosen = new(StringComparer.OrdinalIgnoreCase);
+
     private void DrawAccounts()
     {
         _accounts.Children.Clear();
+        _chosen.Clear();
         var profiles = App.Store.Shortcuts.Select(s => (s.Name, s.ProfileDir)).Prepend(("Claude", GraftPaths.DefaultProfile));
         foreach (var (name, profile) in profiles)
-            _accounts.Children.Add(Choice(name, "debug.account." + Path.GetFileName(profile), AccountStates,
-                index => Staging.Stage(profile, AccountFor(index))));
+        {
+            var id = "debug.account." + Path.GetFileName(profile);
+            _accounts.Children.Add(Choice(name, id, AccountStates,
+                index => Restage(profile, _chosen.GetValueOrDefault(profile) with { State = index })));
+            _accounts.Children.Add(Choice(name + " · Fable", id + ".fable", FableStates,
+                index => Restage(profile, _chosen.GetValueOrDefault(profile) with { Fable = index })));
+        }
     }
 
-    private static AccountStage? AccountFor(int index)
+    private void Restage(string profile, (int State, int Fable) chosen)
+    {
+        _chosen[profile] = chosen;
+        Staging.Stage(profile, AccountFor(chosen.State, chosen.Fable));
+    }
+
+    /// A Fable choice on an account staged as it is or open needs a figure to sit
+    /// in, so it brings a low one; signed out and no usage have nowhere to show it.
+    private static AccountStage? AccountFor(int index, int fable)
     {
         var now = DateTimeOffset.UtcNow;
+        int? fableUsed = fable switch { 1 => 15, 2 => 82, 3 => 100, _ => null };
+        if (fableUsed is not null && index is 0) index = 3;
+        if (fableUsed is not null && index is 2) return new AccountStage { Running = true, SignedIn = true, Usage = Figure(12, 20) };
         UsageEntry Figure(int? fiveHour, int week, RefusalKind? refused = null) => new()
         {
             Usage = new Usage
             {
                 FiveHour = fiveHour, Week = week, Sampled = now,
                 FiveHourReset = fiveHour is null ? null : now.AddHours(3), WeekReset = now.AddDays(4),
+                Fable = fableUsed, FableReset = fableUsed is null ? null : now.AddDays(4),
             },
             IsLive = refused is null, Plan = "Max", UpdatedAt = refused is null ? now : now.AddMinutes(-20),
             Refusal = refused is { } kind ? new UsageRefusal { Kind = kind, RetryAt = now.AddMinutes(5) } : null,
@@ -153,6 +176,7 @@ internal sealed class DebugWindow : Window
         _drawing = true;
         foreach (var box in Boxes(panel)) box.SelectedIndex = 0;
         _drawing = false;
+        _chosen.Clear();
         ClaudeUpdateCenter.Unstage();
         if (App.Instance.UpdateStaged) App.Instance.StageUpdate(false);
         Staging.Clear();
