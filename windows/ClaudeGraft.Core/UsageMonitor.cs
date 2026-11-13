@@ -139,6 +139,7 @@ public static class UsageMonitor
     /// never a service Retry-After.
     public static async Task<UsageEntry> ReadAsync(string profile, bool interactive = false, TimeSpan? freshFor = null)
     {
+        if (Staging.For(profile)?.Usage is { } staged) return staged;
         var reading = await LiveAsync(profile, interactive, freshFor ?? LiveTtl).ConfigureAwait(false);
         var (refusal, liveAt) = Standing(profile);
         var local = Graft.UsageOf(profile);
@@ -160,6 +161,7 @@ public static class UsageMonitor
     /// a view can be built showing it rather than starting its bars from nothing.
     public static UsageEntry? Peek(string profile)
     {
+        if (Staging.For(profile)?.Usage is { } staged) return staged;
         UsageApi.Reading? reading;
         lock (Lock) reading = State(profile).LastLive;
         if (reading is null) return null;

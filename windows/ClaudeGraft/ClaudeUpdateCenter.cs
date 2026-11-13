@@ -66,6 +66,26 @@ public static class ClaudeUpdateCenter
     /// After something the line shows changed outside it, such as manual mode.
     public static void Redraw() => _ui?.TryEnqueue(() => Changed?.Invoke());
 
+    /// A phase the debug window put up, with made-up versions; nothing it offers is acted on.
+    public static bool Staged { get; private set; }
+
+    public static void Stage(Phase phase)
+    {
+        Staged = true;
+        Installed ??= new Version(1, 0, 0);
+        Latest = new Version(Installed.Major, Installed.Minor + 1, 0);
+        OnOlderVersion = phase == Phase.NeedsRestart ? 2 : 0;
+        Set(phase, phase == Phase.Failed ? "could not check for updates" : null);
+    }
+
+    public static void Unstage()
+    {
+        if (!Staged) return;
+        Staged = false;
+        Latest = null;
+        _ = CheckAsync();
+    }
+
     private static void Set(Phase phase, string? problem = null)
     {
         Now = phase;
@@ -103,13 +123,14 @@ public static class ClaudeUpdateCenter
     }
 
     /// The Failed line's button retries whichever of the two failed.
-    public static Task RetryAsync() => _installFailed ? UpdateAsync() : CheckAsync();
+    public static Task RetryAsync() => Staged ? Task.CompletedTask : _installFailed ? UpdateAsync() : CheckAsync();
 
     /// A press of the sidebar's button: the line says it is checking for long
     /// enough to be seen, since an unchanged answer otherwise looks like nothing.
     public static Task CheckNowAsync()
     {
         if (Volatile.Read(ref _busy) != 0) return Task.CompletedTask;
+        Staged = false;
         Set(Phase.Checking);
         return CheckAsync(Task.Delay(800));
     }
@@ -118,6 +139,8 @@ public static class ClaudeUpdateCenter
 
     private static async Task CheckAsync(Task? shown)
     {
+        // The hourly check would put the real answer over a staged one.
+        if (Staged) return;
         if (Interlocked.CompareExchange(ref _busy, 1, 0) != 0) return;
         try
         {
@@ -149,6 +172,7 @@ public static class ClaudeUpdateCenter
     /// they next start.
     public static async Task UpdateAsync()
     {
+        if (Staged) return;
         if (Interlocked.CompareExchange(ref _busy, 1, 0) != 0) return;
         try
         {
@@ -207,6 +231,7 @@ public static class ClaudeUpdateCenter
     /// reported, never forced.
     public static async Task<string?> RestartAsync(IReadOnlyList<(GracefulQuit.Target Target, GraftConfig Config, string Name)> agreed)
     {
+        if (Staged) return "That update was staged from the debug window; nothing was restarted.";
         if (Interlocked.CompareExchange(ref _busy, 1, 0) != 0) return "Claude is already being updated.";
         try
         {

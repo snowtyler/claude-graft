@@ -21,6 +21,7 @@ public sealed partial class SettingsPage : Page
         InitializeComponent();
         NavigationCacheMode = NavigationCacheMode.Required;
         AboutCard.Header = $"Claude Graft {Updater.Shown}";
+        AboutCard.GlyphTapped += CountTowardDebug;
         Loaded += (_, _) => App.UpdateProgressChanged += ReflectDownload;
         Unloaded += (_, _) => App.UpdateProgressChanged -= ReflectDownload;
     }
@@ -86,6 +87,20 @@ public sealed partial class SettingsPage : Page
     private void AutoStart_Toggled(object sender, RoutedEventArgs e)
     {
         if (!_loading) AutoStart.Set(AutoStartSwitch.IsOn);
+    }
+
+    private int _debugTaps;
+    private DateTime _lastDebugTap;
+
+    /// Seven taps on About's icon, each within two seconds of the last.
+    private void CountTowardDebug()
+    {
+        var now = DateTime.UtcNow;
+        _debugTaps = now - _lastDebugTap < TimeSpan.FromSeconds(2) ? _debugTaps + 1 : 1;
+        _lastDebugTap = now;
+        if (_debugTaps < 7) return;
+        _debugTaps = 0;
+        DebugWindow.Show();
     }
 
     private async void ManualClaude_Toggled(object sender, RoutedEventArgs e)

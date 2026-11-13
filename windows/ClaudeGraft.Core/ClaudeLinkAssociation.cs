@@ -19,6 +19,7 @@ public static class ClaudeLinkAssociation
 
     public static ClaudeLinkHandler Current()
     {
+        if (Staging.LinkHandler is { } staged) return staged;
         if (!OperatingSystem.IsWindows()) return ClaudeLinkHandler.Unknown;
         // Ask the shell on every press. Registration only makes Graft a candidate,
         // and Windows can change the elected handler while the manager stays open.

@@ -34,6 +34,7 @@ public static class StateLock
 
     private static void Enter()
     {
+        if (_depth == 0 && Staging.StateFailure is { } staged) throw staged();
         if (_depth++ > 0) return;
         // Named for the data directory, so a test's temporary one never waits
         // on the installed app.

@@ -9,7 +9,7 @@ public enum SetupState { Ready, NotInstalled, NotSignedIn }
 /// </summary>
 public static class Onboarding
 {
-    public static SetupState Check(ShortcutStore store) =>
+    public static SetupState Check(ShortcutStore store) => Staging.Setup ??
         Check(Launcher.ClaudeExe() is not null,
               store.Shortcuts.Select(s => GraftPaths.Profile(s.Folder)).Prepend(GraftPaths.DefaultProfile));
 
@@ -23,6 +23,7 @@ public static class Onboarding
     /// mid-rename, and hiding every card on the strength of that would flicker.
     public static bool IsSignedIn(string profile)
     {
+        if (Staging.For(profile)?.SignedIn is { } staged) return staged;
         if (!Fs.Exists(Path.Combine(profile, "config.json"))) return false;
         var config = Graft.ReadableConfigJson(profile);
         return config is null

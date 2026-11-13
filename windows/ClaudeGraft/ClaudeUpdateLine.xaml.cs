@@ -94,6 +94,7 @@ public sealed partial class ClaudeUpdateLine : UserControl
 
     private void Action_Click(object sender, RoutedEventArgs e)
     {
+        if (ClaudeUpdateCenter.Staged) return;
         switch (ClaudeUpdateCenter.Now)
         {
             case ClaudeUpdateCenter.Phase.Available: _ = ClaudeUpdateCenter.UpdateAsync(); break;

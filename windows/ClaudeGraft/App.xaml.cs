@@ -376,6 +376,8 @@ public partial class App : Application
 
     private void SetAvailableUpdate(Updater.Release? release)
     {
+        // A check landing while one is staged would put the real answer over it.
+        if (_stagedUpdate is not null && !ReferenceEquals(release, _stagedUpdate)) return;
         AvailableUpdate = release;
         UpdateChecked = true;
         UpdateProgressChanged?.Invoke();
@@ -401,7 +403,19 @@ public partial class App : Application
     /// A second press while one is under way joins it rather than starting
     /// another download. False when the download failed and nothing was handed off.
     internal Task<bool> InstallUpdateAsync(Updater.Release release, bool quiet = false) =>
-        _installing ??= DownloadAndInstall(release, quiet);
+        ReferenceEquals(release, _stagedUpdate) ? Task.FromResult(false) : _installing ??= DownloadAndInstall(release, quiet);
+
+    private Updater.Release? _stagedUpdate;
+
+    /// An update of Graft that is never fetched or installed, for the debug window.
+    internal void StageUpdate(bool staged)
+    {
+        _stagedUpdate = staged ? new Updater.Release { Version = new Version(Updater.Current.Major, Updater.Current.Minor + 1, 0), Notes = "Staged from the debug window." } : null;
+        SetAvailableUpdate(_stagedUpdate);
+        if (!staged) _ = CheckForUpdates();
+    }
+
+    internal bool UpdateStaged => _stagedUpdate is not null;
 
     private bool GraftWindowOpen() =>
         _window?.AppWindow.IsVisible == true || _flyout?.AppWindow.IsVisible == true;

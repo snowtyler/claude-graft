@@ -54,6 +54,7 @@ public sealed partial class FlyoutView : UserControl
         InitializeComponent();
         App.UpdateProgressChanged += ReflectUpdate;
         Setup.RecheckRequested += Reload;
+        Staging.Changed += Reload;
         Setup.Acted += () => DismissRequested?.Invoke();
         UsageMonitor.FetchingChanged += (profile, fetching) => DispatcherQueue.TryEnqueue(() =>
         {
@@ -280,7 +281,7 @@ public sealed partial class FlyoutView : UserControl
         try { processes = await Task.Run(ClaudeProcesses.Enumerate); }
         catch (IOException) { return; }
         foreach (var row in rows)
-            if (Rows.Contains(row)) row.SetRunning(ClaudeProcesses.IsRunning(row.ProfileDir, processes));
+            if (Rows.Contains(row)) row.SetRunning(Staging.For(row.ProfileDir)?.Running == true || ClaudeProcesses.IsRunning(row.ProfileDir, processes));
     }
 
     private async Task LoadUsage(ShortcutRow row) => await LoadUsage(row, interactive: false);

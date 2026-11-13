@@ -20,12 +20,15 @@ public sealed class SettingsCard : ContentControl
 
     private TextBlock? _description;
 
+    public event Action? GlyphTapped;
+
     protected override void OnApplyTemplate()
     {
         base.OnApplyTemplate();
         _description = GetTemplateChild("DescriptionText") as TextBlock;
         // Set here rather than in App.xaml, which loads before Graft's own brushes exist.
         if (_description is not null) _description.Foreground = Themed.Brush("TextFillColorSecondaryBrush");
+        if (GetTemplateChild("GlyphIcon") is FontIcon icon) icon.Tapped += (_, _) => GlyphTapped?.Invoke();
         ShowDescription();
     }
 

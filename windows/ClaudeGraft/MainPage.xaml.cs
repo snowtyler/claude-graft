@@ -136,6 +136,7 @@ public sealed partial class MainPage : Page
         Loaded += (_, _) =>
         {
             App.SharingChanged += ShowSharing;
+            Staging.Changed += Restaged;
             Reload();
             _processTimer.Start();
             _usageTimer.Start();
@@ -144,6 +145,7 @@ public sealed partial class MainPage : Page
         Unloaded += (_, _) =>
         {
             App.SharingChanged -= ShowSharing;
+            Staging.Changed -= Restaged;
             _processTimer.Stop();
             _usageTimer.Stop();
             _clock.Stop();
@@ -332,7 +334,7 @@ public sealed partial class MainPage : Page
         try { processes = await Task.Run(ClaudeProcesses.Enumerate); }
         catch (IOException) { return; }
         foreach (var row in rows)
-            if (Rows.Contains(row)) row.SetRunning(ClaudeProcesses.IsRunning(row.ProfileDir, processes));
+            if (Rows.Contains(row)) row.SetRunning(Staging.For(row.ProfileDir)?.Running == true || ClaudeProcesses.IsRunning(row.ProfileDir, processes));
     }
 
     private async Task LoadUsage(ShortcutRow row, bool interactive)
@@ -362,6 +364,8 @@ public sealed partial class MainPage : Page
             });
         }
     }
+
+    private void Restaged() => Reload();
 
     private void Refresh_Click(object sender, RoutedEventArgs e) => Reload(interactive: true);
 
