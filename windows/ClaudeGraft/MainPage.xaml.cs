@@ -722,10 +722,17 @@ public sealed partial class MainPage : Page
 
     private static void OpenRow(ShortcutRow row) => ProfileRows.Open(row);
 
-    private void DefaultApps_Click(object sender, RoutedEventArgs e)
+    private async void DefaultApps_Click(object sender, RoutedEventArgs e)
     {
-        // Settings is the way through only where the picker cannot be shown.
-        if (!LinkRegistration.Choose(App.Instance.ManagerHandle))
+        // Windows' own picker comes up only for a link being opened; Settings is
+        // the way through where it cannot be shown.
+        var options = new Windows.System.LauncherOptions { DisplayApplicationPicker = true };
+        WinRT.Interop.InitializeWithWindow.Initialize(options, App.Instance.ManagerHandle);
+        // A picker the person cancels also answers false, so only a throw sends them to Settings.
+        var shown = true;
+        try { await Windows.System.Launcher.LaunchUriAsync(new Uri(LinkRegistration.Probe), options); }
+        catch (Exception) { shown = false; }
+        if (!shown)
         {
             try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-settings:defaultapps?registeredAppUser=" + Uri.EscapeDataString(LinkRegistration.ApplicationName)) { UseShellExecute = true }); }
             catch { }

@@ -152,6 +152,7 @@ public partial class App : Application
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         Themed.Publish();
+        if (LinkRegistration.IsProbe(Program.Link)) { Exit(); return; }
         if (Program.Link is { } link)
         {
             var window = new ClaudeLinkWindow(link);

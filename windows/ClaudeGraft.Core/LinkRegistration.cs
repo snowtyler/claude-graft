@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using Microsoft.Win32;
 
 namespace ClaudeGraft.Core;
@@ -45,33 +44,13 @@ public static class LinkRegistration
         registered.SetValue(ApplicationName, Capabilities);
     }
 
-    /// Puts up Windows' own "Select a default app for CLAUDE links" picker, which
-    /// sets the default without opening any link. False when it could not be shown.
-    public static bool Choose(IntPtr owner)
-    {
-        var info = new OpenAsInfo
-        {
-            File = "claude",
-            Flags = OaifUrlProtocol | OaifForceRegistration | OaifRegisterExt,
-        };
-        try { return SHOpenWithDialog(owner, ref info) >= 0; }
-        catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException) { return false; }
-    }
+    /// What Graft opens to have Windows ask which app takes Claude links: it
+    /// arrives at whichever is chosen, and Graft lets it go unopened.
+    public const string Probe = "claude://claude-graft/handler-chosen";
 
-    private const int OaifRegisterExt = 0x2;
-    private const int OaifForceRegistration = 0x20;
-    private const int OaifUrlProtocol = 0x40;
-
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    private struct OpenAsInfo
-    {
-        [MarshalAs(UnmanagedType.LPWStr)] public string File;
-        [MarshalAs(UnmanagedType.LPWStr)] public string? Class;
-        public int Flags;
-    }
-
-    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
-    private static extern int SHOpenWithDialog(IntPtr owner, ref OpenAsInfo info);
+    /// The shell may hand it back with its case or a trailing slash changed.
+    public static bool IsProbe(string? link) =>
+        link is not null && link.TrimEnd('/').Equals(Probe, StringComparison.OrdinalIgnoreCase);
 
     public static void Remove(RegistryKey currentUser)
     {

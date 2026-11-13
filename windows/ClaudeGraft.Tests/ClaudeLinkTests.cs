@@ -133,4 +133,13 @@ public sealed class ClaudeLinkTests : IDisposable
     [InlineData(unchecked((int)0x80070005), "", ClaudeLinkHandler.Unknown)]
     public void HandlerMapping(int status, string progId, ClaudeLinkHandler expected) =>
         Assert.Equal(expected, ClaudeLinkAssociation.FromResult(status, progId));
+
+    [Theory(DisplayName = "the link Graft opens to bring up Windows' picker is known whichever way the shell hands it back")]
+    [InlineData("claude://claude-graft/handler-chosen")]
+    [InlineData("claude://claude-graft/handler-chosen/")]
+    [InlineData("CLAUDE://Claude-Graft/Handler-Chosen")]
+    public void ProbeIsKnown(string link) => Assert.True(LinkRegistration.IsProbe(link));
+
+    [Fact(DisplayName = "a sign-in link is never taken for the picker's link")]
+    public void SignInIsNotTheProbe() => Assert.False(LinkRegistration.IsProbe("claude://login/google-auth?code=fixture"));
 }
