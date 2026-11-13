@@ -26,6 +26,8 @@ public static class ClaudeUpdateCenter
     private static DispatcherQueue? _ui;
     private static Timer? _timer;
     private static int _busy;
+    // A press that lands while a background check holds _busy, run once the check lets go.
+    private static int _updateWanted;
     private static bool _checkFailed, _installFailed;
 
     public static void Start(DispatcherQueue ui)
@@ -160,9 +162,13 @@ public static class ClaudeUpdateCenter
             }
             if (shown is not null) await shown;
             Interlocked.Exchange(ref _busy, 0);
-            ReadLocal();
+            if (Volatile.Read(ref _updateWanted) == 0) ReadLocal();
         }
-        finally { Interlocked.Exchange(ref _busy, 0); }
+        finally
+        {
+            Interlocked.Exchange(ref _busy, 0);
+            if (Interlocked.Exchange(ref _updateWanted, 0) != 0) _ = UpdateAsync();
+        }
     }
 
     private static void ReadLocalOnly() => Set(ClaudeInstallation.Current?.Package is null ? Phase.Hidden : Phase.Store);
@@ -173,10 +179,22 @@ public static class ClaudeUpdateCenter
     public static async Task UpdateAsync()
     {
         if (Staged) return;
-        if (Interlocked.CompareExchange(ref _busy, 1, 0) != 0) return;
+        if (Interlocked.CompareExchange(ref _busy, 1, 0) != 0)
+        {
+            // The hourly check can sit on a slow network for a minute or more, and a press it swallowed looked like a dead button.
+            if (Now == Phase.Available) { Interlocked.Exchange(ref _updateWanted, 1); Set(Phase.Installing); }
+            Diagnostics.Note("claude-update.install-queued", new Dictionary<string, object?> { ["phase"] = Now.ToString() });
+            return;
+        }
         try
         {
-            if (Installed is null) return;
+            if (Installed is null)
+            {
+                Diagnostics.Note("claude-update.install-no-version", null);
+                _installFailed = true;
+                Settle();
+                return;
+            }
             Set(Phase.Installing);
             var url = ClaudeDesktopUpdates.FeedUrl(Installed, ClaudeDesktopUpdates.DeviceId());
             var exit = await Task.Run(() =>

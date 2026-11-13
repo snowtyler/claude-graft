@@ -17,18 +17,14 @@ public sealed partial class ClaudeUpdateLine : UserControl
 
     private bool _stacked;
 
-    /// The sidebar's form, as the Mac's: a sync symbol, the name over the
-    /// version, a button that checks again, and any install button under it all.
+    /// The sidebar's form: a sync symbol, the name over the version, and on the
+    /// right the button that checks again or the one that acts.
     public bool Stacked
     {
         get => _stacked;
         set
         {
             _stacked = value;
-            Grid.SetColumn(ActionButton, value ? 1 : 3);
-            Grid.SetRow(ActionButton, value ? 1 : 0);
-            ActionButton.HorizontalAlignment = value ? HorizontalAlignment.Left : HorizontalAlignment.Stretch;
-            ActionButton.Margin = new Thickness(0, value ? 6 : 0, 0, 0);
             Glyph.FontSize = value ? 16 : 14;
             // A fixed box, since the state glyphs differ in width and would nudge the words.
             Glyph.Width = Glyph.Height = value ? 18 : 16;
@@ -59,6 +55,13 @@ public sealed partial class ClaudeUpdateLine : UserControl
             Words.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = name, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
             if (Stacked) Words.Inlines.Add(new Microsoft.UI.Xaml.Documents.LineBreak());
             var rest = line[(name.Length + 1)..].TrimStart('·', ' ');
+            // Two short lines beside the button rather than a sentence wrapped under the name; the tooltip keeps it whole.
+            if (Stacked) rest = phase switch
+            {
+                ClaudeUpdateCenter.Phase.Available => $"{ClaudeUpdateCenter.Latest} available",
+                ClaudeUpdateCenter.Phase.NeedsRestart => $"{ClaudeUpdateCenter.Installed} waits on a restart",
+                _ => rest,
+            };
             var held = rest.IndexOf(" · updates when you ask", StringComparison.Ordinal);
             var version = new Microsoft.UI.Xaml.Documents.Run { Text = (Stacked ? "" : " ") + (held < 0 ? rest : rest[..held]) };
             // Left unset when alarming so it takes the line's red: a null brush draws nothing.
@@ -87,7 +90,10 @@ public sealed partial class ClaudeUpdateLine : UserControl
         };
         Glyph.Foreground = Themed.Brush(ClaudeUpdateCenter.Alarming
             ? "SystemFillColorCriticalBrush" : "TextFillColorSecondaryBrush");
-        ActionButton.Content = action;
+        // The sidebar is narrow enough that "Restart Claudes…" beside the name squeezed it to three lines.
+        ActionButton.Content = Stacked && action is not null
+            ? phase switch { ClaudeUpdateCenter.Phase.NeedsRestart => "Restart…", ClaudeUpdateCenter.Phase.Failed => "Retry", _ => action }
+            : action;
         ActionButton.Visibility = action is null ? Visibility.Collapsed : Visibility.Visible;
         AutomationProperties.SetName(ActionButton, action is null ? "" : action.TrimEnd('…') + " Claude Desktop");
     }
