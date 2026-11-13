@@ -659,6 +659,8 @@ public partial class App : Application
     /// Built afresh for each open and closed for real: Windows plays the opening
     /// animation only for a new window, and a hidden one re-shown flashes black first.
     // One closing out is let go rather than shown again halfway through.
+    internal IntPtr ManagerHandle => _window is { } window ? WinRT.Interop.WindowNative.GetWindowHandle(window) : IntPtr.Zero;
+
     private MainWindow Manager() => _window is { IsClosing: false } open ? open : _window = NewManager();
 
     private MainWindow NewManager()

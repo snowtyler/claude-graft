@@ -106,6 +106,10 @@ public sealed class ClaudeLinkTests : IDisposable
                 Assert.Equal(new[] { LinkRegistration.ApplicationName }, registered.GetValueNames());
             using (var command = root.OpenSubKey(@"Software\Classes\ClaudeGraft.Link\shell\open\command")!)
                 Assert.Equal("\"C:\\Graft\\ClaudeGraft.exe\" --open-link \"%1\"", command.GetValue(""));
+            using (var open = root.OpenSubKey(@"Software\Classes\ClaudeGraft.Link\shell\open")!)
+                Assert.Equal("Claude Graft", open.GetValue("FriendlyAppName"));
+            using (var application = root.OpenSubKey(@"Software\Classes\ClaudeGraft.Link\Application")!)
+                Assert.Equal("Claude Graft", application.GetValue("ApplicationName"));
 
             LinkRegistration.Remove(root);
             using (var software = root.OpenSubKey("Software")!)

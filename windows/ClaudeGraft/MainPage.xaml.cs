@@ -165,6 +165,8 @@ public sealed partial class MainPage : Page
                 var was = row.SignedIn;
                 row.SetSignedIn(Onboarding.IsSignedIn(row.ProfileDir));
                 if (!was && row.SignedIn) _ = LoadUsage(row, interactive: true);
+                // The choice is made in Windows, so the link goes once it is made there, whatever was pressed.
+                if (!row.SignedIn && row.Shortcut is not null) row.RecheckLinkHandler();
             }
             await MarkRunning(Rows.ToList());
         };
@@ -722,8 +724,12 @@ public sealed partial class MainPage : Page
 
     private void DefaultApps_Click(object sender, RoutedEventArgs e)
     {
-        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-settings:defaultapps?registeredAppUser=" + Uri.EscapeDataString(LinkRegistration.ApplicationName)) { UseShellExecute = true }); }
-        catch { }
+        // Settings is the way through only where the picker cannot be shown.
+        if (!LinkRegistration.Choose(App.Instance.ManagerHandle))
+        {
+            try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-settings:defaultapps?registeredAppUser=" + Uri.EscapeDataString(LinkRegistration.ApplicationName)) { UseShellExecute = true }); }
+            catch { }
+        }
         if (sender is FrameworkElement { Tag: ShortcutRow row }) row.RecheckLinkHandler();
     }
 
