@@ -1,3 +1,4 @@
+using System.Reflection;
 namespace ClaudeGraft.Core;
 
 /// <summary>
@@ -37,6 +38,10 @@ public static class Updater
     /// The running build's version, stamped from windows/VERSION by Directory.Build.props.
     public static Version Current =>
         typeof(Updater).Assembly.GetName().Version is { } v ? v : new Version(0, 0, 0);
+
+    /// What a person is shown: `Current`, with `-dev` on a development build.
+    public static string Shown => typeof(Updater).Assembly
+        .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? Current.ToString(3);
 
     /// Whether a found update installs itself now. Never under a hold, and
     /// never while a Graft window is open: applying it closes Graft, and a

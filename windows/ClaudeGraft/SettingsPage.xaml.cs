@@ -1,4 +1,3 @@
-using System.Reflection;
 using ClaudeGraft.Core;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -21,8 +20,7 @@ public sealed partial class SettingsPage : Page
     {
         InitializeComponent();
         NavigationCacheMode = NavigationCacheMode.Required;
-        var version = Assembly.GetExecutingAssembly().GetName().Version;
-        AboutCard.Header = version is null ? "Claude Graft" : $"Claude Graft {version.Major}.{version.Minor}.{version.Build}";
+        AboutCard.Header = $"Claude Graft {Updater.Shown}";
         Loaded += (_, _) => App.UpdateProgressChanged += ReflectDownload;
         Unloaded += (_, _) => App.UpdateProgressChanged -= ReflectDownload;
     }

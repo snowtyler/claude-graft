@@ -10,10 +10,14 @@
     binary and the release it came from always agree.
   -->
   <PropertyGroup>
+    <!-- Only the release workflow passes GraftVersion, so a build that reads VERSION is a development one. -->
+    <GraftVersionSuffix Condition="'$(GraftVersion)' == ''">-dev</GraftVersionSuffix>
     <GraftVersionRaw Condition="'$(GraftVersion)' == ''">$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)VERSION'))</GraftVersionRaw>
     <GraftVersion Condition="'$(GraftVersion)' == ''">$(GraftVersionRaw.Trim())</GraftVersion>
     <Version>$(GraftVersion)</Version>
     <AssemblyVersion>$(GraftVersion)</AssemblyVersion>
     <FileVersion>$(GraftVersion)</FileVersion>
+    <InformationalVersion>$(GraftVersion)$(GraftVersionSuffix)</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 </Project>

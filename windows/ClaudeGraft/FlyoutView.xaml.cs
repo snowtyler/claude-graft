@@ -218,8 +218,6 @@ public sealed partial class FlyoutView : UserControl
 
     private bool _checking;
 
-    private static string Shown(Version v) => v.Build < 0 ? v.ToString(2) : v.ToString(3);
-
     private void ReflectUpdate()
     {
         _update = App.AvailableUpdate;
@@ -229,10 +227,10 @@ public sealed partial class FlyoutView : UserControl
         GraftWords.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run
         {
             Text = " " + (_update is null
-                ? $"{Shown(Updater.Current)}" + (_checking ? " · checking" : App.UpdateChecked ? " · Up to date" : "")
+                ? $"{Updater.Shown}" + (_checking ? " · checking" : App.UpdateChecked ? " · Up to date" : "")
                 : downloading is { } f
                     ? $"{_update.Version} · downloading {(int)Math.Round(f * 100)}%"
-                    : $"{_update.Version} is available · you have {Shown(Updater.Current)}"),
+                    : $"{_update.Version} is available · you have {Updater.Shown}"),
             Foreground = Themed.Brush("TextFillColorSecondaryBrush"),
         });
         GraftGlyph.Glyph = _update is not null ? "" : _checking || !App.UpdateChecked ? "" : "";
