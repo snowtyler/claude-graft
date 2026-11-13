@@ -19,6 +19,12 @@ Chromium safe-storage key in the profile's own `Local State`, wrapped with DPAPI
 to the logged-in user, which unwraps with no dialog — so the whole keychain
 prompting dance has no counterpart here.
 
+James ([@jamesql](https://github.com/jamesql)) built a second Windows port from
+an earlier copy of this one, and several of its pieces were carried over here
+from that work, among them the rollback of a project order write that fails
+partway through. That port is
+[aaditya-v-more/claude-graft#9](https://github.com/aaditya-v-more/claude-graft/pull/9).
+
 ## Layout
 
 The core is a plain library with no UI in it, so both the app and the launcher

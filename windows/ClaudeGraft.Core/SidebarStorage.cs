@@ -189,7 +189,8 @@ public static class SidebarStorage
     /// The Electron main process. Ported from the Mac build's SidebarStorage,
     /// unchanged but for two Windows adjustments: it reads its request path from
     /// <c>--request=</c> (stock Electron takes the app path as argv[1]), and it
-    /// links each profile's storage in as a junction. It runs in an empty offline
+    /// links each profile's storage in as a junction. A failed project write puts
+    /// back what it had changed in earlier profiles. It runs in an empty offline
     /// document with no Claude scripts, cookies or sessions loaded.
     /// </summary>
     public const string Script = """
@@ -386,8 +387,12 @@ function preferencesText(original, data) {
 // Project order: one Local Storage entry per account, beside the saved
 // environments its preset:: entries name. Apart from the pin pass, so a profile
 // whose pins this cannot read still gets its projects in order. Runs in the page.
-async function projectsOperation(keys, values) {
-    if (values !== null) for (const [key, value] of Object.entries(values)) localStorage.setItem(key, value);
+function projectsOperation(keys, values) {
+    // A rollback hands back null for a key that was never there; setItem would store the text "null".
+    if (values !== null) for (const [key, value] of Object.entries(values)) {
+        if (value === null) localStorage.removeItem(key);
+        else localStorage.setItem(key, value);
+    }
     return Object.fromEntries(keys.map(key => [key, localStorage.getItem(key)]));
 }
 
@@ -407,7 +412,37 @@ function writeProjectPreference(profilePath, prefs) {
     root.preferences ??= {};
     root.preferences.epitaxyPrefs ??= {};
     root.preferences.epitaxyPrefs[prefs.key] = prefs.order;
-    atomicWrite(file, preferencesText(text, root));
+    const written = preferencesText(text, root);
+    atomicWrite(file, written);
+    return {file, text, written};
+}
+
+// Puts back what a failed write had already changed in earlier profiles, but only
+// while each value is still the one this pass wrote: a Claude opened meanwhile owns it.
+async function rollBack(touched) {
+    let complete = true;
+    for (const item of [...touched].reverse()) {
+        try {
+            if (item.call) {
+                const current = await item.call(null), restore = {};
+                for (const [key, value] of Object.entries(item.profile.values)) {
+                    if (current[key] === value) restore[key] = item.before[key];
+                    else if (current[key] !== item.before[key]) throw Error('rollback-conflict');
+                }
+                await item.call(restore);
+                await item.ses.flushStorageData();
+            }
+            if (item.prefs) {
+                const {file, text, written} = item.prefs;
+                const current = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null;
+                if (current === written) {
+                    if (text === null) fs.unlinkSync(file);
+                    else atomicWrite(file, text);
+                } else if (current !== text) throw Error('rollback-conflict');
+            }
+        } catch { complete = false; }
+    }
+    return complete;
 }
 
 // Reads open a copy of each profile's Local Storage, so a database a Claude is
@@ -434,14 +469,16 @@ async function runProjects(request) {
     app.commandLine.appendSwitch('host-resolver-rules', 'MAP * ~NOTFOUND');
     const timeout = setTimeout(() => app.exit(2), 20000);
     await app.whenReady();
-    const results = [], windows = [];
+    const results = [], windows = [], touched = [];
     try {
         for (const [index, profile] of request.profiles.entries()) {
             const scratch = path.join(request.scratch, 'profile-' + index);
             fs.mkdirSync(scratch, {recursive: true, mode: 0o700});
             const original = path.join(profile.path, 'Local Storage');
             if (!fs.statSync(original).isDirectory()) throw Error('not-initialized');
-            if (writing && profile.prefs) writeProjectPreference(profile.path, profile.prefs);
+            const item = {profile};
+            if (writing) touched.push(item);
+            if (writing && profile.prefs) item.prefs = writeProjectPreference(profile.path, profile.prefs);
             // A profile that may be opening as this runs gets the preference alone.
             if (writing && Object.keys(profile.values).length === 0) {
                 results.push({path: profile.path, values: {}});
@@ -465,8 +502,10 @@ async function runProjects(request) {
             await window.loadURL('https://claude.ai/');
             const call = values => window.webContents.executeJavaScript('(' + projectsOperation.toString()
                 + ')(' + JSON.stringify(profile.keys) + ',' + JSON.stringify(values) + ')');
-            let values = await call(writing ? profile.values : null);
+            let values = await call(null);
             if (writing) {
+                Object.assign(item, {call, ses, before: values});
+                await call(profile.values);
                 await ses.flushStorageData();
                 values = await call(null);
                 for (const [key, value] of Object.entries(profile.values))
@@ -476,7 +515,8 @@ async function runProjects(request) {
         }
         atomicJSON(request.output, {ok: true, profiles: results});
     } catch (error) {
-        atomicJSON(request.output, {ok: false, error: String(error.message ?? error).slice(0, 300)});
+        const reason = String(error.message ?? error).slice(0, 300);
+        atomicJSON(request.output, {ok: false, error: await rollBack(touched) ? reason : 'rollback-incomplete: ' + reason});
     } finally {
         for (const window of windows) window.destroy();
         clearTimeout(timeout);
@@ -584,6 +624,7 @@ async function run() {
     }
 }
 
-run().catch(() => { try { require('electron').app.exit(1); } catch {} });
+if (process.versions.electron) run().catch(() => { try { require('electron').app.exit(1); } catch {} });
+else module.exports = {projectsOperation};
 """;
 }
