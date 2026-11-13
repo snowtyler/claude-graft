@@ -142,4 +142,24 @@ public sealed class ClaudeLinkTests : IDisposable
 
     [Fact(DisplayName = "a sign-in link is never taken for the picker's link")]
     public void SignInIsNotTheProbe() => Assert.False(LinkRegistration.IsProbe("claude://login/google-auth?code=fixture"));
+
+    [Fact(DisplayName = "making Graft new to Windows again forgets only Graft's own entry")]
+    public void MarkUnseenForgetsOnlyGraft()
+    {
+        var path = @"Software\ClaudeGraftTests\" + Guid.NewGuid().ToString("N");
+        try
+        {
+            using var root = Registry.CurrentUser.CreateSubKey(path);
+            using (var seen = root.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\ApplicationAssociationToasts"))
+            {
+                seen.SetValue("ClaudeGraft.Link_claude", 0);
+                seen.SetValue("AppXClaude_claude", 0);
+                seen.SetValue("MSEdgeHTM_http", 0);
+            }
+            LinkRegistration.MarkUnseen(root);
+            using var after = root.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\ApplicationAssociationToasts")!;
+            Assert.Equal(new[] { "AppXClaude_claude", "MSEdgeHTM_http" }, after.GetValueNames().Order());
+        }
+        finally { Registry.CurrentUser.DeleteSubKeyTree(@"Software\ClaudeGraftTests", throwOnMissingSubKey: false); }
+    }
 }

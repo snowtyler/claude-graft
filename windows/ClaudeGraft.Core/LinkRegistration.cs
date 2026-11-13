@@ -52,8 +52,20 @@ public static class LinkRegistration
     public static bool IsProbe(string? link) =>
         link is not null && link.TrimEnd('/').Equals(Probe, StringComparison.OrdinalIgnoreCase);
 
+    private const string Seen = @"Software\Microsoft\Windows\CurrentVersion\ApplicationAssociationToasts";
+
+    /// Windows offers "Set default" only for a handler it has not shown before,
+    /// and remembers each one here; forgetting Graft's own entry, and nothing
+    /// else, makes it new again without touching the choice already made.
+    public static void MarkUnseen(RegistryKey currentUser)
+    {
+        using var seen = currentUser.OpenSubKey(Seen, writable: true);
+        seen?.DeleteValue(ProgId + "_claude", throwOnMissingValue: false);
+    }
+
     public static void Remove(RegistryKey currentUser)
     {
+        MarkUnseen(currentUser);
         currentUser.DeleteSubKeyTree(@"Software\Classes\" + ProgId, throwOnMissingSubKey: false);
         currentUser.DeleteSubKeyTree(Capabilities, throwOnMissingSubKey: false);
         using var registered = currentUser.OpenSubKey(@"Software\RegisteredApplications", writable: true);

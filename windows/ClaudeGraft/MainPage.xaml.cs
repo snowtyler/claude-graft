@@ -724,13 +724,13 @@ public sealed partial class MainPage : Page
 
     private async void DefaultApps_Click(object sender, RoutedEventArgs e)
     {
-        // Windows' own picker comes up only for a link being opened; Settings is
-        // the way through where it cannot be shown.
-        var options = new Windows.System.LauncherOptions { DisplayApplicationPicker = true };
-        WinRT.Interop.InitializeWithWindow.Initialize(options, App.Instance.ManagerHandle);
+        // Windows' own picker, Set default and all, comes up for a link being opened
+        // while a handler is new to it; Settings is the way through where it cannot be.
+        try { LinkRegistration.MarkUnseen(Microsoft.Win32.Registry.CurrentUser); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException) { }
         // A picker the person cancels also answers false, so only a throw sends them to Settings.
         var shown = true;
-        try { await Windows.System.Launcher.LaunchUriAsync(new Uri(LinkRegistration.Probe), options); }
+        try { await Windows.System.Launcher.LaunchUriAsync(new Uri(LinkRegistration.Probe)); }
         catch (Exception) { shown = false; }
         if (!shown)
         {
