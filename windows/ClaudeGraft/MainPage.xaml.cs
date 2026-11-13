@@ -776,7 +776,13 @@ public sealed partial class MainPage : Page
     private async Task<Graft.Adoption> Adopt(ShortcutRow row, Graft.ChatsElsewhere found)
     {
         var profile = row.ProfileDir;
-        var result = await Task.Run(() => Graft.AdoptChats(found.Profile, profile, found.Account));
+        Graft.Adoption result;
+        try { result = await Task.Run(() => Graft.AdoptChats(found.Profile, profile, found.Account)); }
+        catch (StateBusyException e)
+        {
+            if (Rows.Contains(row)) row.CopiedNote = "Nothing copied — " + e.Message;
+            return new Graft.Adoption();
+        }
         if (!Rows.Contains(row)) return result;
 
         row.CopiedNote = result.Running.Count > 0
@@ -892,7 +898,13 @@ public sealed partial class MainPage : Page
                         + "moving a profile's files while Claude is using them could lose chats.");
                     return false;
                 }
-                var moved = await Task.Run(() => Graft.MoveProfileFolder(previousFolder, shortcut.Folder));
+                Graft.ProfileMove moved;
+                try { moved = await Task.Run(() => Graft.MoveProfileFolder(previousFolder, shortcut.Folder)); }
+                catch (StateBusyException e)
+                {
+                    await Warn("The profile was not moved", e.Message);
+                    return false;
+                }
                 if (moved == Graft.ProfileMove.TargetExists)
                 {
                     await Warn("That folder is already in use",
@@ -914,6 +926,12 @@ public sealed partial class MainPage : Page
 
             var config = App.Store.ConfigFor(shortcut);
             try { await Task.Run(() => Graft.Apply(config)); }
+            catch (StateBusyException)
+            {
+                await Warn("Chats were not set up yet",
+                    "Graft was still finishing another change, so nothing was moved. "
+                    + "It is set up the next time this profile opens.");
+            }
             catch (UnreadableStateException ex)
             {
                 await Warn("Chats were not set up yet",
@@ -965,11 +983,15 @@ public sealed partial class MainPage : Page
         if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
         if (App.Store.LoadError is not null) { await WarnListUnreadable(); return; }
 
-        Installer.Uninstall(shortcut);
         string? problem;
         // Deleting touches a folder Claude may still be letting go of; whatever
         // goes wrong there is a warning to show, never a reason to crash.
         try { problem = App.Store.Delete(shortcut.Id, deletingProfile: deleteData.IsChecked == true); }
+        catch (StateBusyException e)
+        {
+            await Warn("Nothing was removed", e.Message);
+            return;
+        }
         catch (Exception e)
         {
             Diagnostics.Note("profile.removeFailed", new Dictionary<string, object?>
@@ -978,6 +1000,7 @@ public sealed partial class MainPage : Page
             });
             problem = "Something went wrong removing it: " + e.Message;
         }
+        Installer.Uninstall(shortcut);
         Reload();
 
         if (problem is not null) await Warn("The profile folder was kept", problem);

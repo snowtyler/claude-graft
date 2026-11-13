@@ -73,10 +73,7 @@ public static class Launcher
             // launch to file records on the way to, and no timer behind it. So
             // the sweep runs on the way past instead, after the window is up.
             try { SquareUp(filing); }
-            catch (UnreadableStateException e)
-            {
-                Diagnostics.Note("launch.state-unreadable", new Dictionary<string, object?> { ["file"] = Path.GetFileName(e.Path) });
-            }
+            catch (IOException e) when (Skipped(e, "launch")) { }
             return;
         }
         // Apply first, so a record filed through a graft lands where the link now
@@ -91,12 +88,9 @@ public static class Launcher
                 SquareUp(filing);
             });
         }
-        catch (UnreadableStateException e)
-        {
-            // Nothing in this pass can be trusted to tell new from deleted, so
-            // none of it runs; the window still opens.
-            Diagnostics.Note("launch.state-unreadable", new Dictionary<string, object?> { ["file"] = Path.GetFileName(e.Path) });
-        }
+        // Nothing in this pass can be trusted to tell new from deleted, so none
+        // of it runs; the window still opens with whatever is already linked.
+        catch (IOException e) when (Skipped(e, "launch")) { }
         // The sidebar sync and the launch are one critical section: releasing the
         // lock between them would let another launcher start syncing while this
         // one opens Claude into the very databases it is reconciling. The
@@ -122,7 +116,7 @@ public static class Launcher
             SidebarSync.SynchronizeProjectOrder(config.ProfileDir);
             PoolEnvironment.SettleBeforeOpening(config.ProfileDir,
                 () => PoolEnvironment.EnsureRelay(PoolEnvironment.ReadJournal().Relay));
-            Launch(config.ProfileDir);
+            Starter(config.ProfileDir);
         });
     }
 
@@ -141,9 +135,22 @@ public static class Launcher
     public static void Sweep(IReadOnlyList<string> filingInto)
     {
         try { StateLock.Run(() => SquareUp(filingInto)); }
-        catch (UnreadableStateException e)
+        catch (IOException e) when (Skipped(e, "sweep")) { }
+    }
+
+    /// Notes a pass that did not run for its state, and leaves every other failure to throw.
+    private static bool Skipped(IOException e, string pass)
+    {
+        switch (e)
         {
-            Diagnostics.Note("sweep.state-unreadable", new Dictionary<string, object?> { ["file"] = Path.GetFileName(e.Path) });
+            case UnreadableStateException unreadable:
+                Diagnostics.Note(pass + ".state-unreadable", new Dictionary<string, object?> { ["file"] = Path.GetFileName(unreadable.Path) });
+                return true;
+            case StateBusyException:
+                Diagnostics.Note(pass + ".state-busy", null);
+                return true;
+            default:
+                return false;
         }
     }
 
@@ -156,6 +163,9 @@ public static class Launcher
         if (!string.IsNullOrEmpty(config.SourceDir)) list.Add(config.SourceDir!);
         return list;
     }
+
+    /// Replaced by the suite, which may never start a Claude.
+    public static Action<string> Starter { get; set; } = Launch;
 
     private static void Launch(string profile)
     {

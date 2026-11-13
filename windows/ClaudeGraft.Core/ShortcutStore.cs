@@ -143,7 +143,11 @@ public sealed class ShortcutStore
     /// still points at it. Returns a message when the profile could not be
     /// removed. (The desktop .lnk it installed is the installer's concern, not
     /// yet ported.)
-    public string? Delete(Guid id, bool deletingProfile = false)
+    public string? Delete(Guid id, bool deletingProfile = false) =>
+        // Held across the whole delete, so a busy lock refuses before the folder goes rather than after.
+        StateLock.Run(() => DeleteUnlocked(id, deletingProfile));
+
+    private string? DeleteUnlocked(Guid id, bool deletingProfile)
     {
         EnsureWritable();
         if (Get(id) is not Shortcut shortcut) return null;

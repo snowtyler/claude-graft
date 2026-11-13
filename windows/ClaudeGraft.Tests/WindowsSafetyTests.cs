@@ -7,6 +7,9 @@ namespace ClaudeGraft.Tests;
 public sealed class WindowsSafetyTests : IDisposable
 {
     private readonly TempDir _temp = new();
+    private readonly TimeSpan _patience = StateLock.Patience;
+    private readonly Action<string> _starter = Launcher.Starter;
+    private readonly Func<IReadOnlyList<(int pid, string command)>> _enumerate = ClaudeProcesses.Enumerate;
     public WindowsSafetyTests()
     {
         GraftPaths.ProfilesRootOverride = _temp.Dir("profiles");
@@ -16,6 +19,9 @@ public sealed class WindowsSafetyTests : IDisposable
     {
         GraftPaths.ProfilesRootOverride = null;
         GraftPaths.ClaudeProjectsOverride = null;
+        StateLock.Patience = _patience;
+        Launcher.Starter = _starter;
+        ClaudeProcesses.Enumerate = _enumerate;
         _temp.Dispose();
     }
 
@@ -207,5 +213,108 @@ public sealed class WindowsSafetyTests : IDisposable
         release.Set();
         Assert.Equal(1, second.Result);
         holder.Wait();
+    }
+
+    /// Holds the state lock on another thread until the returned handle is disposed.
+    private static IDisposable HoldStateLock()
+    {
+        var inside = new ManualResetEventSlim();
+        var release = new ManualResetEventSlim();
+        var holder = Task.Run(() => StateLock.Run(() => { inside.Set(); release.Wait(); }));
+        inside.Wait();
+        return new Released(() => { release.Set(); holder.Wait(); inside.Dispose(); release.Dispose(); });
+    }
+
+    private sealed class Released(Action release) : IDisposable
+    {
+        public void Dispose() => release();
+    }
+
+    [Fact(DisplayName = "a pass that cannot get the state lock runs nothing and says it was busy")]
+    public void BusyLockRunsNothing()
+    {
+        StateLock.Patience = TimeSpan.FromMilliseconds(200);
+        var ran = false;
+        using (HoldStateLock())
+            Assert.Throws<StateBusyException>(() => StateLock.Run(() => ran = true));
+        Assert.False(ran);
+    }
+
+    [Fact(DisplayName = "a busy lock leaves the thread able to take it once it is free")]
+    public void BusyLockLeavesThreadClean()
+    {
+        StateLock.Patience = TimeSpan.FromMilliseconds(200);
+        using (HoldStateLock())
+            Assert.Throws<StateBusyException>(() => StateLock.Run(() => 0));
+        StateLock.Patience = TimeSpan.FromSeconds(20);
+        StateLock.Run(() =>
+        {
+            // Only a lock really taken keeps another thread out.
+            var other = Task.Run(() => StateLock.Run(() => 1));
+            Assert.False(other.Wait(200));
+            return 0;
+        });
+    }
+
+    [Fact(DisplayName = "opening a profile while the state lock is held still opens it and touches no state")]
+    public void OpenWhileBusyStillOpens()
+    {
+        StateLock.Patience = TimeSpan.FromMilliseconds(200);
+        ClaudeProcesses.Enumerate = () => [];
+        var started = new List<string>();
+        Launcher.Starter = started.Add;
+        Directory.CreateDirectory(GraftPaths.OwnData);
+        var mirror = Path.Combine(GraftPaths.OwnData, "mirrored-chats.json");
+        var records = Path.Combine(GraftPaths.OwnData, "session-records.json");
+        File.WriteAllText(mirror, "{\"pairs\":[]}");
+        File.WriteAllText(records, "{\"records\":{}}");
+        var before = (File.ReadAllBytes(mirror), File.ReadAllBytes(records));
+        var main = _temp.Dir("profiles", "Claude");
+        var work = _temp.Dir("profiles", "Claude-Work");
+
+        using (HoldStateLock())
+            Launcher.Open(new GraftConfig { ProfileDir = work, SourceDir = main });
+
+        Assert.Equal(new[] { work }, started);
+        Assert.Equal(before.Item1, File.ReadAllBytes(mirror));
+        Assert.Equal(before.Item2, File.ReadAllBytes(records));
+    }
+
+    [Fact(DisplayName = "a profile first opened while busy is shared on the next pass without losing what Claude wrote")]
+    public void FirstOpenWhileBusyIsSharedLater()
+    {
+        StateLock.Patience = TimeSpan.FromMilliseconds(200);
+        ClaudeProcesses.Enumerate = () => [];
+        Launcher.Starter = _ => { };
+        Graft.ResetCachesForTests();
+        var main = Profile("Claude", "AAAA", "ORG-A");
+        File.WriteAllText(Path.Combine(main, "claude-code-sessions", "AAAA", "ORG-A", "local_shared.json"), "{}");
+        var work = Profile("Claude-Work", "BBBB", "ORG-B");
+        var config = new GraftConfig { ProfileDir = work, SourceDir = main };
+
+        using (HoldStateLock())
+            Launcher.Open(config);
+        // What Claude makes on a first open: its own chat and a folder beneath it.
+        var own = Path.Combine(work, "claude-code-sessions", "BBBB", "ORG-B");
+        File.WriteAllText(Path.Combine(own, "local_mine.json"), "{}");
+        Directory.CreateDirectory(Path.Combine(own, "local_mine"));
+        File.WriteAllText(Path.Combine(own, "local_mine", "audit.jsonl"), "{}");
+
+        Graft.Apply(config);
+
+        Assert.True(File.Exists(Path.Combine(own, "local_shared.json")));
+        Assert.True(File.Exists(Path.Combine(own, "local_mine.json")));
+        var stash = Path.Combine(work, "claude-code-sessions", "BBBB", ".ORG-B.graft-own");
+        Assert.True(File.Exists(Path.Combine(stash, "local_mine.json")));
+        Assert.True(File.Exists(Path.Combine(stash, "local_mine", "audit.jsonl")));
+    }
+
+    private string Profile(string name, string account, string org)
+    {
+        var profile = _temp.Dir("profiles", name);
+        File.WriteAllText(Path.Combine(profile, "config.json"), $"{{\"lastKnownAccountUuid\":\"{account}\"}}");
+        foreach (var store in GraftPaths.ChatStoreNames)
+            Directory.CreateDirectory(Path.Combine(profile, store, account, org));
+        return profile;
     }
 }

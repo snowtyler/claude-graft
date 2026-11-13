@@ -16,8 +16,8 @@ namespace ClaudeGraft.Core;
 public static class StateLock
 {
     /// A launcher stands in front of a window opening, so a pass that has hung
-    /// is waited out this long and then gone ahead without — what every pass
-    /// did before there was a lock.
+    /// is waited out this long and then skipped: a holder that is alive rather
+    /// than hung would otherwise have its copies read back as deletions.
     public static TimeSpan Patience { get; set; } = TimeSpan.FromSeconds(20);
 
     [ThreadStatic] private static int _depth;
@@ -44,8 +44,10 @@ public static class StateLock
         try { owned = mutex.WaitOne(Patience); }
         catch (AbandonedMutexException) { owned = true; }
         if (owned) { _held = mutex; return; }
-        Diagnostics.Note("state-lock.gave-up", null);
+        _depth--;
+        Diagnostics.Note("state-lock.busy", null);
         mutex.Dispose();
+        throw new StateBusyException();
     }
 
     private static void Leave()

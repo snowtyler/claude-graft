@@ -93,12 +93,14 @@ public sealed partial class SettingsPage : Page
         if (_loading) return;
         var wanted = ManualClaudeSwitch.IsOn;
         try { await Task.Run(() => ManualUpdates.SetEnabled(wanted)); }
-        catch (IOException)
+        catch (IOException ex)
         {
             _loading = true;
             ManualClaudeSwitch.IsOn = !wanted;
             _loading = false;
-            ManualClaudeCard.Description = "Claude's updates were left as they were: its settings could not be written.";
+            ManualClaudeCard.Description = ex is StateBusyException
+                ? "Claude's updates were left as they were: " + ex.Message
+                : "Claude's updates were left as they were: its settings could not be written.";
         }
         ClaudeUpdateCenter.Redraw();
     }

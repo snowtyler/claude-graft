@@ -12,6 +12,13 @@ public sealed class UnreadableStateException : IOException
         : base($"{System.IO.Path.GetFileName(path)} could not be read", inner) => Path = path;
 }
 
+/// Another pass held the state lock past <see cref="StateLock.Patience"/>, so
+/// this one did nothing.
+public sealed class StateBusyException : IOException
+{
+    public StateBusyException() : base("Graft is still finishing another change. Try again in a moment.") { }
+}
+
 public static class StateFile
 {
     /// The file decoded, a fresh value when there is no file at all, and
