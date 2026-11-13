@@ -46,7 +46,20 @@ public static class Updater
     /// Whether a found update installs itself now. Never under a hold, and
     /// never while a Graft window is open: applying it closes Graft, and a
     /// person mid-click would lose it under them. The next check tries again.
-    public static bool InstallsOnItsOwn(bool held, bool windowOpen) => !held && !windowOpen;
+    /// A development build installs nothing on its own either: it is numbered
+    /// below the release it leads to, and that release, once out, read as an
+    /// update and quietly replaced the build being worked on.
+    public static bool InstallsOnItsOwn(bool held, bool windowOpen, bool development = false) =>
+        !held && !windowOpen && !development;
+
+    /// Built from VERSION rather than a release tag (Directory.Build.props).
+    public static bool IsDevelopment => Shown.Contains("-dev", StringComparison.Ordinal);
+
+    /// Only a higher number is an update. A pre-release sorts below its release,
+    /// so a development build of 2.0.0 was offered 2.0.0 itself.
+    public static bool Offers(Version found, Version running) =>
+        new Version(found.Major, found.Minor, Math.Max(found.Build, 0))
+        > new Version(running.Major, running.Minor, Math.Max(running.Build, 0));
 
     /// The same file under <paramref name="to"/> for a path inside
     /// <paramref name="from"/>, or null for one outside it. Compared as the disk

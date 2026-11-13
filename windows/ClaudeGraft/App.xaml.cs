@@ -351,7 +351,7 @@ public partial class App : Application
             OnUi(() =>
             {
                 SetAvailableUpdate(found);
-                if (found is not null && Updater.InstallsOnItsOwn(Settings.HoldUpdates, GraftWindowOpen()))
+                if (found is not null && Updater.InstallsOnItsOwn(Settings.HoldUpdates, GraftWindowOpen(), Updater.IsDevelopment))
                     _ = InstallUpdateAsync(found, quiet: true);
             });
         }

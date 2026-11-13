@@ -32,6 +32,7 @@ internal static class GraftUpdates
         _found = info;
         if (info is null) return null;
         var v = info.TargetFullRelease.Version;
+        if (!Updater.Offers(new Version(v.Major, v.Minor, v.Patch), Updater.Current)) return null;
         return new Updater.Release { Version = new Version(v.Major, v.Minor, v.Patch), Notes = info.TargetFullRelease.NotesMarkdown };
     }
 

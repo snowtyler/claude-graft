@@ -37,4 +37,17 @@ public class UpdaterTests
     [Fact(DisplayName = "a link with no target is not moved")]
     public void LeavesAnEmptyTargetAlone() =>
         Assert.Null(Updater.Moved("", @"C:\Programs\ClaudeGraft", @"C:\new"));
+
+    [Fact(DisplayName = "a development build never installs an update on its own")]
+    public void DevelopmentWaitsForAPress() =>
+        Assert.False(Updater.InstallsOnItsOwn(held: false, windowOpen: false, development: true));
+
+    [Theory(DisplayName = "only a release numbered above the running build is offered")]
+    [InlineData("2.0.1", "2.0.0", true)]
+    [InlineData("2.1.0", "2.0.9", true)]
+    [InlineData("2.0.0", "2.0.0", false)]
+    [InlineData("1.9.9", "2.0.0", false)]
+    [InlineData("2.0.0", "2.0.0.0", false)]
+    public void OffersOnlyNewer(string found, string running, bool offered) =>
+        Assert.Equal(offered, Updater.Offers(Version.Parse(found), Version.Parse(running)));
 }
