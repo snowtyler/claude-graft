@@ -407,10 +407,12 @@ public partial class App : Application
 
     private Updater.Release? _stagedUpdate;
 
-    /// An update of Graft that is never fetched or installed, for the debug window.
-    internal void StageUpdate(bool staged)
+    /// An update of Graft that is never fetched or installed, for the debug window;
+    /// a <paramref name="downloaded"/> fraction holds its progress bar there.
+    internal void StageUpdate(bool staged, double? downloaded = null)
     {
         _stagedUpdate = staged ? new Updater.Release { Version = new Version(Updater.Current.Major, Updater.Current.Minor + 1, 0), Notes = "Staged from the debug window." } : null;
+        UpdateDownload = staged ? downloaded : null;
         SetAvailableUpdate(_stagedUpdate);
         if (!staged) _ = CheckForUpdates();
     }

@@ -365,7 +365,11 @@ public sealed partial class MainPage : Page
         }
     }
 
-    private void Restaged() => Reload();
+    private void Restaged()
+    {
+        Reload();
+        ShowSharing();
+    }
 
     private void Refresh_Click(object sender, RoutedEventArgs e) => Reload(interactive: true);
 
@@ -448,7 +452,7 @@ public sealed partial class MainPage : Page
 
     private void RemoveLender_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not FrameworkElement { Tag: LenderLine line }) return;
+        if (sender is not FrameworkElement { Tag: LenderLine line } || line.Staged) return;
         try
         {
             var next = SharedChats.SetLender(UsageSharing.Load(), line.Claude.SharingKey, line.Key, false);
@@ -757,7 +761,7 @@ public sealed partial class MainPage : Page
 
         if (result == ContentDialogResult.None) return false;   // Cancel: leave it, do not open
 
-        if (dontAsk.IsChecked == true && App.Store.LoadError is null)
+        if (dontAsk.IsChecked == true && App.Store.LoadError is null && Staging.For(s.ProfileDir)?.ChatsElsewhere is null)
         {
             s.StopAskingChatsFor = found.Account;
             App.Store.Update(s);
@@ -788,6 +792,11 @@ public sealed partial class MainPage : Page
     private async Task<Graft.Adoption> Adopt(ShortcutRow row, Graft.ChatsElsewhere found)
     {
         var profile = row.ProfileDir;
+        if (Staging.For(profile)?.ChatsElsewhere is not null)
+        {
+            row.CopiedNote = "Nothing copied — this offer was staged from the debug window";
+            return new Graft.Adoption();
+        }
         Graft.Adoption result;
         try { result = await Task.Run(() => Graft.AdoptChats(found.Profile, profile, found.Account)); }
         catch (StateBusyException e)

@@ -20,7 +20,13 @@ public sealed class ShortcutStore
     /// Set when shortcuts.json is there but will not read. The list is then
     /// empty for display, and saving it would write that emptiness over every
     /// shortcut the person has, so <see cref="Save"/> refuses.
-    public string? LoadError { get; private set; }
+    public string? LoadError
+    {
+        get => _loadError ?? (Staging.ListUnreadable ? "shortcuts.json could not be read (staged from the debug window)." : null);
+        private set => _loadError = value;
+    }
+
+    private string? _loadError;
 
     public void Load()
     {

@@ -35,6 +35,7 @@ public sealed class ShortcutRow : INotifyPropertyChanged
         Shortcut = s, ProfileDir = s.ProfileDir, Name = s.Name,
         SourceLabel = App.Store.Label(s.Source), Folder = s.Folder,
         _signedIn = Onboarding.IsSignedIn(s.ProfileDir),
+        _fetching = Staging.For(s.ProfileDir)?.Fetching == true,
     };
 
     public static ShortcutRow MainClaude() => new()
@@ -42,7 +43,11 @@ public sealed class ShortcutRow : INotifyPropertyChanged
         ProfileDir = GraftPaths.DefaultProfile, Name = "Claude",
         SourceLabel = "Main account", Folder = "Claude",
         _signedIn = Onboarding.IsSignedIn(GraftPaths.DefaultProfile),
+        _fetching = Staging.For(GraftPaths.DefaultProfile)?.Fetching == true,
     };
+
+    /// What the debug window staged for this card; every setter below lets it win.
+    private AccountStage? Stage => Staging.For(ProfileDir);
 
     private bool _signedIn;
 
@@ -254,6 +259,7 @@ public sealed class ShortcutRow : INotifyPropertyChanged
     /// the window's own poll, or the keep-warm sweep in the background.
     public void SetFetching(bool fetching)
     {
+        fetching |= Stage?.Fetching == true;
         if (fetching == _fetching) return;
         _fetching = fetching;
         NotifyStatus();
@@ -311,6 +317,7 @@ public sealed class ShortcutRow : INotifyPropertyChanged
 
     public void SetChatsElsewhere(Graft.ChatsElsewhere? found)
     {
+        if (Shortcut is not null && Stage?.ChatsElsewhere is { } staged) found = staged;
         _elsewhere = found;
         foreach (var name in new[]
         {
@@ -345,6 +352,7 @@ public sealed class ShortcutRow : INotifyPropertyChanged
 
     public void SetSidebarStatus(string? status)
     {
+        status = Stage?.SidebarStatus ?? status;
         if (status == _sidebarStatus) return;
         _sidebarStatus = status;
         Notify(nameof(SidebarStatus));
@@ -401,6 +409,7 @@ public sealed class ShortcutRow : INotifyPropertyChanged
 
     public void SetSharing(string label, (string Text, bool Attention)? note)
     {
+        if (Stage?.Sharing is { } staged) (label, note) = (staged.Label, staged.Note is { } text ? (text, staged.Attention) : null);
         if (label == _sharingLabel && note == _sharingNote) return;
         _sharingLabel = label;
         _sharingNote = note;
@@ -418,6 +427,12 @@ public sealed class ShortcutRow : INotifyPropertyChanged
 
     public void SetLenders(IReadOnlyList<LenderLine> lenders)
     {
+        if (Stage?.Sharing is { } staged)
+            lenders = staged.Lenders.Select((l, i) => new LenderLine
+            {
+                Claude = this, Key = LenderLine.StagedPrefix + i, Name = l.Name, State = l.State,
+                Attention = l.Attention, Figures = l.Figures, First = i == 0,
+            }).ToList();
         Lenders = lenders;
         Notify(nameof(Lenders));
         Notify(nameof(NoLendersVisibility));
@@ -432,6 +447,10 @@ public sealed class LenderLine
 {
     public required ShortcutRow Claude { get; init; }
     public required string Key { get; init; }
+
+    /// Keys of lenders the debug window made up, which nothing may save.
+    public const string StagedPrefix = "staged:";
+    public bool Staged => Key.StartsWith(StagedPrefix, StringComparison.Ordinal);
     public required string Name { get; init; }
     public string State { get; init; } = "";
     public bool Attention { get; init; }

@@ -30,10 +30,14 @@ internal sealed class ClaudeLinkWindow : Window
     private readonly TextBlock _message = new() { TextWrapping = TextWrapping.Wrap };
     private IReadOnlyList<SignInTarget> _targets = [];
     private string? _link;
+    private readonly IReadOnlyList<SignInTarget>? _staged;
 
-    internal ClaudeLinkWindow(string link)
+    /// <paramref name="staged"/> stands in for the open Claudes, from the debug
+    /// window; Continue then sends nothing anywhere.
+    internal ClaudeLinkWindow(string link, IReadOnlyList<SignInTarget>? staged = null)
     {
         _link = link;
+        _staged = staged;
         Title = "Claude Graft";
         AppWindow.Resize(new Windows.Graphics.SizeInt32(480, 260));
 
@@ -87,7 +91,7 @@ internal sealed class ClaudeLinkWindow : Window
                 Refuse("This Claude link could not be opened.");
                 return;
             }
-            var targets = await Task.Run(ClaudeLinks.RunningTargets);
+            var targets = _staged ?? await Task.Run(ClaudeLinks.RunningTargets);
             if (targets.Count == 0)
             {
                 Refuse("No Claude is open. Open the one you want to sign in to and start sign-in from its window.");
@@ -115,6 +119,11 @@ internal sealed class ClaudeLinkWindow : Window
         var target = _targets[index];
         _link = null;
         _continue.IsEnabled = _profiles.IsEnabled = false;
+        if (_staged is not null)
+        {
+            Refuse($"Staged from the debug window: nothing was sent to {target.Name}.");
+            return;
+        }
         try
         {
             await Task.Run(() => ClaudeLinks.Forward(link, target));

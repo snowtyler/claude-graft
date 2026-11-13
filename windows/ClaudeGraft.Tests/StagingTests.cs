@@ -57,4 +57,16 @@ public sealed class StagingTests : IDisposable
         Assert.False(Staging.Any);
         Assert.False(Onboarding.IsSignedIn(profile));
     }
+
+    [Fact(DisplayName = "a shortcut list staged as unreadable refuses every save, and reads again once cleared")]
+    public void StagedUnreadableList()
+    {
+        var store = new ShortcutStore();
+        Assert.Null(store.LoadError);
+        Staging.ListUnreadable = true;
+        Assert.NotNull(store.LoadError);
+        Assert.Throws<UnreadableStateException>(() => store.Add(new Shortcut { Name = "Staged", Folder = "Claude-Staged" }));
+        Staging.Clear();
+        Assert.Null(store.LoadError);
+    }
 }

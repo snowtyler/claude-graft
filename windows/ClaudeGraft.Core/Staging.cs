@@ -8,7 +8,16 @@ public sealed record AccountStage
     public bool? SignedIn { get; init; }
     public bool Running { get; init; }
     public UsageEntry? Usage { get; init; }
+    public bool Fetching { get; init; }
+    public string? SidebarStatus { get; init; }
+    public Graft.ChatsElsewhere? ChatsElsewhere { get; init; }
+    public SharingStage? Sharing { get; init; }
 }
+
+/// A card's shared-usage line and the accounts listed under it.
+public sealed record SharingStage(string Label, string? Note, bool Attention, IReadOnlyList<LenderStage> Lenders);
+
+public sealed record LenderStage(string Name, string State, bool Attention, string Figures);
 
 /// <summary>
 /// What the debug window has staged, held in memory only so a quit or Reset
@@ -19,6 +28,9 @@ public sealed record AccountStage
 public static class Staging
 {
     public static SetupState? Setup { get; set; }
+
+    /// The shortcut list reads as unreadable, which refuses every save to it.
+    public static bool ListUnreadable { get; set; }
     public static ClaudeLinkHandler? LinkHandler { get; set; }
 
     /// Thrown in place of taking the state lock, so every pass refuses as it would for real.
@@ -28,7 +40,7 @@ public static class Staging
 
     public static event Action? Changed;
 
-    public static bool Any => Setup is not null || LinkHandler is not null || StateFailure is not null || !Accounts.IsEmpty;
+    public static bool Any => Setup is not null || ListUnreadable || LinkHandler is not null || StateFailure is not null || !Accounts.IsEmpty;
 
     public static AccountStage? For(string profile) => Accounts.TryGetValue(Path.GetFullPath(profile), out var stage) ? stage : null;
 
@@ -43,6 +55,7 @@ public static class Staging
     public static void Clear()
     {
         Setup = null;
+        ListUnreadable = false;
         LinkHandler = null;
         StateFailure = null;
         Accounts.Clear();
