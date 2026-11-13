@@ -1,0 +1,48 @@
+using Microsoft.Win32;
+
+namespace ClaudeGraft.Core;
+
+/// <summary>
+/// Offers Graft to Windows as a handler for claude:// links. This only makes it
+/// a candidate: Windows lets nothing make itself the default, so the person
+/// picks it in Default apps. Claude's own registration is never touched.
+/// </summary>
+public static class LinkRegistration
+{
+    public const string ProgId = "ClaudeGraft.Link";
+    public const string ApplicationName = "Claude Graft";
+    private const string Capabilities = @"Software\ClaudeGraft\Capabilities";
+
+    /// Written at install and again at every start, since an update moves the exe.
+    public static void Write(RegistryKey currentUser, string exe)
+    {
+        using (var progId = currentUser.CreateSubKey(@"Software\Classes\" + ProgId))
+        {
+            progId.SetValue("", "Claude link");
+            progId.SetValue("URL Protocol", "");
+            using var icon = progId.CreateSubKey("DefaultIcon");
+            icon.SetValue("", $"\"{exe}\",0");
+            using var command = progId.CreateSubKey(@"shell\open\command");
+            command.SetValue("", $"\"{exe}\" --open-link \"%1\"");
+        }
+        using (var capabilities = currentUser.CreateSubKey(Capabilities))
+        {
+            capabilities.SetValue("ApplicationName", ApplicationName);
+            capabilities.SetValue("ApplicationDescription", "Sends a Claude sign-in to the profile that started it.");
+            using var urls = capabilities.CreateSubKey("URLAssociations");
+            urls.SetValue("claude", ProgId);
+        }
+        using var registered = currentUser.CreateSubKey(@"Software\RegisteredApplications");
+        registered.SetValue(ApplicationName, Capabilities);
+    }
+
+    public static void Remove(RegistryKey currentUser)
+    {
+        currentUser.DeleteSubKeyTree(@"Software\Classes\" + ProgId, throwOnMissingSubKey: false);
+        currentUser.DeleteSubKeyTree(Capabilities, throwOnMissingSubKey: false);
+        using var registered = currentUser.OpenSubKey(@"Software\RegisteredApplications", writable: true);
+        registered?.DeleteValue(ApplicationName, throwOnMissingValue: false);
+        using var own = currentUser.OpenSubKey(@"Software\ClaudeGraft");
+        if (own is { SubKeyCount: 0, ValueCount: 0 }) currentUser.DeleteSubKey(@"Software\ClaudeGraft", throwOnMissingSubKey: false);
+    }
+}

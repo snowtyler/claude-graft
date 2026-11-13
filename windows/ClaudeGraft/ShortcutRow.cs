@@ -57,7 +57,7 @@ public sealed class ShortcutRow : INotifyPropertyChanged
         foreach (var name in new[]
         {
             nameof(SignedIn), nameof(SignInVisibility), nameof(SignedInVisibility), nameof(OpenLabel),
-            nameof(BarsVisibility), nameof(NoUsageVisibility),
+            nameof(BarsVisibility), nameof(NoUsageVisibility), nameof(DefaultAppsVisibility),
         }) Notify(name);
         NotifyStatus();
     }
@@ -66,12 +66,28 @@ public sealed class ShortcutRow : INotifyPropertyChanged
     public Visibility SignedInVisibility => _signedIn ? Visibility.Visible : Visibility.Collapsed;
     public string OpenLabel => _signedIn ? "Open" : "Sign In";
 
-    /// Google sign-in hands the login back through a claude:// link, and Windows
-    /// gives those to the main Claude whichever profile asked, so an extra
-    /// profile has to be signed in by email.
+    /// Google and company sign-in come back through a claude:// link, which
+    /// reaches the right profile only once Graft is the handler Windows picks.
     public string SignInNote => Shortcut is null
         ? "Not signed in yet. Sign In opens Claude so you can log in."
-        : "Not signed in yet. Google account login is not supported, use your email to sign in.";
+        : _handler == ClaudeLinkHandler.Graft
+            ? "Not signed in yet. Graft asks which Claude a Google or company sign-in is for."
+            : "Not signed in yet. Email sign-in works; Google or company sign-in needs Graft for Claude links.";
+
+    public Visibility DefaultAppsVisibility =>
+        Shortcut is not null && !_signedIn && _handler != ClaudeLinkHandler.Graft ? Visibility.Visible : Visibility.Collapsed;
+
+    private ClaudeLinkHandler _handler = ClaudeLinkAssociation.Current();
+
+    /// Asked again on every press: the choice is made in Windows, while Graft stays open.
+    public void RecheckLinkHandler()
+    {
+        var handler = ClaudeLinkAssociation.Current();
+        if (handler == _handler) return;
+        _handler = handler;
+        Notify(nameof(SignInNote));
+        Notify(nameof(DefaultAppsVisibility));
+    }
 
     private bool _running;
 

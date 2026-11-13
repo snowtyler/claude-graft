@@ -18,6 +18,17 @@ public static class Program
             .OnAfterInstallFastCallback(_ => Installed())
             .OnBeforeUninstallFastCallback(_ => Uninstalling())
             .Run();
+        RegisterLinks();
+
+        // Before the single-instance check: the running Graft may be hidden in the
+        // tray, and the chooser has to come up either way. This process shows only it.
+        var arguments = Environment.GetCommandLineArgs();
+        if (arguments.Length > 1 && arguments[1] == "--open-link")
+        {
+            Link = arguments.Length == 3 ? arguments[2] : "";
+            XamlGeneratedProgram.XamlGeneratedMain();
+            return;
+        }
 
         // --quit asks a running copy to shut down as its own Quit does: killed, it
         // leaves its taskbar strip inside Explorer, which stalls until Windows notices.
@@ -32,6 +43,9 @@ public static class Program
         XamlGeneratedProgram.XamlGeneratedMain();
     }
 
+    /// The claude:// link this process was started to route, or null for the app itself.
+    public static string? Link { get; private set; }
+
     /// Set by a second launch; the running copy opens its window.
     public static readonly EventWaitHandle ShowRequest = new(false, EventResetMode.AutoReset, @"Local\ClaudeGraft.Show");
 
@@ -42,6 +56,13 @@ public static class Program
     private static void Installed()
     {
         if (!LegacyInstall.Present) AutoStart.Set(true);
+        RegisterLinks();
+    }
+
+    private static void RegisterLinks()
+    {
+        try { LinkRegistration.Write(Microsoft.Win32.Registry.CurrentUser, Environment.ProcessPath!); }
+        catch (Exception e) { Diagnostics.Note("links.register-failed", new Dictionary<string, object?> { ["error"] = e.GetType().Name }); }
     }
 
     // What the 1.x uninstaller ran GraftLaunch --stop-sharing for, done in place.
@@ -50,6 +71,7 @@ public static class Program
         try { ChimeHook.Remove(ChimeHook.SettingsFile); } catch { }
         try { PoolEnvironment.TakeOutLines(null, ClaudeProcesses.IsRunning); } catch { }
         AutoStart.Set(false);
+        try { LinkRegistration.Remove(Microsoft.Win32.Registry.CurrentUser); } catch { }
         if (GraftUpdates.Root is { } root) try { LegacyInstall.RemoveJunctions(root); } catch { }
     }
 }

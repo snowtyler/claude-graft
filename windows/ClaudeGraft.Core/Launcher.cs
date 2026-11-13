@@ -63,7 +63,8 @@ public static class Launcher
     /// Bring the storage in line and open Claude. If one is already on the
     /// profile, show it rather than starting a second — two Claudes on one chat
     /// store both write it, which is the one loss this app exists to avoid.
-    public static void Open(GraftConfig config, bool applyGraft = true)
+    /// A <paramref name="link"/> goes to the Claude this starts; one already open is handed it by <see cref="ClaudeLinks"/> instead.
+    public static void Open(GraftConfig config, bool applyGraft = true, string? link = null)
     {
         var filing = FilingProfiles(config);
         if (ClaudeProcesses.IsRunning(config.ProfileDir))
@@ -116,7 +117,7 @@ public static class Launcher
             SidebarSync.SynchronizeProjectOrder(config.ProfileDir);
             PoolEnvironment.SettleBeforeOpening(config.ProfileDir,
                 () => PoolEnvironment.EnsureRelay(PoolEnvironment.ReadJournal().Relay));
-            Starter(config.ProfileDir);
+            Starter(config.ProfileDir, link);
         });
     }
 
@@ -165,30 +166,48 @@ public static class Launcher
     }
 
     /// Replaced by the suite, which may never start a Claude.
-    public static Action<string> Starter { get; set; } = Launch;
+    public static Action<string, string?> Starter { get; set; } = (profile, link) => Start(profile, link);
 
-    private static void Launch(string profile)
+    /// Starts Claude on a profile, or hands a link to the Claude already on it:
+    /// Electron keys its single-instance lock by data directory, so a second
+    /// start on a running profile passes its arguments over and exits.
+    public static bool Start(string profile, string? link = null)
     {
-        // A shortcut always carries its own profile; the default profile is the
-        // one launched with no --user-data-dir at all.
-        var args = Fs.SamePath(profile, GraftPaths.DefaultProfile)
-            ? ""
-            : $"--user-data-dir=\"{profile}\"";
         var claude = ClaudeInstallation.Current;
         if (claude is { Package: null, Exe: var exe })
         {
-            // Started anywhere else, Claude holds Graft's install folder as its own and an update cannot replace it.
-            try { Process.Start(new ProcessStartInfo(exe, args) { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(exe)! }); }
-            catch { }
+            try { using var process = Process.Start(StartInfo(exe, profile, link)); return true; }
+            catch { return false; }
         }
-        else if (claude?.Package is { } package && !PackagedClaude.Activate(package, args))
+        if (claude?.Package is not { } package) return false;
+        // No link reaches here with a quote or a space in it (ClaudeLinks.Classify), so this string re-parses as it was built.
+        var args = string.Join(' ', Arguments(profile, link).Select(a => a.StartsWith("--user-data-dir=")
+            ? "--user-data-dir=\"" + a["--user-data-dir=".Length..] + "\"" : a));
+        if (PackagedClaude.Activate(package, args)) return true;
+        Diagnostics.Note("launch.activationFailed", new Dictionary<string, object?>
         {
-            Diagnostics.Note("launch.activationFailed", new Dictionary<string, object?>
-            {
-                ["profile"] = Path.GetFileName(profile),
-                ["app"] = package.AppUserModelId,
-            });
-        }
+            ["profile"] = Path.GetFileName(profile),
+            ["app"] = package.AppUserModelId,
+        });
+        return false;
+    }
+
+    /// The main profile is the one started with no --user-data-dir: an explicit
+    /// path spelled even slightly differently keys another single-instance lock.
+    public static ProcessStartInfo StartInfo(string exe, string profile, string? link = null)
+    {
+        // Started anywhere else, Claude holds Graft's install folder as its own and an update cannot replace it.
+        var start = new ProcessStartInfo(exe) { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(exe)! };
+        start.Environment.Remove("CLAUDE_USER_DATA_DIR");
+        if (!Fs.SamePath(profile, GraftPaths.DefaultProfile)) start.Environment["CLAUDE_USER_DATA_DIR"] = profile;
+        foreach (var argument in Arguments(profile, link)) start.ArgumentList.Add(argument);
+        return start;
+    }
+
+    private static IEnumerable<string> Arguments(string profile, string? link)
+    {
+        if (!Fs.SamePath(profile, GraftPaths.DefaultProfile)) yield return "--user-data-dir=" + profile;
+        if (link is not null) yield return link;
     }
 
     // MARK: - Reveal

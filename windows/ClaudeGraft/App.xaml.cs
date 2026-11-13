@@ -113,16 +113,21 @@ public partial class App : Application
         // all in this app's own diagnostics — a launch that freezes and dies with
         // no record of why. These three cover the three ways a throw goes
         // unobserved: the UI dispatcher, a background thread, and a dropped task.
+        // A failure while routing a link can carry the link, and with it a one-time code.
+        if (Program.Link is null) WatchForCrashes();
+        InitializeComponent();
+        RequestedTheme = ModeInEffect();
+        // The manager closes for real, and the tray app outlives it.
+        DispatcherShutdownMode = DispatcherShutdownMode.OnExplicitShutdown;
+    }
+
+    private void WatchForCrashes()
+    {
         UnhandledException += (_, e) => Record("app.unhandled", e.Exception);
         AppDomain.CurrentDomain.UnhandledException +=
             (_, e) => Record("domain.unhandled", e.ExceptionObject as Exception);
         TaskScheduler.UnobservedTaskException +=
             (_, e) => Record("task.unobserved", e.Exception);
-
-        InitializeComponent();
-        RequestedTheme = ModeInEffect();
-        // The manager closes for real, and the tray app outlives it.
-        DispatcherShutdownMode = DispatcherShutdownMode.OnExplicitShutdown;
     }
 
     // Nothing is swallowed — the exception is written down and left to take the
@@ -147,6 +152,13 @@ public partial class App : Application
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         Themed.Publish();
+        if (Program.Link is { } link)
+        {
+            var window = new ClaudeLinkWindow(link);
+            window.Closed += (_, _) => Exit();
+            _ = window.OpenAsync();
+            return;
+        }
         _ui = DispatcherQueue.GetForCurrentThread();
 
         // Shortcuts made before the launcher moved in beside the app still point

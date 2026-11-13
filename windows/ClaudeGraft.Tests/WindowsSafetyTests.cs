@@ -8,7 +8,7 @@ public sealed class WindowsSafetyTests : IDisposable
 {
     private readonly TempDir _temp = new();
     private readonly TimeSpan _patience = StateLock.Patience;
-    private readonly Action<string> _starter = Launcher.Starter;
+    private readonly Action<string, string?> _starter = Launcher.Starter;
     private readonly Func<IReadOnlyList<(int pid, string command)>> _enumerate = ClaudeProcesses.Enumerate;
     public WindowsSafetyTests()
     {
@@ -262,7 +262,7 @@ public sealed class WindowsSafetyTests : IDisposable
         StateLock.Patience = TimeSpan.FromMilliseconds(200);
         ClaudeProcesses.Enumerate = () => [];
         var started = new List<string>();
-        Launcher.Starter = started.Add;
+        Launcher.Starter = (profile, _) => started.Add(profile);
         Directory.CreateDirectory(GraftPaths.OwnData);
         var mirror = Path.Combine(GraftPaths.OwnData, "mirrored-chats.json");
         var records = Path.Combine(GraftPaths.OwnData, "session-records.json");
@@ -285,7 +285,7 @@ public sealed class WindowsSafetyTests : IDisposable
     {
         StateLock.Patience = TimeSpan.FromMilliseconds(200);
         ClaudeProcesses.Enumerate = () => [];
-        Launcher.Starter = _ => { };
+        Launcher.Starter = (_, _) => { };
         Graft.ResetCachesForTests();
         var main = Profile("Claude", "AAAA", "ORG-A");
         File.WriteAllText(Path.Combine(main, "claude-code-sessions", "AAAA", "ORG-A", "local_shared.json"), "{}");

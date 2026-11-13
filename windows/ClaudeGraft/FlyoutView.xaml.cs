@@ -308,6 +308,7 @@ public sealed partial class FlyoutView : UserControl
     {
         if (sender is FrameworkElement { Tag: ShortcutRow row })
         {
+            row.RecheckLinkHandler();
             ProfileRows.Open(row);
             DismissRequested?.Invoke();
         }

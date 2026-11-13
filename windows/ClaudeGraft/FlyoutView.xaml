@@ -118,7 +118,7 @@
                                 </StackPanel>
                             </Grid>
 
-                            <TextBlock Text="{x:Bind SignInNote}" TextWrapping="Wrap"
+                            <TextBlock Text="{x:Bind SignInNote, Mode=OneWay}" TextWrapping="Wrap"
                                        Visibility="{x:Bind SignInVisibility, Mode=OneWay}"
                                        Style="{StaticResource CaptionTextBlockStyle}"
                                        Foreground="{StaticResource GraftTextFillColorTertiaryBrush}" />

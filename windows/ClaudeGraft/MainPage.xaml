@@ -213,8 +213,12 @@
                                         </Grid>
                                         <TextBlock Text="{x:Bind UsageStatusText, Mode=OneWay}" Visibility="{x:Bind UsageWarningVisibility, Mode=OneWay}"
                                                    TextWrapping="Wrap" Foreground="{StaticResource GraftSystemFillColorCautionBrush}" />
-                                        <TextBlock Text="{x:Bind SignInNote}" Visibility="{x:Bind SignInVisibility, Mode=OneWay}"
+                                        <TextBlock Text="{x:Bind SignInNote, Mode=OneWay}" Visibility="{x:Bind SignInVisibility, Mode=OneWay}"
                                                    TextWrapping="Wrap" Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" />
+                                        <HyperlinkButton Content="Choose Graft for Claude links" Click="DefaultApps_Click" Tag="{x:Bind}" Padding="0"
+                                                         Visibility="{x:Bind DefaultAppsVisibility, Mode=OneWay}"
+                                                         AutomationProperties.Name="Choose Graft for Claude links in Default apps"
+                                                         AutomationProperties.AutomationId="{x:Bind local:Spoken.Id('manager', Key, 'defaultApps')}" />
                                         <TextBlock Text="No usage reported yet" Visibility="{x:Bind NoUsageVisibility, Mode=OneWay}"
                                                    Foreground="{StaticResource GraftTextFillColorSecondaryBrush}" />
                                         <Grid ColumnSpacing="12" Visibility="{x:Bind SignedInVisibility, Mode=OneWay}">

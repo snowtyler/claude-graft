@@ -698,6 +698,7 @@ public sealed partial class MainPage : Page
     private async void Open_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not FrameworkElement { Tag: ShortcutRow row }) return;
+        row.RecheckLinkHandler();
 
         // Before opening, never after: Claude builds its sidebar at launch, so the
         // copy has to happen first to land in the window about to open.
@@ -710,6 +711,13 @@ public sealed partial class MainPage : Page
     }
 
     private static void OpenRow(ShortcutRow row) => ProfileRows.Open(row);
+
+    private void DefaultApps_Click(object sender, RoutedEventArgs e)
+    {
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-settings:defaultapps?registeredAppUser=" + Uri.EscapeDataString(LinkRegistration.ApplicationName)) { UseShellExecute = true }); }
+        catch { }
+        if (sender is FrameworkElement { Tag: ShortcutRow row }) row.RecheckLinkHandler();
+    }
 
 
     /// The offer at the door. Four choices folded into a dialog's three buttons
