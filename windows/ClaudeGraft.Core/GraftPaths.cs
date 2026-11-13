@@ -28,7 +28,11 @@ public static class GraftPaths
 
     /// This app's own state — the shortcut list, the caches, the diagnostics.
     /// Off in a folder of its own beside the profiles, never inside one.
-    public static string OwnData => Path.Combine(ProfilesRoot, "ClaudeGraft");
+    /// Kept in %APPDATA% whichever Claude is installed: the state lock is named
+    /// for this path, and a Graft and a launcher that disagree on it lock nothing.
+    public static string OwnData => Path.Combine(
+        ProfilesRootOverride ?? Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "ClaudeGraft");
 
     /// Redirected by the test suite, like <see cref="ProfilesRootOverride"/>.
     public static string? ClaudeProjectsOverride { get; set; }
