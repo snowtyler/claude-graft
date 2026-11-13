@@ -11,6 +11,7 @@ using ClaudeGraft.Core;
 // Run by the uninstaller while Graft is still there to run it from: nothing
 // else puts back what a borrowing Claude's environment held before sharing.
 // Before anything reaches the network or opens a Claude that would inherit them.
+InstallFolder.Leave();
 PoolEnvironment.ForgetInheritedLines();
 
 // Run by Claude Code's hook at a turn's end and a permission it waits on. It must

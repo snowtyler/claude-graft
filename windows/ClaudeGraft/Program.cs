@@ -18,6 +18,7 @@ public static class Program
             .OnAfterInstallFastCallback(_ => Installed())
             .OnBeforeUninstallFastCallback(_ => Uninstalling())
             .Run();
+        InstallFolder.Leave();
         RegisterLinks();
 
         // Before the single-instance check: the running Graft may be hidden in the
