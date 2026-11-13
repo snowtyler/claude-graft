@@ -1642,6 +1642,30 @@ do {
     check(site.contains("github.com/\(owner)/claude-graft"),
           "and so does the site")
 
+    // Two and a half months after the site went up Google had indexed none of
+    // it: no sitemap, nothing naming one, and Search Console listing the home
+    // page as discovered and never fetched. A page left out of the sitemap is a
+    // page nobody told Google about.
+    let home = "https://graft.aadityamore.com/"
+    let robots = read("docs/robots.txt")
+    let sitemap = read("docs/sitemap.xml")
+    check(robots.contains("Sitemap: \(home)sitemap.xml"),
+          "the site tells crawlers where its sitemap is")
+    check(robots.contains("Disallow: /release-notes/"),
+          "and keeps the update dialog's fragments out of search results")
+    check(site.contains("<link rel=\"canonical\" href=\"\(home)\">") && sitemap.contains("<loc>\(home)</loc>"),
+          "the home page names its own address, and the sitemap lists it")
+    let pages = ((try? FileManager.default.contentsOfDirectory(
+        atPath: repo.appending(path: "docs").path(percentEncoded: false))) ?? [])
+        .filter { $0.hasSuffix(".html") }
+    check(!pages.isEmpty && pages.allSatisfy { page in
+              sitemap.contains("<loc>\(home)\(page == "index.html" ? "" : page)</loc>") },
+          "every page at the top of the site is in the sitemap")
+    check(site.contains("\"@type\": \"SoftwareApplication\"") && site.contains("\"name\": \"Claude Graft\""),
+          "the home page tells search engines what the app is called")
+    check(readme.contains("href=\"\(home)\""),
+          "the README sends people to the site's own address, not the one that redirects")
+
     // The tip jar is a second account under a second spelling. GitHub Sponsors
     // cannot pay into an Indian account, so the money goes through Ko-fi, whose
     // handle carries no hyphens — neither name can be built out of the other,
@@ -4183,6 +4207,171 @@ do {
           "so the archive made in the borrowing profile is there when the source builds its sidebar")
     check(Graft.mirrorKnownPairs() == 0,
           "and a pass with nothing left to carry moves nothing")
+}
+
+func writeChatRecord(_ record: [String: Any], _ folder: URL, _ name: String) {
+    try! JSONSerialization.data(withJSONObject: record, options: [.sortedKeys])
+        .write(to: folder.appending(path: name))
+}
+
+func chatRecord(_ folder: URL, _ name: String) -> [String: Any] {
+    (try? Data(contentsOf: folder.appending(path: name)))
+        .flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:]
+}
+
+func editChatRecord(_ folder: URL, _ name: String, _ change: (inout [String: Any]) -> Void) {
+    var record = chatRecord(folder, name)
+    change(&record)
+    writeChatRecord(record, folder, name)
+}
+
+do {
+    // Claude writes a chat's whole record back every time it shows the chat,
+    // and archiving leaves lastActivityAt where it was. So two sides that both
+    // moved since the last pass are far more often an archive on one and a
+    // glance on the other than two edits of the same thing — and keeping one
+    // whole record, the borrower's on a tie, put the old isArchived straight
+    // back over the archive on both sides.
+    try? fm.removeItem(at: Graft.mirrorStateFile)
+    let source = makeProfile("Claude-Fields-Src", account: "FSRC", org: "FSRCORG")
+    let borrower = makeProfile("Claude-Fields", account: "FOWN", org: "FOWNORG")
+    let srcOrg = source.appending(path: "claude-code-sessions/FSRC/FSRCORG")
+    let ownOrg = borrower.appending(path: "claude-code-sessions/FOWN/FOWNORG")
+    let name = "local_fields.json"
+    let shared: [String: Any] = ["isArchived": false, "lastActivityAt": 1000,
+                                 "lastFocusedAt": 1000, "title": "A chat"]
+    writeChatRecord(shared, ownOrg, name)
+    writeChatRecord(shared, srcOrg, name)
+    Graft.mirrorChatFolders(ownOrg, srcOrg)
+
+    editChatRecord(srcOrg, name) { $0["isArchived"] = true }
+    editChatRecord(ownOrg, name) { $0["lastFocusedAt"] = 2000 }
+    Graft.mirrorChatFolders(ownOrg, srcOrg)
+    check(chatRecord(srcOrg, name)["isArchived"] as? Bool == true
+            && chatRecord(ownOrg, name)["isArchived"] as? Bool == true,
+          "a chat archived on one side stays archived when the other side has only shown it since")
+    check(chatRecord(srcOrg, name)["lastFocusedAt"] as? Int == 2000,
+          "and what the other side did is kept too, rather than one whole record standing in for both")
+    check(Graft.mirrorChatFolders(ownOrg, srcOrg) == 0,
+          "after which a pass has nothing left to carry")
+
+    editChatRecord(ownOrg, name) { $0["lastAssistantCliSessionId"] = "later" }
+    editChatRecord(srcOrg, name) { $0["isArchived"] = false; $0["autoArchiveExempt"] = true }
+    Graft.mirrorChatFolders(ownOrg, srcOrg)
+    check(chatRecord(ownOrg, name)["isArchived"] as? Bool == false
+            && chatRecord(ownOrg, name)["autoArchiveExempt"] as? Bool == true
+            && chatRecord(srcOrg, name)["lastAssistantCliSessionId"] as? String == "later",
+          "an unarchive survives the same way, which no rule about archived records winning could keep")
+
+    editChatRecord(srcOrg, name) { $0["keptDirtyWorktree"] = true }
+    Graft.mirrorChatFolders(ownOrg, srcOrg)
+    editChatRecord(srcOrg, name) { $0["keptDirtyWorktree"] = nil }
+    editChatRecord(ownOrg, name) { $0["lastFocusedAt"] = 3000 }
+    Graft.mirrorChatFolders(ownOrg, srcOrg)
+    check(chatRecord(ownOrg, name)["keptDirtyWorktree"] == nil
+            && chatRecord(srcOrg, name)["lastFocusedAt"] as? Int == 3000,
+          "a field one side took out is gone from both")
+
+    editChatRecord(ownOrg, name) { $0["lastFocusedAt"] = 4000 }
+    editChatRecord(srcOrg, name) { $0["lastFocusedAt"] = 5000 }
+    Graft.mirrorChatFolders(ownOrg, srcOrg)
+    check(chatRecord(ownOrg, name)["lastFocusedAt"] as? Int == 5000
+            && chatRecord(srcOrg, name)["lastFocusedAt"] as? Int == 5000,
+          "a time both sides changed takes the later of the two")
+
+    editChatRecord(ownOrg, name) { $0["title"] = "the borrower's" }
+    editChatRecord(srcOrg, name) { $0["title"] = "the source's" }
+    Graft.mirrorChatFolders(ownOrg, srcOrg)
+    check(chatRecord(srcOrg, name)["title"] as? String == "the borrower's",
+          "anything else both sides changed is settled as the whole record used to be: on a tie, the borrower's")
+    editChatRecord(ownOrg, name) { $0["title"] = "the borrower's again" }
+    editChatRecord(srcOrg, name) { $0["title"] = "the source's again"; $0["lastActivityAt"] = 9000 }
+    Graft.mirrorChatFolders(ownOrg, srcOrg)
+    check(chatRecord(ownOrg, name)["title"] as? String == "the source's again",
+          "and otherwise the side whose record says it moved last")
+
+    // A Claude still showing a chat as archived after a pass wrote the
+    // unarchive underneath it, unarchiving it there, writes the same false the
+    // pass did; what moved is resumedAt, which Claude sets when it unarchives.
+    editChatRecord(srcOrg, name) { $0["isArchived"] = false; $0["resumedAt"] = 200 }
+    Graft.mirrorChatFolders(ownOrg, srcOrg)
+    editChatRecord(ownOrg, name) { $0["isArchived"] = false; $0["resumedAt"] = 300 }
+    editChatRecord(srcOrg, name) { $0["isArchived"] = true }
+    Graft.mirrorChatFolders(ownOrg, srcOrg)
+    check(chatRecord(srcOrg, name)["isArchived"] as? Bool == false,
+          "an unarchive counts on the side that made it even when the flag comes back as it already was")
+    editChatRecord(ownOrg, name) { $0["isArchived"] = true }
+    editChatRecord(srcOrg, name) { $0["isArchived"] = false; $0["resumedAt"] = 400 }
+    Graft.mirrorChatFolders(ownOrg, srcOrg)
+    check(chatRecord(ownOrg, name)["isArchived"] as? Bool == false
+            && chatRecord(srcOrg, name)["isArchived"] as? Bool == false,
+          "and it outlasts an archive made against it on the other side, whichever side each was made on")
+
+    // Claude only moves lastActivityAt forward, so a side that comes back with
+    // an earlier one is a running Claude writing back a copy from before the
+    // other side's last turn reached it.
+    editChatRecord(srcOrg, name) { $0["isArchived"] = true; $0["lastActivityAt"] = 20000 }
+    Graft.mirrorChatFolders(ownOrg, srcOrg)
+    editChatRecord(ownOrg, name) { $0["isArchived"] = false; $0["lastActivityAt"] = 9000; $0["lastFocusedAt"] = 30000 }
+    editChatRecord(srcOrg, name) { $0["lastFocusedAt"] = 25000 }
+    Graft.mirrorChatFolders(ownOrg, srcOrg)
+    check(chatRecord(ownOrg, name)["isArchived"] as? Bool == true
+            && chatRecord(srcOrg, name)["isArchived"] as? Bool == true,
+          "a record that comes back with older activity than both sides agreed on is settled whole, and the later one keeps its archive")
+
+    // Claude skips a record it cannot read, so an empty file carried over a
+    // whole one takes the chat out of both sidebars.
+    try! Data().write(to: ownOrg.appending(path: name))
+    editChatRecord(srcOrg, name) { $0["isArchived"] = true }
+    Graft.mirrorChatFolders(ownOrg, srcOrg)
+    check(chatRecord(srcOrg, name)["isArchived"] as? Bool == true
+            && chatRecord(ownOrg, name)["isArchived"] as? Bool == true,
+          "an empty record never replaces a readable one, and its side gets the readable copy back")
+    try! Data().write(to: ownOrg.appending(path: name))
+    Graft.mirrorChatFolders(ownOrg, srcOrg)
+    check(!chatRecord(srcOrg, name).isEmpty && !chatRecord(ownOrg, name).isEmpty,
+          "even when the empty file is the only thing that changed since the last pass")
+
+    // What an upgrade finds: a pair and its baseline, and no fields yet.
+    let key = Graft.pairKey(ownOrg, srcOrg)
+    try? fm.removeItem(at: Graft.mirrorFieldsFolder)
+    Graft.mirrorChatFolders(ownOrg, srcOrg)
+    check(Graft.loadRecordBaselines(for: key)[name]?.fields?["isArchived"] != nil,
+          "a pair mirrored before fields were kept has them written down on its next pass")
+    var state = Graft.loadMirrorState()
+    state.pairs.removeValue(forKey: key)
+    Graft.saveMirrorState(state)
+    check(Graft.loadRecordBaselines(for: key).isEmpty,
+          "and a pair that stops being mirrored takes its fields with it")
+}
+
+do {
+    // Pairs that share a source pass a change along one pair at a time, in
+    // the order of their keys: a chat archived in the borrower that comes last
+    // reached the source on the first round and the borrower before it only on
+    // the next, so a launcher that stopped after one round opened its Claude a
+    // change behind.
+    try? fm.removeItem(at: Graft.mirrorStateFile)
+    let source = makeProfile("Claude-Hub", account: "HUB", org: "HUBORG")
+    let first = makeProfile("Claude-Hub-A", account: "HUBA", org: "HUBAORG")
+    let second = makeProfile("Claude-Hub-B", account: "HUBB", org: "HUBBORG")
+    let hub = source.appending(path: "claude-code-sessions/HUB/HUBORG")
+    let a = first.appending(path: "claude-code-sessions/HUBA/HUBAORG")
+    let b = second.appending(path: "claude-code-sessions/HUBB/HUBBORG")
+    let name = "local_hub.json"
+    let shared: [String: Any] = ["isArchived": false, "lastActivityAt": 1000, "lastFocusedAt": 1000]
+    for folder in [hub, a, b] { writeChatRecord(shared, folder, name) }
+    Graft.mirrorChatFolders(a, hub)
+    Graft.mirrorChatFolders(b, hub)
+
+    editChatRecord(b, name) { $0["isArchived"] = true }
+    editChatRecord(a, name) { $0["lastFocusedAt"] = 2000 }
+    Graft.mirrorKnownPairs()
+    check([hub, a, b].allSatisfy { chatRecord($0, name)["isArchived"] as? Bool == true },
+          "a chat archived in the borrower whose pair comes last is archived everywhere after one pass")
+    check([hub, a, b].allSatisfy { chatRecord($0, name)["lastFocusedAt"] as? Int == 2000 },
+          "and the other borrower's glance at it reaches all three as well")
+    check(Graft.mirrorKnownPairs() == 0, "with nothing left over for the pass after")
 }
 
 do {
@@ -6834,12 +7023,13 @@ do {
     let font = NSFont.menuBarFont(ofSize: 0)
     check(NewChatTicker.text(title: nil, account: "Claude") == "New chat · Claude",
           "a conversation with no title yet reads as a new chat, with the account answering it")
-    check(NewChatTicker.cycle("New chat · Claude", font: font) == nil
-            && NewChatTicker.image("New chat · Claude", offset: 0, font: font).size.width < NewChatTicker.width,
+    let still = NewChatTicker.Picture("New chat · Claude", font: font)
+    check(still.cycle == nil && still.strip == nil && still.image.size.width < NewChatTicker.width,
           "text short enough to fit stands still")
     let long = "Work out which of 391, 397 and 403 are prime · Claude 2"
-    check(NewChatTicker.cycle(long, font: font).map { $0 > NewChatTicker.width } == true
-            && NewChatTicker.image(long, offset: 40, font: font).size.width == NewChatTicker.width,
+    let moving = NewChatTicker.Picture(long, font: font)
+    check(moving.cycle.map { $0 > NewChatTicker.width } == true && moving.strip != nil
+            && moving.image.size.width == NewChatTicker.width,
           "a long title scrolls inside a fixed width, so the items beside it do not move")
 
     let bar = (try? String(contentsOf: URL(fileURLWithPath: #filePath).deletingLastPathComponent()
@@ -6853,9 +7043,8 @@ do {
             && !bar.contains("menu.popUp(positioning:"),
           "the right-click menu opens under the item, where macOS puts menu-bar menus")
 
-    let moving = NewChatTicker.Picture(long, font: font)
-    func drawn(_ picture: NewChatTicker.Picture) -> Data {
-        let size = picture.image.size
+    func drawn(_ image: NSImage) -> Data {
+        let size = image.size
         let pixels = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width * 2),
                                       pixelsHigh: Int(size.height * 2), bitsPerSample: 8,
                                       samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
@@ -6863,25 +7052,82 @@ do {
         pixels.size = size
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: pixels)
-        picture.image.draw(in: NSRect(origin: .zero, size: size))
+        image.draw(in: NSRect(origin: .zero, size: size))
         NSGraphicsContext.restoreGraphicsState()
         return Data(bytes: pixels.bitmapData!, count: pixels.bytesPerRow * pixels.pixelsHigh)
     }
-    let atStart = drawn(moving)
-    moving.offset = 40
-    let along = drawn(moving)
-    moving.offset = moving.cycle ?? 0
-    let roundAgain = drawn(moving)
-    moving.offset = 0
-    check(atStart.contains { $0 != 0 } && along != atStart && roundAgain == atStart && drawn(moving) == atStart,
-          "the bar's text moves within the one picture it is given, and a whole pass ends where it began")
-    let tick = bar.components(separatedBy: "private func advanceTicker()").last?
-        .components(separatedBy: "\n    }").first ?? ""
-    check(tick.contains("picture.offset = tickerOffset") && tick.contains("button.setNeedsDisplay(")
-            && !tick.contains("applyTitle()") && !tick.contains("attributedTitle"),
-          "a tick moves the text and has the item drawn again, never handing it a new title to measure")
-    check(bar.contains("guard tickerPicture?.cycle != nil else {") && !bar.contains("if chat == nil {\n            ticker?.invalidate()"),
-          "text short enough to stand still keeps no timer running")
+    check(drawn(still.image).contains { $0 != 0 } && !drawn(moving.image).contains { $0 != 0 },
+          "text that fits is drawn into the title, and text that moves leaves the title a blank of its width")
+    // Measured where the second copy begins, past anything a view would have
+    // drawn of a strip seen through 150 points.
+    let words = moving.strip?.words
+    let wordsDrawn = words.flatMap { layer -> CGImage? in
+        let size = layer.bounds.size
+        guard let context = CGContext(data: nil, width: Int(size.width), height: Int(size.height), bitsPerComponent: 8,
+                                      bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        layer.render(in: context)
+        return context.makeImage()
+    }
+    let secondCopy = NSBitmapImageRep(cgImage: wordsDrawn ?? NSImage(size: NSSize(width: 1, height: 1))
+        .cgImage(forProposedRect: nil, context: nil, hints: nil)!)
+    let from = Int((words?.bounds.width ?? 0) - (moving.cycle ?? 0) + NewChatTicker.gap)
+    check(from > Int(NewChatTicker.width) && (from..<secondCopy.pixelsWide).contains { x in
+            (0..<secondCopy.pixelsHigh).contains { secondCopy.colorAt(x: x, y: $0)?.alphaComponent ?? 0 > 0 } }
+            && (words?.bounds.width ?? 0) >= (moving.cycle ?? 0) + NewChatTicker.width,
+          "the moving text is drawn whole, long enough that no step of a pass shows an empty end")
+    let pass = NewChatTicker.pass(cycle: moving.cycle ?? 0)
+    check(pass.prefix(NewChatTicker.pause + 1).allSatisfy { $0 == 0 } && pass[NewChatTicker.pause + 1] == NewChatTicker.step
+            && zip(pass.dropFirst(NewChatTicker.pause + 1), pass.dropFirst(NewChatTicker.pause + 2))
+                .allSatisfy { $1 - $0 == NewChatTicker.step }
+            && pass.last! < moving.cycle! && pass.last! + NewChatTicker.step >= moving.cycle!,
+          "a pass holds at the start, moves a step a tick, and ends a step short of where it began again")
+
+    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 24), styleMask: .borderless,
+                          backing: .buffered, defer: true)
+    let button = NSButton(frame: NSRect(x: 0, y: 0, width: 360, height: 22))
+    button.isBordered = false
+    window.contentView?.addSubview(button)
+    // An icon makes the line taller than the text, which is the shape the
+    // strip once stood a pixel low in.
+    let icon = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { rect in
+        NSColor.systemOrange.setFill()
+        rect.fill()
+        return true
+    }
+    let solid = NSImage(size: moving.image.size, flipped: false) { rect in
+        NSColor(srgbRed: 0, green: 1, blue: 0, alpha: 1).setFill()
+        rect.fill()
+        return true
+    }
+    button.attributedTitle = FrontTitle.make(icon: icon, tag: nil, figure: nil, font: font, ticker: solid)
+    let truth = button.bitmapImageRepForCachingDisplay(in: button.bounds)!
+    button.cacheDisplay(in: button.bounds, to: truth)
+    let scale = window.backingScaleFactor
+    let solidCorner = (0..<truth.pixelsHigh).lazy.compactMap { row -> NSPoint? in
+        let filled = (0..<truth.pixelsWide).filter { column in
+            truth.colorAt(x: column, y: row)?.usingColorSpace(.sRGB).map {
+                $0.greenComponent > 0.7 && $0.redComponent < 0.3 && $0.blueComponent < 0.3 } ?? false
+        }
+        return filled.count >= Int(moving.image.size.width * scale) - 2
+            ? NSPoint(x: CGFloat(filled[0]) / scale, y: CGFloat(row) / scale) : nil
+    }.first
+    button.attributedTitle = FrontTitle.make(icon: icon, tag: nil, figure: nil, font: font, ticker: moving.image)
+    moving.strip.map(button.addSubview)
+    MainActor.assumeIsolated { moving.place(in: button) }
+    let laid = moving.strip?.frame ?? .zero
+    let laidTop = button.isFlipped ? laid.minY : button.bounds.height - laid.maxY
+    check(moving.strip?.isHidden == false && laid.size == moving.image.size && solidCorner != nil
+            && laid.minX == solidCorner?.x && laidTop == solidCorner?.y,
+          "the moving text lies exactly where AppKit draws a picture of its size, in a title an icon makes taller")
+    button.attributedTitle = FrontTitle.make(icon: nil, tag: nil, figure: nil, font: font, ticker: still.image)
+    MainActor.assumeIsolated { moving.place(in: button) }
+    check(moving.strip?.isHidden == true, "moving text whose blank has left the title is not shown")
+
+    check(!bar.contains("Timer(") && !bar.contains("setNeedsDisplay") && !bar.contains("advanceTicker"),
+          "nothing in Graft wakes while the text moves: no timer, and the button is never asked to draw again")
+    check(bar.contains("tickerStarted = nil\n") && bar.contains("NewChatTicker.Picture(text, font: font, started: tickerStarted)"),
+          "a new conversation starts its pass from the beginning, and new words for the same one carry on")
     let walk = controllerSource.components(separatedBy: "func lookUpRecords(").last?
         .components(separatedBy: "/// Read again only when the transcript has grown").first ?? ""
     check(walk.contains("Graft.modificationDate(atPath: path)") && !walk.contains("attributesOfItem"),
@@ -7584,6 +7830,234 @@ do {
             && source("ArtifactCenter.swift").contains("ArtifactAccounts.signedIn(accounts, store: id, as: identity)")
             && source("ArtifactCenter.swift").contains("for earlier in change.retired { retire(earlier) }"),
           "a sign-in is announced under the store it was made in, whether it adds an account or finds one already there")
+}
+
+section("A chat two Claudes both carried on becomes two")
+do {
+    // Two Claudes carrying one chat on from the same point each write a
+    // transcript of their own, and one record can point at only one of them.
+    try? fm.removeItem(at: Graft.mirrorStateFile)
+    let source = makeProfile("Claude-Split-Src", account: "SSRC", org: "SSRCORG")
+    let borrower = makeProfile("Claude-Split", account: "SOWN", org: "SOWNORG")
+    let srcOrg = source.appending(path: "claude-code-sessions/SSRC/SSRCORG")
+    let ownOrg = borrower.appending(path: "claude-code-sessions/SOWN/SOWNORG")
+    let name = "local_split.json"
+    let shared: [String: Any] = ["sessionId": "local_split", "isArchived": false, "lastActivityAt": 1000,
+                                 "lastAssistantUuid": "reply-0", "cliSessionId": "cli-0",
+                                 "title": "Plan the trip", "titleSource": "auto"]
+    writeChatRecord(shared, ownOrg, name)
+    writeChatRecord(shared, srcOrg, name)
+    Graft.mirrorChatFolders(ownOrg, srcOrg)
+    func chats(_ folder: URL) -> [String] {
+        ((try? fm.contentsOfDirectory(atPath: folder.path)) ?? []).filter(Graft.isRecordName).sorted()
+    }
+    func single(_ title: String = "Plan the trip") -> Bool {
+        chats(ownOrg) == [name] && chats(srcOrg) == [name]
+            && chatRecord(ownOrg, name)["title"] as? String == title
+            && chatRecord(srcOrg, name)["title"] as? String == title
+    }
+
+    editChatRecord(srcOrg, name) { $0["isArchived"] = true }
+    editChatRecord(ownOrg, name) { $0["lastFocusedAt"] = 2000 }
+    Graft.mirrorChatFolders(ownOrg, srcOrg)
+    check(single(), "an archive on one side and a look on the other leave one chat under its own title")
+    editChatRecord(ownOrg, name) { $0["isArchived"] = false; $0["resumedAt"] = 2500 }
+    Graft.mirrorChatFolders(ownOrg, srcOrg)
+    check(single() && chatRecord(srcOrg, name)["isArchived"] as? Bool == false,
+          "and so does bringing it back from the archive on the other side")
+    editChatRecord(srcOrg, name) { $0["lastActivityAt"] = 3000; $0["lastAssistantUuid"] = "reply-1"; $0["cliSessionId"] = "cli-1" }
+    Graft.mirrorChatFolders(ownOrg, srcOrg)
+    check(single() && chatRecord(ownOrg, name)["lastAssistantUuid"] as? String == "reply-1",
+          "a chat carried on in one Claude reaches the other as it is, with no mark")
+
+    editChatRecord(srcOrg, name) { $0["lastActivityAt"] = 4000; $0["lastAssistantUuid"] = "reply-src"; $0["cliSessionId"] = "cli-src" }
+    editChatRecord(ownOrg, name) { $0["lastActivityAt"] = 4100; $0["lastAssistantUuid"] = "reply-own"; $0["cliSessionId"] = "cli-own" }
+    Graft.runningClaudesOverride = { [borrower] }
+    Graft.mirrorChatFolders(ownOrg, srcOrg)
+    check(chats(ownOrg) == [name] && chats(srcOrg) == [name]
+            && chatRecord(ownOrg, name)["lastAssistantUuid"] as? String == "reply-own"
+            && chatRecord(srcOrg, name)["lastAssistantUuid"] as? String == "reply-src",
+          "a chat both Claudes carried on is left as each has it while either of them is open")
+    Graft.runningClaudesOverride = { [] }
+    Graft.mirrorChatFolders(ownOrg, srcOrg)
+    let halves = chats(ownOrg)
+    check(halves.count == 2 && chats(srcOrg) == halves, "and once both are closed it is two chats in both profiles")
+    let other = halves.first { $0 != name } ?? name
+    let srcName = Graft.claudeName(of: source), ownName = Graft.claudeName(of: borrower)
+    check([srcOrg, ownOrg].allSatisfy {
+            chatRecord($0, name)["lastAssistantUuid"] as? String == "reply-src"
+                && chatRecord($0, name)["title"] as? String == "Plan the trip (\(srcName))" },
+          "the source's half keeps the chat, titled with the name of the Claude that carried it on")
+    check([srcOrg, ownOrg].allSatisfy {
+            chatRecord($0, other)["lastAssistantUuid"] as? String == "reply-own"
+                && chatRecord($0, other)["cliSessionId"] as? String == "cli-own"
+                && chatRecord($0, other)["sessionId"] as? String == String(other.dropLast(5))
+                && chatRecord($0, other)["title"] as? String == "Plan the trip (\(ownName))" },
+          "and the borrower's half becomes a chat of its own, titled with its Claude's name")
+    check([name, other].allSatisfy { chatRecord(ownOrg, $0)["titleSource"] as? String == "user" },
+          "both titles are kept as given rather than giving way to Claude's next guess")
+    check(Graft.mirrorChatFolders(ownOrg, srcOrg) == 0, "after which a pass has nothing to carry")
+    editChatRecord(ownOrg, other) { $0["lastFocusedAt"] = 5000 }
+    editChatRecord(srcOrg, other) { $0["isArchived"] = true }
+    Graft.mirrorChatFolders(ownOrg, srcOrg)
+    check(chats(ownOrg).count == 2 && chatRecord(srcOrg, other)["title"] as? String == "Plan the trip (\(ownName))",
+          "and a half shown on one side and archived on the other stays one chat, its title marked once")
+    check(Graft.claudeName(of: Graft.mainProfile) == "Claude" && Graft.claudeName(of: borrower) == "Claude-Split",
+          "Claude's own profile is called Claude, and a profile with no shortcut by its folder")
+    for profile in [source, borrower] { try? fm.removeItem(at: profile) }
+}
+
+section("Going back hands an unfiled chat back too")
+do {
+    // A borrowed unfiled chat carries this profile's own origin, so its bytes
+    // never match the source's copy; what decides whether it was borrowed is
+    // the conversation, not the alias.
+    let main = makeProfile("Claude", account: "AAAA", org: "ORG-A", chats: ["shared"])
+    let work = makeProfile("Claude-Work", account: "BBBB", org: "ORG-B", chats: ["mine"])
+    let cwd = main.appending(path: "scratch-workspaces/AAAA/ORG-A/scratch-2026-10-03-abcdef")
+    try! fm.createDirectory(at: cwd, withIntermediateDirectories: true)
+    let record: [String: Any] = ["sessionId": "local_unfiled", "cliSessionId": "transcript",
+        "cwd": cwd.path, "originCwd": cwd.path, "title": "Unfiled", "lastActivityAt": 100]
+    try! JSONSerialization.data(withJSONObject: record)
+        .write(to: main.appending(path: "claude-code-sessions/AAAA/ORG-A/local_unfiled.json"))
+    Graft.graft(from: main, into: work)
+    check(chatsVisible(to: work).contains("local_unfiled.json"),
+          "a profile borrowing an unfiled chat is shown it")
+    Graft.ungraft(work)
+    check(chatsVisible(to: work) == ["local_mine.json"],
+          "and going back hands it back with the rest, though its copy names this profile's own folder")
+    check(Graft.exists(main.appending(path: "claude-code-sessions/AAAA/ORG-A/local_unfiled.json")),
+          "while the profile it came from keeps it")
+    for profile in [main, work] { try? fm.removeItem(at: profile) }
+}
+
+section("Scratch conversations keep their local sidebar classification")
+do {
+    let previous = Graft.applicationSupportOverride
+    let isolated = root.appending(path: "scratch-origin-support")
+    Graft.applicationSupportOverride = isolated
+    defer { Graft.applicationSupportOverride = previous }
+    let source = isolated.appending(path: "Claude")
+    let borrower = isolated.appending(path: "Claude-Second")
+    let one = borrower.appending(path: "claude-code-sessions/OWNACC/OWNORG")
+    let other = source.appending(path: "claude-code-sessions/SRCACC/SRCORG")
+    try! fm.createDirectory(at: one, withIntermediateDirectories: true)
+    try! fm.createDirectory(at: other, withIntermediateDirectories: true)
+    let cwd = source.appending(path: "scratch-workspaces/SRCACC/SRCORG/scratch-2026-10-03-abcdef")
+    try! fm.createDirectory(at: cwd, withIntermediateDirectories: true)
+    try! Data("working files".utf8).write(to: cwd.appending(path: "work.txt"))
+    let record: [String: Any] = ["sessionId": "local_scratch", "cliSessionId": "original-transcript",
+        "cwd": cwd.path, "originCwd": cwd.path, "title": "Unfiled chat", "lastActivityAt": 100,
+        "isArchived": false]
+    let name = "local_scratch.json"
+    try! JSONSerialization.data(withJSONObject: record).write(to: other.appending(path: name))
+    try! Data("{}".utf8).write(to: other.appending(path: "local_keep.json"))
+    Graft.mirrorChatFolders(one, other)
+    func read(_ folder: URL) -> [String: Any] {
+        try! JSONSerialization.jsonObject(with: Data(contentsOf: folder.appending(path: name))) as! [String: Any]
+    }
+    let alias = borrower.appending(path: "scratch-workspaces/SRCACC/SRCORG/scratch-2026-10-03-abcdef")
+    check(read(one)["originCwd"] as? String == alias.path,
+          "an imported unfiled chat is recognized under the receiving profile's scratch root")
+    check(read(one)["cwd"] as? String == cwd.path && read(one)["cliSessionId"] as? String == "original-transcript",
+          "the working directory and transcript identifier remain unchanged for resuming")
+    check(Graft.isSymlink(alias) && Graft.samePath(alias, cwd)
+          && (try? String(contentsOf: alias.appending(path: "work.txt"))) == "working files",
+          "the local origin points at the original working files without moving them")
+    check(Graft.mirrorChatFolders(one, other) == 0 && read(other)["originCwd"] as? String == cwd.path,
+          "a second synchronization preserves both profiles' classification without treating it as an edit")
+    var changed = read(one)
+    changed["title"] = "Renamed on second account"
+    changed["isArchived"] = true
+    changed["lastActivityAt"] = 200
+    try! JSONSerialization.data(withJSONObject: changed).write(to: one.appending(path: name))
+    Graft.mirrorChatFolders(one, other)
+    check(read(other)["title"] as? String == "Renamed on second account"
+          && read(other)["isArchived"] as? Bool == true && read(other)["originCwd"] as? String == cwd.path,
+          "renames and archive changes propagate while the source keeps its own scratch origin")
+    check(Graft.mirrorChatFolders(one, other) == 0 && read(one)["originCwd"] as? String == alias.path,
+          "subsequent launches retain the corrected no-folder classification")
+    var archived = read(other)
+    archived["isArchived"] = false
+    archived["resumedAt"] = 300
+    try! JSONSerialization.data(withJSONObject: archived).write(to: other.appending(path: name))
+    var glanced = read(one)
+    glanced["lastFocusedAt"] = 310
+    try! JSONSerialization.data(withJSONObject: glanced).write(to: one.appending(path: name))
+    Graft.mirrorChatFolders(one, other)
+    check(read(one)["isArchived"] as? Bool == false && read(one)["lastFocusedAt"] as? Int == 310
+          && read(other)["isArchived"] as? Bool == false && read(other)["lastFocusedAt"] as? Int == 310
+          && read(one)["originCwd"] as? String == alias.path && read(other)["originCwd"] as? String == cwd.path,
+          "an unfiled chat both sides changed is merged field by field, each side keeping its own origin")
+    check(Graft.mirrorChatFolders(one, other) == 0,
+          "and the merged unfiled chat is settled, not merged again on every pass")
+    try! fm.removeItem(at: one.appending(path: name))
+    Graft.mirrorChatFolders(one, other)
+    check(!Graft.exists(other.appending(path: name)),
+          "local scratch origins do not prevent an individual deletion from synchronizing")
+    let project: [String: Any] = ["sessionId": "local_project", "cwd": "/a/project", "originCwd": "/a/project"]
+    let projectData = try! JSONSerialization.data(withJSONObject: project)
+    try! projectData.write(to: other.appending(path: "local_project.json"))
+    Graft.mirrorChatFolders(one, other)
+    check((try! Data(contentsOf: one.appending(path: "local_project.json"))) == projectData,
+          "ordinary project records remain byte-for-byte unchanged")
+}
+
+section("Project order follows the most recently reordered account")
+do {
+    func value(_ order: [String], _ time: Int) -> String {
+        String(decoding: try! JSONSerialization.data(withJSONObject: ["value": order, "tabId": "", "timestamp": time]), as: UTF8.self)
+    }
+    func presets(_ list: [(String, String, String)]) -> String {
+        let items = list.map { ["id": $0.0, "name": $0.1, "target": ["kind": "local", "cwd": $0.2]] }
+        return String(decoding: try! JSONSerialization.data(withJSONObject: ["state": ["presets": items], "version": 0]), as: UTF8.self)
+    }
+    func order(_ text: String?) -> [String]? {
+        text.flatMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: Any] }?["value"] as? [String]
+    }
+    func time(_ text: String?) -> Double? {
+        (text.flatMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: Any] }?["timestamp"] as? NSNumber)?.doubleValue
+    }
+    let presetsA = presets([("a-nas", "NAS", "/Volumes/NAS"), ("a-cv", "CV", "/cv"), ("a-only", "Only A", "/only-a")])
+    let presetsB = presets([("b-cv", "CV", "/cv"), ("b-nas", "NAS", "/Volumes/NAS"), ("b-other", "Renamed", "/only-a-renamed")])
+    let newer = [SidebarSync.ProjectInput(path: "/A", order: value(["/b", "preset::a-cv", "/a", "preset::a-nas", "preset::a-only"], 200), presets: presetsA),
+                 SidebarSync.ProjectInput(path: "/B", order: value(["/a", "/b", "preset::b-nas"], 100), presets: presetsB)]
+    let plan = SidebarSync.planProjectOrders(newer)
+    check(plan["/A"] == nil && order(plan["/B"]) == ["/b", "preset::b-cv", "/a", "preset::b-nas"],
+          "the newer order reaches the other account with its saved environments matched by name and folder")
+    check(time(plan["/B"]) == 200, "the copied order keeps the time it was made, so the next pass has nothing to do")
+    let settled = [newer[0], SidebarSync.ProjectInput(path: "/B", order: plan["/B"], presets: presetsB)]
+    check(SidebarSync.planProjectOrders(settled).isEmpty, "two accounts already in step are left alone in both directions")
+    let tie = [SidebarSync.ProjectInput(path: "/A", order: value(["/a", "/b"], 300), presets: presetsA),
+               SidebarSync.ProjectInput(path: "/B", order: value(["/b", "/a"], 300), presets: presetsB)]
+    check(SidebarSync.planProjectOrders(tie).isEmpty, "orders saved at the same moment do not take turns overwriting each other")
+    let missing = [SidebarSync.ProjectInput(path: "/A", order: value(["/a", "/b"], 50), presets: presetsA),
+                   SidebarSync.ProjectInput(path: "/B", order: nil, presets: nil)]
+    check(order(SidebarSync.planProjectOrders(missing)["/B"]) == ["/a", "/b"],
+          "an account that never stored an order receives one, keeping folders and repositories as they are")
+    check(SidebarSync.planProjectOrders([SidebarSync.ProjectInput(path: "/A", order: nil, presets: nil),
+                                         SidebarSync.ProjectInput(path: "/B", order: "not json", presets: nil)]).isEmpty,
+          "nothing is written when no account has a readable order")
+    let ownEntries = [SidebarSync.ProjectInput(path: "/A", order: value(["/b", "/a"], 400), presets: presetsA),
+                      SidebarSync.ProjectInput(path: "/B", order: value(["preset::b-other", "/a", "/only-b", "/b"], 10), presets: presetsB)]
+    check(order(SidebarSync.planProjectOrders(ownEntries)["/B"]) == ["/b", "/a", "preset::b-other", "/only-b"],
+          "entries only the receiving account lists are kept after the copied order")
+    let huge = [SidebarSync.ProjectInput(path: "/A", order: #"{"value":["/a"],"tabId":"","timestamp":1e19}"#, presets: nil),
+                SidebarSync.ProjectInput(path: "/B", order: value(["/b"], 5), presets: nil)]
+    check(order(SidebarSync.planProjectOrders(huge)["/B"]) == ["/a", "/b"],
+          "a stored time too large for a whole number is copied as it is rather than stopping the pass")
+    let displayed = SidebarSync.effectiveProjectOrder(value(["/stored"], 700), desktop: ["/shown", "/also"])
+    check(order(displayed) == ["/shown", "/also"] && time(displayed) == 700,
+          "the order Claude displays from its preferences file replaces the stored copy, keeping its time")
+    check(order(SidebarSync.effectiveProjectOrder(nil, desktop: ["/only"])) == ["/only"]
+          && SidebarSync.effectiveProjectOrder(value(["/kept"], 1), desktop: nil) == value(["/kept"], 1),
+          "a missing preferences entry or stored copy leaves the other as it is")
+    let projectScript = SidebarStorage.script
+    check(projectScript.contains("atomicWrite(file, preferencesText(text, root), mode)")
+            && projectScript.contains("if (writing && profile.prefs) writeProjectPreference(profile.path, profile.prefs);"),
+          "the displayed order goes into the desktop settings file through the helper, keeping its layout and permissions")
+    check(SidebarSync.translateProjectOrder(["preset::shared-id", "/x", "/x"], from: [], to: [["id": "shared-id"]]) == ["preset::shared-id", "/x"],
+          "an environment both accounts share by identifier is kept and duplicates are dropped")
 }
 
 print("\n\(checks - failures)/\(checks) checks passed")

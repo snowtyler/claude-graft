@@ -60,9 +60,37 @@ about 9% of a core and 123 MB, with 18 MB more in `graft-relay`, while a
 conversation was on the bar and nothing else was asked of it; a profile put
 most of that in redrawing the bar's text and in the look's walk over every
 record. Both are cheaper now, as [shared-usage.md](shared-usage.md) says, and
-the suite proves the picture moves and that a tick asks only for a redraw. Not
-yet seen on a real bar: that macOS 27 shows the text moving when a redraw is
-all it is asked for, and what Graft spends once it does.
+the suite proves that nothing in Graft wakes while the text moves.
+
+Seen on the Mac Mini on 11 November, macOS 27.0.1, against the installed 2.0.1
+under the same conditions and over two minutes each: the text moves on a
+redraw alone, at the same speed, hold and gap, whole and leaving nothing behind.
+With nothing on the bar Graft fell from 3.32% of a core to 1.26%, and with text
+standing still from 3.40% to 1.31%, so still text now costs nothing more than
+none. Moving text fell from 8.11% to 4.91% and 5.04%, a cut of about 38%
+against the half that was expected: the moving cost over the idle figure went
+only from 4.8 points to 3.7, so most of what a tick costs is the redraw itself.
+The WindowServer fell with it, from 15.1% to between 5.4% and 10.7%. Graft's
+memory while moving read 126 MB and then 67 MB in the two samples, against 83
+MB installed, which says the figure moves more than the change does.
+
+A third run there the same day put the text on a layer that Core Animation
+steps, with nothing redrawn. Moving text took 1.51% and 1.40% of a core against
+1.34% still and 1.31% with none, so a moving title now costs about a tenth of a
+point. The WindowServer took 4.68% and 3.91% while it moved. The text moved at
+the same speed, hold and gap, came round whole, and left nothing behind. Graft's
+memory read 150 MB moving and about 116 MB otherwise; no leak was looked for or
+seen. The one fault was still text standing a pixel above the same text moving,
+which [shared-usage.md](shared-usage.md) explains.
+
+A fourth run, with the strip laid where a marked drawing of the button shows the
+blank, compared frames captured at the display's own scale rather than cut down
+from recordings. In 2.0.1 and in the development build alike, moving text in
+its hold, still text, moving text chosen again and moving text after another
+Claude came forward all began on rows 10–18, 90 pixels into the item, with the
+figure on rows 10–19. The first step after the hold moved left only. Movement,
+clicks and the Claude in front behaved as in the third run, and moving text took
+1.35% of a core against 1.33% still.
 
 The session-record sweep has run for real on this machine: forty-six sessions
 that had closed without records — every test conversation plus months of

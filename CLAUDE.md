@@ -110,6 +110,9 @@ any of these. The why is in [notes/updates-and-releases.md](notes/updates-and-re
 - **Going back is a handover, not a delete.** A copy goes only when the other side holds the same bytes at that moment.
 - **A folder that lost everything at once was moved, not cleared.** Forget the baseline; `forgetStalePairs` drops dead pairs.
 - **The baseline says what the filesystem did, never what a pass meant to do.**
+- **Two sides that both moved are merged field by field** against the fields at the baseline (`mergeRecordFields`, kept in `ClaudeGraft/mirror-fields/`), so an archive or an unarchive survives the other side merely showing the chat. A field both changed is settled as the whole record used to be, and so is a record whose `lastActivityAt` went back, except that an archive state both changed comes out unarchived; `isArchived` counts as decided where `resumedAt` moved.
+- **A chat both sides carried on is split, never merged:** both `lastAssistantUuid` moved to different values and both `lastActivityAt` forward, and only with neither Claude open. The borrower's half takes a new name; both are titled with their Claude's name (`claudeName(of:)`). An archive, a rename or a look never splits a chat.
+- **A readable record beats one that is not,** and a pass goes round its pairs until a round moves nothing.
 - **One pass at a time, across processes:** `Graft.withStateLock` holds `ClaudeGraft/state.lock` over every read-modify-write of `mirrored-chats.json` and `session-records.json`, and is let go before `launch` takes the launch lock. On Windows a pass that cannot get it in time does not run (`StateBusyException`).
 - **Nothing goes to the stash before the source has been read.**
 - **A stash beside a folder blocks withdrawal as well as filing** (`mayFileRecords`, both directions).
@@ -120,6 +123,7 @@ any of these. The why is in [notes/updates-and-releases.md](notes/updates-and-re
 - **That offer is silenced at the door, never in the window.**
 - **A new Claude reads its own chats;** only `ContentView.add()` says so. `Shortcut`'s default and decoding stay `.main`, so no saved Claude changes what it reads.
 - **A store may spell account and organization by their first eight characters** — `counterpartDirectory`. Every walk asks `isDirectory`; `skills-plugin` is not an account.
+- **An unfiled chat is unfiled only under the profile reading it.** Claude compares `originCwd` with its own `scratch-workspaces`, so a mirrored scratch record gets a local alias on each side and its `originCwd` stays out of the digest.
 
 ### Session records — [notes/session-records.md](notes/session-records.md)
 
@@ -132,7 +136,7 @@ any of these. The why is in [notes/updates-and-releases.md](notes/updates-and-re
 - **A conversation carried on or asked again is not a second one** — `superseded`, `resumedCopies`. **A fork is**, and only its record says so: keep `forks` in `session-records.json`.
 - **A Claude this app did not make is read, never written to** — `recordFilingProfiles`.
 - **A session from another Mac is not a missing one:** `sessionFolderIsHere` asks whether its home folder or drive exists here, never the folder itself.
-- **The sweep runs on no timer:** at a launcher's open, at Graft's start and when the dropdown opens. A cold pass must stay cheap enough to stand in front of a window opening.
+- **The sweep runs on no timer:** at a launcher's open, at Graft's start, when the dropdown opens and a few seconds after any Claude quits. A cold pass must stay cheap enough to stand in front of a window opening.
 
 ### Usage and credentials — [notes/usage-and-credentials.md](notes/usage-and-credentials.md)
 
@@ -164,7 +168,7 @@ any of these. The why is in [notes/updates-and-releases.md](notes/updates-and-re
 - **Some requests never move:** a body referring to a file, container or MCP server by value (`accountBoundMarks`, never the bare key, which a tool schema can carry), or one that is encoded.
 - **The dropdown's front Claude is `FrontmostClaude`'s,** and its watch on the relay ends in `popoverDidClose`, never in the view.
 - **The conversation on screen runs across the bar** while it is there, drawn at a fixed width (`NewChatTicker`): the one Claude's own records focused last (`lastFocusedAt`, owned by the store it was first seen in, since the mirror copies it), by its title alone if the relay never carried it, and only where no record says, the one typed into last (`promptedAt`, a turn on a thread). `StoreWatch` wakes a look when a store changes. The text gives way when it would push the item out of the bar (`keepReachable`).
-- **A tick moves the text and never retitles the item:** one `NewChatTicker.Picture` per text, its offset changed and the button's end drawn again; text that fits keeps no timer.
+- **Graft never moves the text itself:** text too long for the bar leaves a blank in the title and runs in `NewChatTicker.Strip`, a layer Core Animation steps; no timer, no redraw of the button, and the layer is drawn only when the appearance or scale changes. The strip goes where a marked drawing of the button shows the blank (`Picture.place`), never where a layout of the title predicts it.
 - **The two-second walk dates each record with one `lstat`** (`Graft.modificationDate`), never `attributesOfItem`.
 - **A conversation archived or deleted leaves the bar and the dropdown** (`lookUpRecords`): its own Claude's records decide, a record is gone only after missing twice, and deleting the one on screen keeps its focus.
 
@@ -212,6 +216,7 @@ any of these. The why is in [notes/updates-and-releases.md](notes/updates-and-re
 
 - **The version is written down once,** in `VERSION`; `Resources/Info.plist` keeps `0.0.0`. `release.sh` refuses an existing tag and rewrites the Homebrew cask.
 - **A release carries both architectures. The build directory is `build.noindex`** so Spotlight skips it.
+- **A local build is signed with the Mac's Apple Development certificate, a release never is** — `Tools/signing-identity.sh` for `build.sh` alone; `release.sh` always passes its own identity.
 - **An update restart is not permission to undo a quit** — `UpdateRecovery` needs a fresh `stealth-relaunch` marker.
 - **Checking for a Claude release never closes a Claude;** installing one asks first and never force quits.
 - **A resumed update takes the lock before it reads anything,** and decides on the first snapshot that reads (`ClaudeUpdateResume`); a stopping updater is asked again every ten seconds and shown after a minute (`ClaudeUpdateStop`).
@@ -228,6 +233,14 @@ any of these. The why is in [notes/updates-and-releases.md](notes/updates-and-re
 - **The helper cache holds one key** — `pruneHelperCache` after every `prepareHelper`, excluded from backups — and a damaged copy is set aside for a fresh one, never a refusal.
 - **`claude_desktop_config.json` belongs to each profile;** `copyDesktopServers` adds only missing MCP definitions.
 - **The helper rolls that file back byte for byte** and writes it forward in its own indent and mode (`preferencesText`, `atomicWrite`).
+- **Project order is per account, and Claude displays it from the desktop preferences.** `epitaxyPrefs["code-projects-order.<account>"]` is what the sidebar shows; the `LSS-persisted.code-projects-order.<account>` copy carries the time. `synchronizeProjectOrder` writes the newer order into both, preferences first and through the helper, translating `preset::` ids, before an open and, for every group, when the last Claude quits; after a quit, Claude's own profile, which the Dock opens without waiting for the lock, gets the preferences alone.
+
+### Website and search — [notes/website-and-search.md](notes/website-and-search.md)
+
+- **Nothing tells Google a site exists but you.** `docs/robots.txt` names `docs/sitemap.xml`, and every page at the top of `docs/` is in it; the suite fails otherwise.
+- **The site's address is `graft.aadityamore.com`,** in the canonical, the structured data, the README and the repository's homepage. The github.io address only redirects, and only the feed keeps it.
+- **A new page or address goes to Search Console the day it ships:** the sitemap submitted in the `aadityamore.com` Domain property, the page sent through URL Inspection, and the submission recorded in the note and in the portfolio's `docs/seo.md`.
+- **`release-notes/` stays out of the index;** they are fragments of the update dialog, not pages.
 
 ### Diagnostics and verification — [notes/diagnostics-and-verification.md](notes/diagnostics-and-verification.md)
 

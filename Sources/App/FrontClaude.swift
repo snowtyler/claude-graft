@@ -1,4 +1,5 @@
 import AppKit
+import QuartzCore
 
 /// Which profile's Claude is in front, so the menu bar can show it.
 ///
@@ -342,10 +343,10 @@ enum FrontTitle {
 /// account answering it. A conversation from before sharing began, opened to
 /// read, has no account answering it and shows its title alone.
 ///
-/// Drawn into a picture of fixed width rather than set as text. Text that
-/// scrolls a character at a time changes width with every letter in a
-/// proportional font, and a status item that changes width moves every item
-/// to its left with it, several times a second.
+/// Held at a fixed width rather than set as text. Text that scrolls a
+/// character at a time changes width with every letter in a proportional
+/// font, and a status item that changes width moves every item to its left
+/// with it, several times a second.
 enum NewChatTicker {
     static let width: CGFloat = 150
     /// The space between the end of the text and its start coming round again.
@@ -356,9 +357,6 @@ enum NewChatTicker {
     static let tick: TimeInterval = 0.08
     /// Ticks held at the start of each pass, so the beginning can be read.
     static let pause = 18
-    /// How much wider than the text a tick draws again: the status button's
-    /// margin after its title, which AppKit does not publish, with room to spare.
-    static let redrawSlack: CGFloat = 24
 
     static func text(title: String?, account: String?) -> String {
         let name = title ?? L10n.text("New chat")
@@ -377,65 +375,268 @@ enum NewChatTicker {
 
     /// The length of one pass, or nil for text short enough to stand still.
     static func cycle(_ text: String, font: NSFont) -> CGFloat? {
-        Picture(text, font: font).cycle
+        let length = ceil((text as NSString).size(withAttributes: attributes(font)).width)
+        return length > width ? length + gap : nil
     }
 
-    /// `offset` is how far the text has moved left, in points.
-    static func image(_ text: String, offset: CGFloat, font: NSFont) -> NSImage {
-        let picture = Picture(text, font: font)
-        picture.offset = offset
-        return picture.image
+    /// How far the text has moved left at each tick of one pass: held at the
+    /// start for the pause and the tick that brought it round, then a step a
+    /// tick until the next step would bring the start back.
+    static func pass(cycle: CGFloat) -> [CGFloat] {
+        var offsets = [CGFloat](repeating: 0, count: pause + 1)
+        var moved: CGFloat = 0
+        while moved + step < cycle {
+            moved += step
+            offsets.append(moved)
+        }
+        return offsets
     }
 
-    /// The text as the status item holds it while it moves. The item keeps one
-    /// picture and is only asked to draw again, because a new title on every
-    /// tick had AppKit measure the item and hand the bar its length twelve
-    /// times a second, which was most of what Graft spent with nothing to do.
+    /// The text as the status item holds it. Text that fits is drawn into the
+    /// title. Text that moves leaves a blank of the same width there and runs
+    /// in `strip`, laid over the blank, where Core Animation moves it.
+    ///
+    /// Moved by Graft, the text cost a redraw of the button on every tick, and
+    /// AppKit drawing the button was nearly all of the five points of a core
+    /// that a moving title took on the Mac Mini, where the same title standing
+    /// still took about one. The render server shifts a layer it already
+    /// holds, so Graft wakes for nothing while the text runs.
     final class Picture {
         let text: String
         let font: NSFont
         /// The length of one pass, or nil for text short enough to stand still.
         let cycle: CGFloat?
         let image: NSImage
-        private let moved: Moved
+        /// The moving text, nil for text that stands still.
+        let strip: Strip?
+        /// When the first pass began, so a picture rebuilt for the same
+        /// conversation carries on from where the last one was.
+        let started: CFTimeInterval
+        /// Called after the title has been drawn, which is when the button's
+        /// geometry is the one the blank was laid out in.
+        var drawn: (() -> Void)?
 
-        /// How far the text has moved left, in points, read whenever it is drawn.
-        var offset: CGFloat {
-            get { moved.points }
-            set { moved.points = newValue }
-        }
-
-        init(_ text: String, font: NSFont) {
+        init(_ text: String, font: NSFont, started: CFTimeInterval? = nil) {
             self.text = text
             self.font = font
             let attributes = NewChatTicker.attributes(font)
             let size = (text as NSString).size(withAttributes: attributes)
             let length = ceil(size.width)
-            let cycle = length > NewChatTicker.width ? length + NewChatTicker.gap : nil
+            let cycle = NewChatTicker.cycle(text, font: font)
             self.cycle = cycle
-            let moved = Moved()
-            self.moved = moved
+            let begun = started ?? CACurrentMediaTime()
+            self.started = begun
+            let height = ceil(size.height)
+            strip = cycle.map { Strip(text, attributes: attributes, length: length, height: height,
+                                      pass: NewChatTicker.pass(cycle: $0), started: begun) }
+            var told: (() -> Void)?
+            let marking = Marking()
+            self.marking = marking
             // Drawn when shown rather than now, so the label colour is the one the
             // bar's appearance gives it at that moment.
-            let image = NSImage(size: NSSize(width: cycle == nil ? length : NewChatTicker.width,
-                                             height: ceil(size.height)), flipped: false) { rect in
-                NSBezierPath(rect: rect).addClip()
-                let x = cycle == nil ? 0 : -moved.points
-                (text as NSString).draw(at: NSPoint(x: x, y: 0), withAttributes: attributes)
-                if cycle != nil {
-                    (text as NSString).draw(at: NSPoint(x: x + length + NewChatTicker.gap, y: 0),
-                                            withAttributes: attributes)
+            let image = NSImage(size: NSSize(width: cycle == nil ? length : NewChatTicker.width, height: height),
+                                flipped: false) { rect in
+                if cycle == nil {
+                    (text as NSString).draw(at: .zero, withAttributes: attributes)
+                } else if marking.on {
+                    NewChatTicker.mark.setFill()
+                    rect.fill()
+                } else {
+                    // A frame changed in the middle of the button's own drawing
+                    // is one AppKit may draw again, so the strip moves after it.
+                    DispatchQueue.main.async { told?() }
                 }
                 return true
             }
-            // A picture NSImage kept from its last drawing would stand still.
+            // Kept from caching so the blank can be drawn marked when it is
+            // looked for, and still text with it, so the text that stands and
+            // the blank the strip is laid by are drawn the same way. Either is
+            // drawn only when the button is.
             image.cacheMode = .never
             image.accessibilityDescription = text
             self.image = image
+            told = { [weak self] in self?.drawn?() }
         }
 
-        private final class Moved {
-            var points: CGFloat = 0
+        private final class Marking { var on = false }
+        private let marking: Marking
+        /// What the strip was last placed for, so a button drawn again
+        /// unchanged is not looked over again.
+        private var placedFor: (title: NSAttributedString, size: NSSize, scale: CGFloat)?
+
+        /// Lays the strip over the blank the title holds for it, or hides it
+        /// when the title no longer ends with that blank.
+        ///
+        /// AppKit publishes where a title's runs are drawn no more than it
+        /// publishes its margins, and working it out from the layout was a
+        /// pixel out whenever the icons made the line taller than the text:
+        /// still text then stood a pixel above the same text moving. So the
+        /// button is drawn once away from the screen with the blank filled in
+        /// a colour, and the strip goes where the colour came out.
+        func place(in button: NSButton) {
+            guard let strip else { return }
+            let title = button.attributedTitle
+            guard title.length > 0, let window = button.window,
+                  let attachment = title.attribute(.attachment, at: title.length - 1,
+                                                   effectiveRange: nil) as? NSTextAttachment,
+                  attachment.image === image
+            else {
+                placedFor = nil
+                strip.isHidden = true
+                return
+            }
+            let scale = window.backingScaleFactor
+            if let placedFor, placedFor.title.isEqual(to: title), placedFor.size == button.bounds.size,
+               placedFor.scale == scale, !strip.isHidden {
+                return
+            }
+            let size = attachment.bounds.size
+            let height = button.bounds.height
+            // Not found only if AppKit stopped drawing the picture where it is
+            // asked to; the end of the title, centred, keeps the text readable.
+            let (left, top) = markedCorner(in: button, width: size.width, scale: scale)
+                ?? (((button.cell as? NSButtonCell)?.titleRect(forBounds: button.bounds).maxX ?? 0) - size.width,
+                    ((height - size.height) / 2).rounded())
+            let frame = NSRect(x: left, y: button.isFlipped ? top : height - top - size.height,
+                               width: size.width, height: size.height)
+            if strip.frame != frame { strip.frame = frame }
+            strip.isHidden = false
+            placedFor = (title, button.bounds.size, scale)
         }
+
+        /// The blank's top left corner, measured from the button's top left:
+        /// the first row the marked blank fills across its whole width. Nothing
+        /// else in a title is as wide, and the strip is a layer of its own,
+        /// which drawing the button into a picture leaves out.
+        private func markedCorner(in button: NSButton, width: CGFloat, scale: CGFloat) -> (CGFloat, CGFloat)? {
+            guard let rep = button.bitmapImageRepForCachingDisplay(in: button.bounds) else { return nil }
+            marking.on = true
+            button.cacheDisplay(in: button.bounds, to: rep)
+            marking.on = false
+            let wide = Int((width * scale).rounded()) - 2
+            for row in 0..<rep.pixelsHigh {
+                let marked = (0..<rep.pixelsWide).filter { NewChatTicker.isMark(rep, $0, row) }
+                if let first = marked.first, marked.count >= wide {
+                    return (CGFloat(first) / scale, CGFloat(row) / scale)
+                }
+            }
+            return nil
+        }
+    }
+
+    /// A pink icon may come near it, but no icon comes near the blank's width,
+    /// and the blank is found by both.
+    fileprivate static let mark = NSColor(srgbRed: 1, green: 0, blue: 1, alpha: 1)
+
+    fileprivate static func isMark(_ rep: NSBitmapImageRep, _ column: Int, _ row: Int) -> Bool {
+        if rep.bitsPerSample == 8, rep.samplesPerPixel == 4, !rep.isPlanar, let data = rep.bitmapData {
+            let at = data + row * rep.bytesPerRow + column * 4
+            let alphaFirst = rep.bitmapFormat.contains(.alphaFirst)
+            let (red, green, blue, alpha) = alphaFirst ? (at[1], at[2], at[3], at[0]) : (at[0], at[1], at[2], at[3])
+            return alpha > 200 && red > 180 && green < 100 && blue > 180
+        }
+        guard let colour = rep.colorAt(x: column, y: row)?.usingColorSpace(.sRGB) else { return false }
+        return colour.alphaComponent > 0.8 && colour.redComponent > 0.7 && colour.greenComponent < 0.4
+            && colour.blueComponent > 0.7
+    }
+
+    /// Clips the moving text to the blank it covers. Clicks go through to the
+    /// button underneath, and assistive clients read the title, not this.
+    final class Strip: NSView {
+        /// A plain layer rather than a view: AppKit draws a view backed by a
+        /// layer only as far as it can be seen, which left everything past the
+        /// first 150 points blank once the text moved.
+        let words = CALayer()
+        private let painter: Painter
+        private let pass: [CGFloat]
+        private let started: CFTimeInterval
+
+        fileprivate init(_ text: String, attributes: [NSAttributedString.Key: Any], length: CGFloat,
+                         height: CGFloat, pass: [CGFloat], started: CFTimeInterval) {
+            painter = Painter(text: text, attributes: attributes, length: length)
+            self.pass = pass
+            self.started = started
+            super.init(frame: NSRect(x: 0, y: 0, width: NewChatTicker.width, height: height))
+            wantsLayer = true
+            layer?.masksToBounds = true
+            isHidden = true
+            setAccessibilityElement(false)
+            words.anchorPoint = .zero
+            words.frame = CGRect(x: 0, y: 0, width: length * 2 + NewChatTicker.gap, height: height)
+            words.delegate = painter
+            words.needsDisplayOnBoundsChange = false
+            painter.appearance = { [weak self] in self?.effectiveAppearance }
+            layer?.addSublayer(words)
+            words.setNeedsDisplay()
+        }
+
+        required init?(coder: NSCoder) { nil }
+
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+        /// The bar's appearance follows the wallpaper behind it, and the
+        /// label colour with it.
+        override func viewDidChangeEffectiveAppearance() {
+            super.viewDidChangeEffectiveAppearance()
+            words.setNeedsDisplay()
+        }
+
+        override func viewDidChangeBackingProperties() {
+            super.viewDidChangeBackingProperties()
+            let scale = window?.backingScaleFactor ?? 2
+            if words.contentsScale != scale {
+                words.contentsScale = scale
+                words.setNeedsDisplay()
+            }
+        }
+
+        /// Added once the strip is in a window, and again should the layer
+        /// have lost it, so the text never stands still part way.
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            guard let window else { return }
+            if words.contentsScale != window.backingScaleFactor {
+                words.contentsScale = window.backingScaleFactor
+                words.setNeedsDisplay()
+            }
+            guard words.animation(forKey: "pass") == nil else { return }
+            let move = CAKeyframeAnimation(keyPath: "position.x")
+            move.values = pass.map { -$0 }
+            move.calculationMode = .discrete
+            move.duration = Double(pass.count) * NewChatTicker.tick
+            move.repeatCount = .infinity
+            move.isAdditive = true
+            move.beginTime = words.convertTime(started, from: nil)
+            move.fillMode = .both
+            words.add(move, forKey: "pass")
+        }
+    }
+
+    /// Draws the text twice over, a gap between, once for every change of
+    /// appearance or display; the move itself never draws.
+    fileprivate final class Painter: NSObject, CALayerDelegate {
+        let text: String
+        let attributes: [NSAttributedString.Key: Any]
+        let length: CGFloat
+        var appearance: () -> NSAppearance? = { nil }
+
+        init(text: String, attributes: [NSAttributedString.Key: Any], length: CGFloat) {
+            self.text = text
+            self.attributes = attributes
+            self.length = length
+        }
+
+        func draw(_ layer: CALayer, in context: CGContext) {
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: false)
+            (appearance() ?? NSAppearance.currentDrawing()).performAsCurrentDrawingAppearance {
+                (text as NSString).draw(at: .zero, withAttributes: attributes)
+                (text as NSString).draw(at: NSPoint(x: length + NewChatTicker.gap, y: 0), withAttributes: attributes)
+            }
+            NSGraphicsContext.restoreGraphicsState()
+        }
+
+        /// No fade when the text is drawn again or the layer is placed.
+        func action(for layer: CALayer, forKey event: String) -> CAAction? { NSNull() }
     }
 }
