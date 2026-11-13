@@ -41,7 +41,7 @@ public sealed class ShortcutRow : INotifyPropertyChanged
     public static ShortcutRow MainClaude() => new()
     {
         ProfileDir = GraftPaths.DefaultProfile, Name = "Claude",
-        SourceLabel = "Main account", Folder = "Claude",
+        SourceLabel = "Main account", Folder = GraftPaths.DefaultFolder,
         _signedIn = Onboarding.IsSignedIn(GraftPaths.DefaultProfile),
         _fetching = Staging.For(GraftPaths.DefaultProfile)?.Fetching == true,
     };

@@ -19,14 +19,17 @@ public static class GraftPaths
     /// The directory every profile is a child of. Grafts are named siblings of
     /// the default profile here, exactly as they are siblings of Claude under
     /// Application Support on the Mac.
-    public static string ProfilesRoot =>
-        ProfilesRootOverride
-        ?? ClaudeInstallation.Current?.ProfilesRoot
-        ?? Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+    public static string ProfilesRoot => Path.GetDirectoryName(DefaultProfile)!;
 
     /// The profile Claude opens with no --user-data-dir. Its absence of a flag
     /// is the only thing that marks it out, as on the Mac.
-    public static string DefaultProfile => Path.Combine(ProfilesRoot, "Claude");
+    public static string DefaultProfile =>
+        ProfilesRootOverride is { } root ? Path.Combine(root, "Claude")
+        : ClaudeInstallation.Current?.MainProfile
+          ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Claude");
+
+    /// The main profile's folder name: "Claude" for most installs, the package's own for one that moved its data out.
+    public static string DefaultFolder => Path.GetFileName(DefaultProfile);
 
     /// This app's own state — the shortcut list, the caches, the diagnostics.
     /// Off in a folder of its own beside the profiles, never inside one.

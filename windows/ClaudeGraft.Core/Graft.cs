@@ -24,7 +24,8 @@ public static partial class Graft
             return "The profile folder must be a single folder name, not a path.";
         if (trimmed is "." or ".." || trimmed.StartsWith('.'))
             return $"“{trimmed}” is not a usable folder name.";
-        if (trimmed.Equals("Claude", StringComparison.OrdinalIgnoreCase))
+        if (trimmed.Equals("Claude", StringComparison.OrdinalIgnoreCase)
+            || trimmed.Equals(GraftPaths.DefaultFolder, StringComparison.OrdinalIgnoreCase))
             return "That is Claude's own profile folder. Pick another name.";
         if (trimmed.Equals("ClaudeGraft", StringComparison.OrdinalIgnoreCase))
             return "That folder belongs to Claude Graft itself. Pick another name.";

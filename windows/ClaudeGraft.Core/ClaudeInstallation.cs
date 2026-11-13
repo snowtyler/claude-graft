@@ -8,8 +8,11 @@ namespace ClaudeGraft.Core;
 /// live. Everything that needs one of these reads it here, so the exe and the
 /// profiles never come from two different installs.
 /// </summary>
-public sealed record ClaudeInstallation(string Exe, string ProfilesRoot, PackagedClaude.Install? Package)
+public sealed record ClaudeInstallation(string Exe, string MainProfile, PackagedClaude.Install? Package)
 {
+    /// Where every profile lives: the main one's folder, with each graft beside it.
+    public string ProfilesRoot => Path.GetDirectoryName(MainProfile)!;
+
     /// Replaced in tests; the real one asks the disk and the package manager.
     public static Func<ClaudeInstallation?> Locate { get; set; } = Find;
 
@@ -38,23 +41,28 @@ public sealed record ClaudeInstallation(string Exe, string ProfilesRoot, Package
 
     private static ClaudeInstallation? Find()
     {
-        if (Launcher.SquirrelExe() is { } exe) return new(exe, Roaming, null);
+        if (Launcher.SquirrelExe() is { } exe) return new(exe, Path.Combine(Roaming, "Claude"), null);
         return PackagedClaude.Locate() is { } package
-            ? new(package.Exe, PackageProfilesRoot(package.FamilyName, Roaming, Local), package)
+            ? new(package.Exe, PackageMainProfile(package.FamilyName, Roaming, Local), package)
             : null;
     }
 
-    /// Both packages were measured redirected, so their own folder is the answer
-    /// even before Claude has made it. Only a main profile in AppData with none
-    /// in the package says otherwise, and that is noted as something to look into.
-    public static string PackageProfilesRoot(string family, string roaming, string local)
+    /// A packaged Claude now moves its data out to %LOCALAPPDATA%\Claude-Data\<family>,
+    /// leaving only a marker in the package's redirected AppData; that is also
+    /// where one that has never run will put it. The redirected copy is read only
+    /// where a profile is still in it, and a main profile in AppData with none in
+    /// the package is noted as something to look into.
+    public static string PackageMainProfile(string family, string roaming, string local)
     {
-        var redirected = Path.Combine(local, "Packages", family, "LocalCache", "Roaming");
-        if (!Directory.Exists(Path.Combine(redirected, "Claude")) && Directory.Exists(Path.Combine(roaming, "Claude")))
+        var moved = Path.Combine(local, "Claude-Data", family.ToLowerInvariant());
+        if (Directory.Exists(moved)) return moved;
+        var redirected = Path.Combine(local, "Packages", family, "LocalCache", "Roaming", "Claude");
+        if (File.Exists(Path.Combine(redirected, "Local State"))) return redirected;
+        if (Directory.Exists(Path.Combine(roaming, "Claude")))
         {
             Diagnostics.Note("paths.package-not-redirected", new Dictionary<string, object?> { ["family"] = family });
-            return roaming;
+            return Path.Combine(roaming, "Claude");
         }
-        return redirected;
+        return moved;
     }
 }
