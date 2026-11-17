@@ -10,9 +10,9 @@ namespace ClaudeGraft.Core;
 /// </summary>
 public static class Updater
 {
-    /// The repository the Windows build is released from. windows-release.yml
-    /// publishes here, so this is where a machine that installed from it looks.
-    public const string Repo = "snowtyler/claude-graft";
+    /// The main project, which releases Windows alongside the Mac from 2.1.0 on.
+    /// This fork published 2.0.0 and earlier; 2.0.1 exists to move installs there.
+    public const string Repo = "aaditya-v-more/claude-graft";
 
     public const string RepoUrl = "https://github.com/" + Repo;
 
